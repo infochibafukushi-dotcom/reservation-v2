@@ -8,13 +8,16 @@ function saveData(data) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 }
 
+function isDuplicate(date) {
+  const data = getData();
+  return data.some(r => r.date === date);
+}
+
 function render() {
   const list = document.getElementById("list");
   list.innerHTML = "";
 
   const data = getData();
-
-  // 最新だけ表示（最大20件）
   const latest = data.slice(-20).reverse();
 
   latest.forEach((r, i) => {
@@ -43,6 +46,11 @@ function initApp() {
 
     const name = document.getElementById("name").value;
     const date = document.getElementById("date").value;
+
+    if (isDuplicate(date)) {
+      alert("この日は予約済みです");
+      return;
+    }
 
     const data = getData();
     data.push({ name, date, time: Date.now() });
