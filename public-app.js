@@ -13,6 +13,10 @@ function isDuplicate(date) {
   return data.some(r => r.date === date);
 }
 
+function generateId() {
+  return Date.now().toString();
+}
+
 function render() {
   const list = document.getElementById("list");
   list.innerHTML = "";
@@ -27,8 +31,7 @@ function render() {
     const btn = document.createElement("button");
     btn.textContent = "削除";
     btn.onclick = () => {
-      const all = getData();
-      all.splice(data.length - 1 - i, 1);
+      const all = getData().filter(x => x.id !== r.id);
       saveData(all);
       render();
     };
@@ -53,7 +56,12 @@ function initApp() {
     }
 
     const data = getData();
-    data.push({ name, date, time: Date.now() });
+    data.push({
+      id: generateId(),
+      name,
+      date,
+      time: Date.now()
+    });
 
     saveData(data);
 
