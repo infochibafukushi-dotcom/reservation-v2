@@ -1,3 +1,6 @@
+const CALENDAR_PAGE_SIZE = 7;
+let calendarPageIndex = 0;
+
 function applyCalendarGridColumns(gridEl, daysCount){
   const isMobile = window.matchMedia('(max-width: 640px)').matches;
   const timeCol = isMobile ? 44 : 60;
@@ -12,15 +15,34 @@ function applyCalendarGridColumns(gridEl, daysCount){
   }
 }
 
+function getCalendarWindowInfo(){
+  const maxForwardDays = Math.max(1, Number(config.max_forward_days || 30));
+  const totalPages = Math.max(1, Math.ceil(maxForwardDays / CALENDAR_PAGE_SIZE));
+
+  if (calendarPageIndex < 0) calendarPageIndex = 0;
+  if (calendarPageIndex > totalPages - 1) calendarPageIndex = totalPages - 1;
+
+  const startIndex = calendarPageIndex * CALENDAR_PAGE_SIZE;
+  const endIndexExclusive = Math.min(startIndex + CALENDAR_PAGE_SIZE, maxForwardDays);
+
+  return {
+    maxForwardDays,
+    totalPages,
+    startIndex,
+    endIndexExclusive,
+    pageSize: CALENDAR_PAGE_SIZE
+  };
+}
+
 function getDatesRange(){
   const today = new Date();
   today.setHours(0,0,0,0);
 
-  const maxForwardDays = Number(config.max_forward_days || 30);
   const startOffset = String(config.same_day_enabled || '0') === '1' ? 0 : 1;
   const dates = [];
+  const info = getCalendarWindowInfo();
 
-  for (let i=0;i<maxForwardDays;i++){
+  for (let i = info.startIndex; i < info.endIndexExclusive; i++){
     const dt = new Date(today);
     dt.setDate(today.getDate() + startOffset + i);
     dates.push(dt);
@@ -48,6 +70,45 @@ function buildSlots(){
   return { regularSlots, extendedSlots };
 }
 
+function getCalendarPagerHtml(dates){
+  if (!dates || !dates.length) return '';
+
+  const info = getCalendarWindowInfo();
+  const hasPrev = calendarPageIndex > 0;
+  const hasNext = calendarPageIndex < (info.totalPages - 1);
+
+  return `
+    <div class="flex items-center justify-between gap-2 w-full">
+      <button
+        type="button"
+        onclick="prevCalendarPage()"
+        ${hasPrev ? '' : 'disabled'}
+        class="cute-btn px-3 py-2 text-xs md:text-sm whitespace-nowrap ${hasPrev ? 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50' : 'bg-gray-100 text-gray-300 border border-gray-200 cursor-not-allowed'}"
+        aria-label="前の7日">
+        ← 前へ
+      </button>
+
+      <div class="min-w-0 flex-1 text-center">
+        <div class="text-sm md:text-lg font-bold text-gray-800 leading-tight">
+          ${formatDate(dates[0])} ～ ${formatDate(dates[dates.length-1])}
+        </div>
+        <div class="text-[11px] md:text-xs font-bold text-gray-500 leading-tight mt-0.5">
+          ${info.maxForwardDays}日中 ${info.startIndex + 1}〜${info.endIndexExclusive}日を表示
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onclick="nextCalendarPage()"
+        ${hasNext ? '' : 'disabled'}
+        class="cute-btn px-3 py-2 text-xs md:text-sm whitespace-nowrap ${hasNext ? 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50' : 'bg-gray-100 text-gray-300 border border-gray-200 cursor-not-allowed'}"
+        aria-label="次の7日">
+        次へ →
+      </button>
+    </div>
+  `;
+}
+
 function renderCalendar() {
   const grid = document.getElementById('calendarGrid');
   const dateRangeEl = document.getElementById('dateRange');
@@ -62,7 +123,7 @@ function renderCalendar() {
     return;
   }
 
-  dateRangeEl.textContent = `${formatDate(dates[0])} ～ ${formatDate(dates[dates.length-1])}`;
+  dateRangeEl.innerHTML = getCalendarPagerHtml(dates);
 
   const { regularSlots, extendedSlots } = buildSlots();
 
@@ -124,6 +185,22 @@ function renderCalendar() {
 
   applyCalendarGridColumns(grid, dates.length);
   requestAnimationFrame(()=> applyCalendarGridColumns(grid, dates.length));
+}
+
+function prevCalendarPage(){
+  const info = getCalendarWindowInfo();
+  if (info.totalPages <= 1) return;
+  if (calendarPageIndex <= 0) return;
+  calendarPageIndex -= 1;
+  renderCalendar();
+}
+
+function nextCalendarPage(){
+  const info = getCalendarWindowInfo();
+  if (info.totalPages <= 1) return;
+  if (calendarPageIndex >= info.totalPages - 1) return;
+  calendarPageIndex += 1;
+  renderCalendar();
 }
 
 function bindGridDelegation(){
