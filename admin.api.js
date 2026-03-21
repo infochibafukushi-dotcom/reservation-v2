@@ -237,6 +237,7 @@ const ADMIN_DEFAULT_CONFIG = {
 
 const ADMIN_MENU_GROUPS = [
   { key: 'price', label: '料金概算（基本料金）' },
+  { key: 'move_type', label: '移動方法' },
   { key: 'assistance', label: '介助内容' },
   { key: 'stair', label: '階段介助' },
   { key: 'equipment', label: '機材レンタル' },
