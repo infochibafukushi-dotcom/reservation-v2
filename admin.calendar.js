@@ -56,7 +56,7 @@ function adminCeilToNext30Min(dt){
   const minute = rounded.getMinutes();
   const mod = minute % 30;
 
-  if (mod !== 0) {
+  if (mod !== 0){
     rounded.setMinutes(minute + (30 - mod), 0, 0);
   }
 
@@ -64,14 +64,14 @@ function adminCeilToNext30Min(dt){
 }
 
 function isAdminSameDayAutoBlocked(dateObj, hour, minute){
-  const dateStr = ymdLocal(dateObj);
   if (String(adminConfig.same_day_enabled || '0') !== '1') return false;
 
+  const dateStr = ymdLocal(dateObj);
   const todayStr = ymdLocal(new Date());
   if (dateStr !== todayStr) return false;
 
   const minHours = Number(adminConfig.same_day_min_hours || 3);
-  const threshold = new Date(Date.now() + minHours * 60 * 60 * 1000);
+  const threshold = new Date(Date.now() + (minHours * 60 * 60 * 1000));
   const rounded = adminCeilToNext30Min(threshold);
   const slotDt = new Date(
     dateObj.getFullYear(),
