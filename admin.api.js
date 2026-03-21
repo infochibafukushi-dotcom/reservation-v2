@@ -1,4 +1,4 @@
-const GAS_URL = "https://script.google.com/macros/s/AKfycbxr09I3uVlNzfCc7L3s4q9NyASKL10aGlss03xT3aTMItRfCZRKz6Ggs6KwgXlt5J2W/exec";
+const GAS_URL = "https://script.google.com/macros/s/AKfycbz7kOTa2H8Rd1uKrA54M3ofVO9pskZ6S0guMmPQk917NWGNpqUBzxuErzlPQRoubZoL/exec";
 const PUBLIC_PAGE_URL = "index.html";
 
 function toast(msg='通信エラー', ms=2200){
@@ -241,6 +241,7 @@ const ADMIN_MENU_GROUPS = [
   { key: 'stair', label: '階段介助' },
   { key: 'equipment', label: '機材レンタル' },
   { key: 'round_trip', label: '往復送迎' },
+  { key: 'move_type', label: '移動方法' },
   { key: 'custom', label: 'その他（表示先なし）' }
 ];
 
