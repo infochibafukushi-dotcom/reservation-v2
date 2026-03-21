@@ -199,7 +199,12 @@ const DEFAULT_PRICE_MASTER = [
 
   { key: 'ROUND_NONE',              key_jp: '往復不要',                 label: '不要',                           price: 0,     note: '',                                 is_visible: true, sort_order: 400, menu_group: 'round_trip', required_flag: true,  auto_apply_group: '',           auto_apply_key: '' },
   { key: 'ROUND_STANDBY',           key_jp: '待機',                     label: '待機',                           price: 800,   note: '「から/30分毎」',                  is_visible: true, sort_order: 410, menu_group: 'round_trip', required_flag: true,  auto_apply_group: '',           auto_apply_key: '' },
-  { key: 'ROUND_HOSPITAL',          key_jp: '病院付き添い',             label: '病院付き添い',                   price: 1600,  note: '「から/30分毎」',                  is_visible: true, sort_order: 420, menu_group: 'round_trip', required_flag: true,  auto_apply_group: '',           auto_apply_key: '' }
+  { key: 'ROUND_HOSPITAL',          key_jp: '病院付き添い',             label: '病院付き添い',                   price: 1600,  note: '「から/30分毎」',                  is_visible: true, sort_order: 420, menu_group: 'round_trip', required_flag: true,  auto_apply_group: '',           auto_apply_key: '' },
+
+  { key: 'MOVE_WHEELCHAIR',         key_jp: '無料車いす',               label: '無料車いす',                     price: 0,     note: '',                                 is_visible: true, sort_order: 500, menu_group: 'move_type',  required_flag: true,  auto_apply_group: 'equipment',  auto_apply_key: 'EQUIP_WHEELCHAIR' },
+  { key: 'MOVE_RECLINING',          key_jp: 'リクライニング車いす',     label: 'リクライニング車いす',           price: 2500,  note: '',                                 is_visible: true, sort_order: 510, menu_group: 'move_type',  required_flag: true,  auto_apply_group: 'equipment',  auto_apply_key: 'EQUIP_RECLINING' },
+  { key: 'MOVE_STRETCHER',          key_jp: 'ストレッチャー',           label: 'ストレッチャー',                 price: 5000,  note: '',                                 is_visible: true, sort_order: 520, menu_group: 'move_type',  required_flag: true,  auto_apply_group: 'equipment',  auto_apply_key: 'EQUIP_STRETCHER' },
+  { key: 'MOVE_OWN',                key_jp: '持込車いす',               label: 'ご自身の車いす',                 price: 0,     note: '固定可否を確認',                   is_visible: true, sort_order: 530, menu_group: 'move_type',  required_flag: true,  auto_apply_group: 'equipment',  auto_apply_key: 'EQUIP_OWN_WHEELCHAIR' }
 ];
 
 // ===== 管理画面で選べるプルダウングループ =====
@@ -237,7 +242,12 @@ const MENU_KEY_CATALOG = [
 
   { key: 'ROUND_NONE',              key_jp: '往復不要',                 menu_group: 'round_trip', default_label: '不要',                         default_price: 0,     required_flag: true,  auto_apply_group: '',           auto_apply_key: '' },
   { key: 'ROUND_STANDBY',           key_jp: '待機',                     menu_group: 'round_trip', default_label: '待機',                         default_price: 800,   required_flag: true,  auto_apply_group: '',           auto_apply_key: '' },
-  { key: 'ROUND_HOSPITAL',          key_jp: '病院付き添い',             menu_group: 'round_trip', default_label: '病院付き添い',                 default_price: 1600,  required_flag: true,  auto_apply_group: '',           auto_apply_key: '' }
+  { key: 'ROUND_HOSPITAL',          key_jp: '病院付き添い',             menu_group: 'round_trip', default_label: '病院付き添い',                 default_price: 1600,  required_flag: true,  auto_apply_group: '',           auto_apply_key: '' },
+
+  { key: 'MOVE_WHEELCHAIR',         key_jp: '無料車いす',               menu_group: 'move_type',  default_label: '無料車いす',                   default_price: 0,     required_flag: true,  auto_apply_group: 'equipment',  auto_apply_key: 'EQUIP_WHEELCHAIR' },
+  { key: 'MOVE_RECLINING',          key_jp: 'リクライニング車いす',     menu_group: 'move_type',  default_label: 'リクライニング車いす',         default_price: 2500,  required_flag: true,  auto_apply_group: 'equipment',  auto_apply_key: 'EQUIP_RECLINING' },
+  { key: 'MOVE_STRETCHER',          key_jp: 'ストレッチャー',           menu_group: 'move_type',  default_label: 'ストレッチャー',               default_price: 5000,  required_flag: true,  auto_apply_group: 'equipment',  auto_apply_key: 'EQUIP_STRETCHER' },
+  { key: 'MOVE_OWN',                key_jp: '持込車いす',               menu_group: 'move_type',  default_label: 'ご自身の車いす',               default_price: 0,     required_flag: true,  auto_apply_group: 'equipment',  auto_apply_key: 'EQUIP_OWN_WHEELCHAIR' }
 ];
 
 // ===== Web API / JSONP =====
