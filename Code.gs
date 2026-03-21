@@ -70,6 +70,8 @@ const DEFAULT_CONFIG = {
   rule_force_body_assist_on_stair: '1',
   rule_force_body_assist_on_stretcher: '1',
   rule_force_stretcher_staff2_on_stretcher: '1',
+  rule_force_staff_add_on_stair: '1',
+  rule_force_staff_add_on_stretcher: '1',
 
   // ===== 追加自動ルール（管理画面で今後拡張用）=====
   auto_rule_enabled_1: '1',
@@ -111,7 +113,9 @@ const DEFAULT_CONFIG = {
   // ===== 警告文 =====
   warning_stair_bodyassist_text: '警告: 階段介助ご利用の場合、身体介助がセットになります',
   warning_wheelchair_damage_text: '警告: 車いす固定による傷、すり傷などは保証対象外になります',
-  warning_stretcher_bodyassist_text: '警告: ストレッチャー利用時に2名体制介助料5,000円と身体介助が必須となります',
+  warning_stretcher_bodyassist_text: 'ストレッチャー利用時は身体介助が必要です',
+  warning_staff_add_text: '表示価格は1名体制での目安です。状況により安全確保のため2名体制となる場合があります（＋5,000円）',
+  warning_staff_add_confirm_text: '安全確保のため2名体制での対応となる場合があります',
 
   // ===== 予約フォーム文言 =====
   form_modal_title: 'ご予約',
@@ -140,6 +144,13 @@ const DEFAULT_CONFIG = {
   form_stair_label: '階段介助',
   form_equipment_label: '機材レンタル',
   form_round_trip_label: '往復送迎',
+  form_move_type_label: '移動方法',
+  form_move_type_placeholder: '選択してください',
+  form_move_type_help_text: '最初に移動方法をお選びください',
+  form_move_type_note_wheelchair: '無料車いすで移動します。次に介助内容を選択してください。',
+  form_move_type_note_reclining: 'リクライニング車いすで移動します。身体介助が必要になる場合があります。',
+  form_move_type_note_stretcher: 'ストレッチャーで移動します。身体介助が必要です。状況により安全確保のため2名体制となる場合があります。',
+  form_move_type_note_own: 'ご自身の車いすで移動します。固定可否を確認します。',
   form_price_section_title: '料金概算',
   form_price_total_label: '概算合計',
   form_price_notice_text: '上記料金に加え、距離運賃(2km以上200mごと/90円)が加算されます。また、時速10km以下の移行時は時間制運賃(1分30秒毎/90円)に切り替わります。',
@@ -198,6 +209,7 @@ const MENU_GROUP_CATALOG = [
   { key: 'stair',      label: '階段介助',                description: '予約フォームの「階段介助」プルダウンに表示' },
   { key: 'equipment',  label: '機材レンタル',            description: '予約フォームの「機材レンタル」プルダウンに表示' },
   { key: 'round_trip', label: '往復送迎',                description: '予約フォームの「往復送迎」プルダウンに表示' },
+  { key: 'move_type',  label: '移動方法',                description: '予約フォームの「移動方法」プルダウンに表示' },
   { key: 'custom',     label: 'その他（表示先なし）',    description: '保存のみ。どのプルダウンにも出さない' }
 ];
 
