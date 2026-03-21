@@ -1183,11 +1183,94 @@ function _normalizeInternalMenuKey_(key) {
   return s;
 }
 
+
+function _parseMenuGroupSettingsJson_() {
+  const cfg = _getConfigMap_();
+  const raw = String((cfg && cfg.menu_group_settings_json) || '[]').trim();
+  if (!raw) return [];
+
+  try {
+    const list = JSON.parse(raw);
+    if (!Array.isArray(list)) return [];
+
+    return list.map(function(item, idx) {
+      const obj = item || {};
+      const key = String(obj.key || '').trim();
+      if (!key) return null;
+
+      return {
+        key: key,
+        label: String(obj.label || key).trim(),
+        description: String(obj.description || '').trim(),
+        is_visible: (obj.is_visible === undefined) ? true : _toBool(obj.is_visible),
+        sort_order: (obj.sort_order === undefined || obj.sort_order === null || obj.sort_order === '') ? ((idx + 1) * 10) : Number(obj.sort_order || ((idx + 1) * 10)),
+        is_custom: (obj.is_custom === undefined) ? true : _toBool(obj.is_custom)
+      };
+    }).filter(function(item) {
+      return !!item && !!item.key;
+    });
+  } catch (e) {
+    return [];
+  }
+}
+
+function _getMenuGroupCatalog_() {
+  const builtins = (typeof BUILTIN_MENU_GROUP_CATALOG !== 'undefined' && Array.isArray(BUILTIN_MENU_GROUP_CATALOG))
+    ? BUILTIN_MENU_GROUP_CATALOG
+    : [];
+
+  const customList = _parseMenuGroupSettingsJson_();
+  const map = {};
+
+  builtins.forEach(function(group, idx) {
+    const key = String(group && group.key || '').trim();
+    if (!key) return;
+    map[key] = {
+      key: key,
+      label: String(group.label || key).trim(),
+      description: String(group.description || '').trim(),
+      is_visible: true,
+      sort_order: Number((idx + 1) * 100),
+      is_custom: false
+    };
+  });
+
+  customList.forEach(function(group, idx) {
+    const key = String(group.key || '').trim();
+    if (!key) return;
+
+    const base = map[key] || {
+      key: key,
+      label: String(group.label || key).trim(),
+      description: String(group.description || '').trim(),
+      is_visible: true,
+      sort_order: Number((idx + 1) * 10),
+      is_custom: true
+    };
+
+    base.label = String(group.label || base.label || key).trim();
+    base.description = String(group.description || base.description || '').trim();
+    base.is_visible = (group.is_visible === undefined) ? base.is_visible : _toBool(group.is_visible);
+    base.sort_order = Number(group.sort_order === undefined ? base.sort_order : group.sort_order);
+    base.is_custom = (group.is_custom === undefined) ? (map[key] ? false : true) : _toBool(group.is_custom);
+    map[key] = base;
+  });
+
+  return Object.keys(map).map(function(key) {
+    return map[key];
+  }).sort(function(a, b) {
+    if (Number(a.sort_order || 0) !== Number(b.sort_order || 0)) {
+      return Number(a.sort_order || 0) - Number(b.sort_order || 0);
+    }
+    return String(a.key || '').localeCompare(String(b.key || ''));
+  });
+}
+
 function _normalizeMenuGroup_(group) {
   const s = String(group || '').trim();
   if (!s) return 'custom';
 
-  const hit = MENU_GROUP_CATALOG.find(function(g) {
+  const hit = _getMenuGroupCatalog_().find(function(g) {
     return String(g.key) === s;
   });
   return hit ? hit.key : 'custom';
@@ -1197,7 +1280,7 @@ function _normalizeAutoApplyGroup_(group) {
   const s = String(group || '').trim();
   if (!s) return '';
 
-  const hit = MENU_GROUP_CATALOG.find(function(g) {
+  const hit = _getMenuGroupCatalog_().find(function(g) {
     return String(g.key) === s;
   });
   if (!hit) return '';

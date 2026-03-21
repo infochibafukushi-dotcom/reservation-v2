@@ -65,6 +65,7 @@ const DEFAULT_CONFIG = {
 
   // ===== 管理画面表示・拡張 =====
   admin_panels_collapsed_default: '1',
+  menu_group_settings_json: '[]',
 
   // ===== 自動ルール設定 =====
   rule_force_body_assist_on_stair: '1',
@@ -208,7 +209,7 @@ const DEFAULT_PRICE_MASTER = [
 ];
 
 // ===== 管理画面で選べるプルダウングループ =====
-const MENU_GROUP_CATALOG = [
+const BUILTIN_MENU_GROUP_CATALOG = [
   { key: 'price',      label: '料金概算（基本料金）',    description: '料金概算の基本項目に使う' },
   { key: 'assistance', label: '介助内容',                description: '予約フォームの「介助内容」プルダウンに表示' },
   { key: 'stair',      label: '階段介助',                description: '予約フォームの「階段介助」プルダウンに表示' },
@@ -568,7 +569,7 @@ function api_getPublicBootstrap() {
       config: configResult.data || {},
       menu_master: menuResult.data || [],
       menu_key_catalog: MENU_KEY_CATALOG,
-      menu_group_catalog: MENU_GROUP_CATALOG,
+      menu_group_catalog: _getMenuGroupCatalog_(),
       auto_rule_catalog: _buildAutoRuleCatalog_()
     };
 
@@ -614,7 +615,7 @@ function api_getInitData() {
       config: configResult.data || {},
       menu_master: menuResult.data || [],
       menu_key_catalog: MENU_KEY_CATALOG,
-      menu_group_catalog: MENU_GROUP_CATALOG,
+      menu_group_catalog: _getMenuGroupCatalog_(),
       auto_rule_catalog: _buildAutoRuleCatalog_(),
       reservations: reservations,
       blocks: blocks
@@ -669,7 +670,7 @@ function api_getMenuKeyCatalog() {
 
 function api_getMenuGroupCatalog() {
   try {
-    return _ok(MENU_GROUP_CATALOG);
+    return _ok(_getMenuGroupCatalog_());
   } catch (e) {
     return _ng(e);
   }
@@ -1227,6 +1228,9 @@ function api_saveConfig(payload) {
     if (next.rule_force_body_assist_on_stretcher !== undefined) next.rule_force_body_assist_on_stretcher = _toBool(next.rule_force_body_assist_on_stretcher) ? '1' : '0';
     if (next.rule_force_stretcher_staff2_on_stretcher !== undefined) next.rule_force_stretcher_staff2_on_stretcher = _toBool(next.rule_force_stretcher_staff2_on_stretcher) ? '1' : '0';
     if (next.admin_panels_collapsed_default !== undefined) next.admin_panels_collapsed_default = _toBool(next.admin_panels_collapsed_default) ? '1' : '0';
+    if (next.menu_group_settings_json === undefined || next.menu_group_settings_json === null || String(next.menu_group_settings_json).trim() === '') {
+      next.menu_group_settings_json = '[]';
+    }
 
     for (var i = 1; i <= 6; i++) {
       if (next['auto_rule_enabled_' + i] !== undefined) {
