@@ -1,4 +1,4 @@
-const GAS_URL = "https://script.google.com/macros/s/AKfycbxu88C5VMsgp6eFOLAKyAv4n4X0Z4aFZnWOJIPhk5ytpdFM-7X8wMPRnUngIYGnYlTCoQ/exec";
+const GAS_URL = "https://script.google.com/macros/s/AKfycbzVIEREUxN43gudkQU077sjRbqineT-Jp-gBF_fcYKGAgnHc4BsXAKbaj_kcHLeUfnL/exec";
 const PUBLIC_PAGE_URL = "index.html";
 
 function toast(msg='通信エラー', ms=2200){
@@ -237,7 +237,6 @@ const ADMIN_DEFAULT_CONFIG = {
 
 const ADMIN_MENU_GROUPS = [
   { key: 'price', label: '料金概算（基本料金）' },
-  { key: 'move_type', label: '移動方法' },
   { key: 'assistance', label: '介助内容' },
   { key: 'stair', label: '階段介助' },
   { key: 'equipment', label: '機材レンタル' },
