@@ -5,16 +5,17 @@
 <meta charset="UTF-8">
 <title>予約</title>
 <script src="index.api.js"></script>
-<script src="index.booking.js"></script>
 <script src="index.ui.js"></script>
+<script src="index.booking.js"></script>
 </head>
 <body onload="initBookingForm()">
 
 <div id="bookingForm">
+
 <input id="useDate" type="date">
 <select id="useTime"></select>
 
-<input id="fromAddress" placeholder="出発">
+<input id="fromAddress" placeholder="出発地">
 <input id="toAddress" placeholder="目的地">
 
 <select id="assistanceType"></select>
@@ -26,6 +27,7 @@
 <div id="totalPrice">0円</div>
 
 <button id="submitBooking">予約</button>
+
 </div>
 
 </body>

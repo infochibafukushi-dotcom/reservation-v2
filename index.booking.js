@@ -17,19 +17,14 @@ function buildTimeOptions(){
 }
 
 function updatePriceUI(){
-  const keys=[
-    getSelectedOptionKey('assistanceType'),
-    getSelectedOptionKey('stairAssistance'),
-    getSelectedOptionKey('equipmentRental'),
-    getSelectedOptionKey('roundTrip')
-  ];
   let total=0,html='';
-  keys.forEach(k=>{
-    if(!k)return;
-    const price=getMenuPrice(k,0);
-    const label=getMenuLabel(k,'');
+  ['assistanceType','stairAssistance','equipmentRental','roundTrip'].forEach(id=>{
+    const key=getSelectedOptionKey(id);
+    if(!key)return;
+    const price=getMenuPrice(key,0);
+    const label=getMenuLabel(key,'');
     total+=price;
-    html+=`<div class="price-item"><span>${label}</span><span>${price}円</span></div>`;
+    html+=`<div>${label} ${price}円</div>`;
   });
   document.getElementById('priceBreakdown').innerHTML=html;
   document.getElementById('totalPrice').innerText=total+'円';
@@ -39,15 +34,13 @@ async function submitBooking(){
   const payload={
     date:useDate.value,
     time:useTime.value,
-    pickup:fromAddress.value,
-    destination:toAddress.value,
-    menu:{
-      assistance:getSelectedOptionKey('assistanceType'),
-      stair:getSelectedOptionKey('stairAssistance'),
-      equipment:getSelectedOptionKey('equipmentRental'),
-      round:getSelectedOptionKey('roundTrip')
-    }
+    from:fromAddress.value,
+    to:toAddress.value,
+    assistance:getSelectedOptionKey('assistanceType'),
+    stair:getSelectedOptionKey('stairAssistance'),
+    equipment:getSelectedOptionKey('equipmentRental'),
+    round:getSelectedOptionKey('roundTrip')
   };
   await fetch(GAS_URL,{method:'POST',body:JSON.stringify({action:'createReservation',payload})});
-  alert('送信完了');
+  alert('予約送信完了');
 }
