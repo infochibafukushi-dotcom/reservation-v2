@@ -1,5 +1,5 @@
 const ADMIN_ICON_FILE_ID = '1a0QB8ei00w_lSfL4PnF_xuEFUC2JP6FW';
-const GAS_URL = "https://script.google.com/macros/s/AKfycbzVIEREUxN43gudkQU077sjRbqineT-Jp-gBF_fcYKGAgnHc4BsXAKbaj_kcHLeUfnL/exec";
+const GAS_URL = "https://script.google.com/macros/s/AKfycbxr09I3uVlNzfCc7L3s4q9NyASKL10aGlss03xT3aTMItRfCZRKz6Ggs6KwgXlt5J2W/exec";
 const ADMIN_PAGE_URL = "admin.html";
 
 function toast(msg='通信エラー', ms=2200){
@@ -247,7 +247,7 @@ function hydratePublicCacheForFastPaint(){
   return bootLoaded || blockedLoaded;
 }
 
-const TRIGGER_URL = 'https://script.google.com/macros/s/AKfycbzVIEREUxN43gudkQU077sjRbqineT-Jp-gBF_fcYKGAgnHc4BsXAKbaj_kcHLeUfnL/exec?secret=secret1';
+const TRIGGER_URL = 'https://script.google.com/macros/s/AKfycbxr09I3uVlNzfCc7L3s4q9NyASKL10aGlss03xT3aTMItRfCZRKz6Ggs6KwgXlt5J2W/exec?secret=secret1';
 
 function fireTrigger(){
   try{
@@ -418,16 +418,7 @@ const defaultConfig = {
   calendar_scroll_guide_text: '上下・左右にスクロールして、他の日付や時間を確認できます。',
   warning_stair_bodyassist_text: '警告: 階段介助ご利用の場合、身体介助がセットになります',
   warning_wheelchair_damage_text: '警告: 車いす固定による傷、すり傷などは保証対象外になります',
-  warning_stretcher_bodyassist_text: 'ストレッチャー利用時は身体介助が必要です',
-  warning_staff_add_text: '表示価格は1名体制での目安です。状況により安全確保のため2名体制となる場合があります（＋5,000円）',
-  warning_staff_add_confirm_text: '安全確保のため2名体制での対応となる場合があります',
-  form_move_type_label: '移動方法',
-  form_move_type_placeholder: '選択してください',
-  form_move_type_help_text: '最初に移動方法をお選びください',
-  form_move_type_note_wheelchair: '無料車いすで移動します。次に介助内容を選択してください。',
-  form_move_type_note_reclining: 'リクライニング車いすで移動します。身体介助が必要になる場合があります。',
-  form_move_type_note_stretcher: 'ストレッチャーで移動します。身体介助が必要です。状況により安全確保のため2名体制となる場合があります。',
-  form_move_type_note_own: 'ご自身の車いすで移動します。固定可否を確認します。',
+  warning_stretcher_bodyassist_text: '警告: ストレッチャー利用時に2名体制介助料5,000円と身体介助が必須となります',
   rule_force_body_assist_on_stair: '1',
   rule_force_body_assist_on_stretcher: '1',
   rule_force_stretcher_staff2_on_stretcher: '1'
@@ -439,7 +430,6 @@ const defaultMenuGroupCatalog = [
   { key: 'stair', label: '階段介助' },
   { key: 'equipment', label: '機材レンタル' },
   { key: 'round_trip', label: '往復送迎' },
-  { key: 'move_type', label: '移動方法' },
   { key: 'custom', label: 'その他（表示先なし）' }
 ];
 
