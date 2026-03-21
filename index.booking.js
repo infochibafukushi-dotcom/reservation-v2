@@ -637,3 +637,35 @@ async function init(){
 })();
 
 init();
+
+
+function updatePriceUI(){
+  const map = getMenuMap();
+  let total = 0;
+  let html = '';
+
+  const selections = [
+    {id:'assistanceType', label:'介助'},
+    {id:'stairAssistance', label:'階段'},
+    {id:'equipmentRental', label:'機材'},
+    {id:'roundTrip', label:'往復'}
+  ];
+
+  selections.forEach(s=>{
+    const key = getSelectedOptionKey(s.id);
+    if(!key) return;
+    const price = getMenuPrice(key,0);
+    const label = getMenuLabel(key,'');
+    total += price;
+    html += `<div class="price-item"><span>${s.label}:${label}</span><span>${price.toLocaleString()}円</span></div>`;
+  });
+
+  document.getElementById('priceBreakdown').innerHTML = html;
+  document.getElementById('totalPriceDisplay').innerText = '合計 ' + total.toLocaleString() + '円';
+
+  return total;
+}
+
+document.addEventListener('change', ()=>{
+  updatePriceUI();
+});
