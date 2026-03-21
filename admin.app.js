@@ -21,9 +21,6 @@ async function adminRefreshAllData(){
   adminMenuMaster = Array.isArray(data.menu_master) ? data.menu_master : [];
   adminMenuKeyCatalog = Array.isArray(data.menu_key_catalog) ? data.menu_key_catalog : [];
   adminMenuGroupCatalog = Array.isArray(data.menu_group_catalog) && data.menu_group_catalog.length ? data.menu_group_catalog : ADMIN_MENU_GROUPS;
-  if (!adminMenuGroupCatalog.some(g => String(g.key || '') === 'move_type')) {
-    adminMenuGroupCatalog = [{ key: 'move_type', label: '移動方法' }].concat(adminMenuGroupCatalog || []);
-  }
   adminAutoRuleCatalog = Array.isArray(data.auto_rule_catalog) ? data.auto_rule_catalog : [];
 
   buildAdminBlockedSlots(adminBlocks);
