@@ -20,7 +20,7 @@ async function adminRefreshAllData(){
   adminBlocks = Array.isArray(data.blocks) ? data.blocks : [];
   adminMenuMaster = Array.isArray(data.menu_master) ? data.menu_master : [];
   adminMenuKeyCatalog = Array.isArray(data.menu_key_catalog) ? data.menu_key_catalog : [];
-  adminMenuGroupCatalog = Array.isArray(data.menu_group_catalog) && data.menu_group_catalog.length ? data.menu_group_catalog : ADMIN_MENU_GROUPS;
+  adminMenuGroupCatalog = Array.isArray(data.menu_group_catalog) && data.menu_group_catalog.length ? data.menu_group_catalog : getAdminResolvedGroupCatalog();
   adminAutoRuleCatalog = Array.isArray(data.auto_rule_catalog) ? data.auto_rule_catalog : [];
 
   buildAdminBlockedSlots(adminBlocks);
@@ -447,10 +447,10 @@ function bindUI(){
   document.getElementById('saveMenuMasterBtn').addEventListener('click', async ()=>{
     try{
       const items = buildSaveMenuPayload();
-      const groups = buildSaveMenuGroupPayload();
+      const menuConfigPayload = buildMenuGroupConfigPayload();
       await withLoading(async ()=>{
-        await gsRun('api_saveConfig', { menu_group_settings_json: JSON.stringify(groups) });
         await gsRun('api_saveMenuMaster', { items });
+        await gsRun('api_saveConfig', menuConfigPayload);
         await adminRefreshAllData();
       }, 'メニュー保存中...');
       toast('保存しました');

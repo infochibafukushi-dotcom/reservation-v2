@@ -247,7 +247,7 @@ function hydratePublicCacheForFastPaint(){
   return bootLoaded || blockedLoaded;
 }
 
-const TRIGGER_URL = 'https://script.google.com/macros/s/AKfycbz7kOTa2H8Rd1uKrA54M3ofVO9pskZ6S0guMmPQk917NWGNpqUBzxuErzlPQRoubZoL/exec?secret=secret1';
+const TRIGGER_URL = 'https://script.google.com/macros/s/AKfycbxr09I3uVlNzfCc7L3s4q9NyASKL10aGlss03xT3aTMItRfCZRKz6Ggs6KwgXlt5J2W/exec?secret=secret1';
 
 function fireTrigger(){
   try{

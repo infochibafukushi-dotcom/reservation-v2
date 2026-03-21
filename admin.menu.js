@@ -1,53 +1,167 @@
-function getBuiltinMenuGroupOrder(){
-  return ['price', 'assistance', 'stair', 'equipment', 'round_trip', 'move_type', 'custom'];
+
+const MENU_GROUP_FIXED_FIRST = 'price';
+const MENU_GROUP_FALLBACK_ORDER = ['price', 'assistance', 'stair', 'equipment', 'round_trip', 'move_type', 'custom'];
+
+function safeJsonParseMenu(text, fallback){
+  try{
+    const parsed = JSON.parse(String(text || ''));
+    return parsed === undefined || parsed === null ? fallback : parsed;
+  }catch(_){
+    return fallback;
+  }
 }
 
-function getOrderedMenuGroups(){
-  const catalog = Array.isArray(adminMenuGroupCatalog) && adminMenuGroupCatalog.length
-    ? adminMenuGroupCatalog.slice()
-    : getBuiltinMenuGroupOrder().map((key, idx)=>({ key:key, label:getAdminGroupLabel(key), description:'', is_visible:true, sort_order:(idx+1)*100, is_custom:false }));
-
-  return catalog.sort((a, b) => {
-    const ao = Number(a && a.sort_order || 9999);
-    const bo = Number(b && b.sort_order || 9999);
-    if (ao !== bo) return ao - bo;
-    return String(a && a.key || '').localeCompare(String(b && b.key || ''));
-  });
+function getBaseMenuGroupCatalog(){
+  return Array.isArray(getAdminResolvedGroupCatalog()) && getAdminResolvedGroupCatalog().length
+    ? getAdminResolvedGroupCatalog()
+    : [
+        { key: 'price', label: '料金概算（基本料金）' },
+        { key: 'assistance', label: '介助内容' },
+        { key: 'stair', label: '階段介助' },
+        { key: 'equipment', label: '機材レンタル' },
+        { key: 'round_trip', label: '往復送迎' },
+        { key: 'move_type', label: '移動方法' },
+        { key: 'custom', label: 'その他（表示先なし）' }
+      ];
 }
 
-function getMenuGroupOrder(){
-  return getOrderedMenuGroups().map(group => String(group.key || '').trim()).filter(Boolean);
+function getStoredMenuGroupCatalog(){
+  const saved = safeJsonParseMenu(adminConfig && adminConfig.menu_group_catalog_json, []);
+  return Array.isArray(saved) ? saved : [];
 }
 
-function getMenuGroupMap(){
+function getStoredMenuGroupOrder(){
+  const saved = safeJsonParseMenu(adminConfig && adminConfig.menu_group_order_json, []);
+  return Array.isArray(saved) ? saved.map(v => String(v || '').trim()).filter(Boolean) : [];
+}
+
+function getStoredMenuGroupVisibility(){
+  const saved = safeJsonParseMenu(adminConfig && adminConfig.menu_group_visibility_json, {});
+  return saved && typeof saved === 'object' && !Array.isArray(saved) ? saved : {};
+}
+
+function cloneMenuObject(value){
+  return JSON.parse(JSON.stringify(value || {}));
+}
+
+function getAllKnownMenuGroups(){
   const map = {};
-  getOrderedMenuGroups().forEach(group => {
+
+  getBaseMenuGroupCatalog().forEach(group => {
     const key = String(group && group.key || '').trim();
     if (!key) return;
-    map[key] = JSON.parse(JSON.stringify(group));
+    map[key] = {
+      key: key,
+      label: String(group && group.label || key).trim()
+    };
   });
-  return map;
+
+  getStoredMenuGroupCatalog().forEach(group => {
+    const key = String(group && group.key || '').trim();
+    if (!key) return;
+    map[key] = {
+      key: key,
+      label: String(group && group.label || map[key]?.label || key).trim()
+    };
+  });
+
+  (adminMenuMaster || []).forEach(item => {
+    const key = String(item && item.menu_group || '').trim();
+    if (!key) return;
+    if (!map[key]){
+      map[key] = {
+        key: key,
+        label: key === 'custom' ? 'その他（表示先なし）' : key
+      };
+    }
+  });
+
+  return Object.keys(map).map(key => map[key]);
 }
 
-function findMenuGroupByKey(groupKey){
-  return getOrderedMenuGroups().find(group => String(group && group.key || '') === String(groupKey || '')) || null;
+function getEffectiveMenuGroupOrder(){
+  const allGroups = getAllKnownMenuGroups();
+  const allKeys = allGroups.map(group => String(group.key || '').trim()).filter(Boolean);
+  const savedOrder = getStoredMenuGroupOrder();
+
+  const merged = [];
+  const pushUnique = (key) => {
+    const value = String(key || '').trim();
+    if (!value) return;
+    if (!allKeys.includes(value)) return;
+    if (merged.includes(value)) return;
+    merged.push(value);
+  };
+
+  pushUnique(MENU_GROUP_FIXED_FIRST);
+  MENU_GROUP_FALLBACK_ORDER.forEach(pushUnique);
+  savedOrder.forEach(pushUnique);
+  allKeys.forEach(pushUnique);
+
+  const fixed = [MENU_GROUP_FIXED_FIRST];
+  const others = merged.filter(key => key !== MENU_GROUP_FIXED_FIRST);
+  return fixed.concat(others);
+}
+
+function getGroupLabelByKey(groupKey){
+  const found = getAllKnownMenuGroups().find(group => String(group.key || '') === String(groupKey || ''));
+  return found ? String(found.label || groupKey || '') : String(groupKey || '');
+}
+
+function normalizeGroupKey(group){
+  const key = String(group || 'custom').trim();
+  if (!key) return 'custom';
+
+  const known = getEffectiveMenuGroupOrder();
+  if (known.includes(key)) return key;
+  return key;
+}
+
+function isFixedMenuGroup(group){
+  return String(group || '') === MENU_GROUP_FIXED_FIRST;
+}
+
+function isPublicMenuGroup(group){
+  return !['price', 'custom'].includes(String(group || '').trim());
+}
+
+function isMenuGroupVisible(group){
+  const visibility = getStoredMenuGroupVisibility();
+  const key = String(group || '').trim();
+  if (!key) return true;
+  if (visibility[key] === undefined || visibility[key] === null || visibility[key] === '') return true;
+  if (visibility[key] === true || String(visibility[key]) === '1' || String(visibility[key]).toUpperCase() === 'TRUE') return true;
+  return false;
+}
+
+function setMenuGroupVisible(group, visible){
+  const key = String(group || '').trim();
+  if (!key || isFixedMenuGroup(key)) return;
+
+  const visibility = cloneMenuObject(getStoredMenuGroupVisibility());
+  visibility[key] = !!visible;
+  adminConfig.menu_group_visibility_json = JSON.stringify(visibility);
+}
+
+function getMenuGroupDescription(group){
+  const key = String(group || '').trim();
+  if (key === 'price') return '料金概算の基本項目に使う';
+  if (key === 'assistance') return `予約フォームの「${getGroupLabelByKey(key)}」プルダウンに表示`;
+  if (key === 'stair') return `予約フォームの「${getGroupLabelByKey(key)}」プルダウンに表示`;
+  if (key === 'equipment') return `予約フォームの「${getGroupLabelByKey(key)}」プルダウンに表示`;
+  if (key === 'round_trip') return `予約フォームの「${getGroupLabelByKey(key)}」プルダウンに表示`;
+  if (key === 'move_type') return `予約フォームの「${getGroupLabelByKey(key)}」プルダウンに表示`;
+  if (key === 'custom') return '保存のみ。どのプルダウンにも出せない';
+  return `予約フォームの「${getGroupLabelByKey(key)}」プルダウンに表示`;
 }
 
 function buildMenuAutoApplyOptions(selectedGroup, selectedKey){
-  const targetGroups = getOrderedMenuGroups().filter(group => {
-    const key = String(group && group.key || '');
-    if (!key) return false;
-    if (key === 'price' || key === 'custom') return false;
-    return true;
-  });
-
+  const groupCatalog = getEffectiveMenuGroupOrder().filter(group => isPublicMenuGroup(group));
   const groupOptions = [
     `<option value="">自動セットなし</option>`
-  ].concat(targetGroups.map(group => {
-    const key = String(group.key || '');
-    const label = String(group.label || key || '');
-    return `<option value="${escapeHtml(key)}" ${selectedGroup === key ? 'selected' : ''}>${escapeHtml(label)}</option>`;
-  })).join('');
+  ].concat(
+    groupCatalog.map(group => `<option value="${escapeHtml(group)}" ${String(selectedGroup || '') === String(group) ? 'selected' : ''}>${escapeHtml(getGroupLabelByKey(group))}</option>`)
+  ).join('');
 
   let keyCandidates = [];
   if (selectedGroup) {
@@ -61,30 +175,12 @@ function buildMenuAutoApplyOptions(selectedGroup, selectedKey){
   return { groupOptions, keyOptions };
 }
 
-function buildMenuGroupInternalKey(label){
-  const base = String(label || '').trim()
-    .replace(/[　\s]+/g, '_')
-    .replace(/[^\w]/g, '_')
-    .replace(/_+/g, '_')
-    .replace(/^_+|_+$/g, '')
-    .toLowerCase() || 'group';
-
-  let key = base;
-  let seq = 2;
-  const exists = new Set(getOrderedMenuGroups().map(group => String(group.key || '')));
-  while (exists.has(key)) {
-    key = `${base}_${seq}`;
-    seq++;
-  }
-  return key;
-}
-
 function makeMenuInternalKey(row, index){
-  const existing = String(row.key || '').trim();
+  const existing = String(row && row.key || '').trim();
   if (existing) return existing;
 
-  const group = String(row.menu_group || 'custom').trim().toUpperCase();
-  const label = String(row.label || 'ITEM').trim()
+  const group = String(row && row.menu_group || 'custom').trim().toUpperCase();
+  const label = String(row && row.label || 'ITEM').trim()
     .replace(/[　\s]+/g, '_')
     .replace(/[^\w]/g, '_')
     .replace(/_+/g, '_')
@@ -94,11 +190,6 @@ function makeMenuInternalKey(row, index){
   return `CUSTOM_${group}_${label}_${index + 1}`;
 }
 
-function normalizeGroupKey(group){
-  const g = String(group || 'custom').trim();
-  return getMenuGroupOrder().includes(g) ? g : 'custom';
-}
-
 function normalizeRequiredFlag(value){
   if (value === true || String(value).toUpperCase() === 'TRUE' || String(value) === '1') return true;
   return false;
@@ -106,7 +197,7 @@ function normalizeRequiredFlag(value){
 
 function adminNormalizeMenuRows(){
   return (adminMenuMaster || []).map((item, idx) => {
-    const clone = JSON.parse(JSON.stringify(item || {}));
+    const clone = cloneMenuObject(item || {});
     clone.menu_group = normalizeGroupKey(clone.menu_group);
     clone.key = makeMenuInternalKey(clone, idx);
     clone.key_jp = String(clone.key_jp || '');
@@ -129,7 +220,7 @@ function getMenuItemsByGroup(group){
 }
 
 function resequenceMenuSortOrderByGroup(){
-  getMenuGroupOrder().forEach(group => {
+  getEffectiveMenuGroupOrder().forEach(group => {
     const items = getMenuItemsByGroup(group);
     items.forEach((item, idx) => {
       item.sort_order = (idx + 1) * 10;
@@ -137,16 +228,47 @@ function resequenceMenuSortOrderByGroup(){
   });
 }
 
-function getGroupDescription(group){
-  const hit = findMenuGroupByKey(group);
-  if (hit && String(hit.description || '').trim()) return String(hit.description || '').trim();
-  if (group === 'price') return '料金概算の基本項目';
-  if (group === 'assistance') return '予約フォームの「介助内容」';
-  if (group === 'stair') return '予約フォームの「階段介助」';
-  if (group === 'equipment') return '予約フォームの「機材レンタル」';
-  if (group === 'round_trip') return '予約フォームの「往復送迎」';
-  if (group === 'move_type') return '予約フォームの「移動方法」';
-  return '予約フォームに追加できるプルダウン';
+function getMenuGroupIndex(group){
+  return getEffectiveMenuGroupOrder().findIndex(key => String(key) === String(group || ''));
+}
+
+function moveMenuGroup(group, direction){
+  const target = String(group || '').trim();
+  if (!target || isFixedMenuGroup(target)) return;
+
+  const order = getEffectiveMenuGroupOrder().slice();
+  const currentIndex = order.findIndex(key => String(key) === target);
+  if (currentIndex < 0) return;
+
+  let swapIndex = currentIndex;
+  if (direction === 'up') swapIndex = currentIndex - 1;
+  if (direction === 'down') swapIndex = currentIndex + 1;
+
+  if (swapIndex <= 0) return;
+  if (swapIndex >= order.length) return;
+
+  const swapKey = order[swapIndex];
+  if (!swapKey || isFixedMenuGroup(swapKey)) return;
+
+  order[currentIndex] = swapKey;
+  order[swapIndex] = target;
+  adminConfig.menu_group_order_json = JSON.stringify(order);
+}
+
+function ensureMenuOpenStateStore(){
+  if (!window.__menuGroupOpenState) window.__menuGroupOpenState = {};
+  return window.__menuGroupOpenState;
+}
+
+function setMenuGroupOpenState(group, isOpen){
+  const state = ensureMenuOpenStateStore();
+  state[String(group || '')] = !!isOpen;
+}
+
+function getMenuGroupOpenState(group){
+  const state = ensureMenuOpenStateStore();
+  if (state[String(group || '')] === undefined) return false;
+  return !!state[String(group || '')];
 }
 
 function renderMenuItemCard(item, groupItems){
@@ -212,7 +334,7 @@ function renderMenuItemCard(item, groupItems){
 
             <div class="form-group">
               <label class="form-label">現在グループ</label>
-              <input type="text" value="${escapeHtml(getAdminGroupLabel(item.menu_group || 'custom'))}" disabled>
+              <input type="text" value="${escapeHtml(getGroupLabelByKey(item.menu_group || 'custom'))}" disabled>
             </div>
           </div>
 
@@ -232,122 +354,84 @@ function renderMenuItemCard(item, groupItems){
 }
 
 function renderMenuGroupCard(group){
-  const groupKey = String(group && group.key || '');
-  const items = getMenuItemsByGroup(groupKey);
-  const isVisible = !(group && (group.is_visible === false || String(group.is_visible).toUpperCase() === 'FALSE'));
-  const isCustom = !!(group && (group.is_custom === true || String(group.is_custom).toUpperCase() === 'TRUE'));
+  const items = getMenuItemsByGroup(group);
+  const open = getMenuGroupOpenState(group);
+  const visible = isFixedMenuGroup(group) ? true : isMenuGroupVisible(group);
+  const groupIndex = getMenuGroupIndex(group);
+  const order = getEffectiveMenuGroupOrder();
 
   return `
-    <div class="menu-group-card" data-menu-group="${escapeHtml(groupKey)}">
-      <div class="menu-group-card-header" data-action="toggleMenuGroup" data-group="${escapeHtml(groupKey)}">
+    <div class="menu-group-card" data-menu-group="${escapeHtml(group)}">
+      <div class="menu-group-card-header" data-action="toggleMenuGroup" data-group="${escapeHtml(group)}">
         <div>
-          <div class="menu-group-card-title">${escapeHtml(String(group.label || groupKey || ''))}</div>
-          <div class="menu-group-card-sub">${escapeHtml(getGroupDescription(groupKey))}</div>
+          <div class="menu-group-card-title">${escapeHtml(getGroupLabelByKey(group))}</div>
+          <div class="menu-group-card-sub">${escapeHtml(getMenuGroupDescription(group))}</div>
         </div>
-        <div style="display:flex;align-items:center;gap:12px;">
-          <span class="text-xs font-bold ${isVisible ? 'text-emerald-600' : 'text-slate-400'}">${isVisible ? '公開表示' : '非表示'}</span>
-          <div class="menu-group-card-toggle" data-menu-group-toggle="${escapeHtml(groupKey)}">＋</div>
+
+        <div class="flex items-center gap-2">
+          <button class="cute-btn px-3 py-2 ${visible ? 'text-emerald-600' : 'text-slate-500'}" data-action="toggleGroupVisibility" data-group="${escapeHtml(group)}" type="button" ${isFixedMenuGroup(group) ? 'disabled' : ''}>
+            ${isFixedMenuGroup(group) ? '固定表示' : (visible ? '公開表示' : '非表示')}
+          </button>
+          <button class="move-btn" data-action="groupUp" data-group="${escapeHtml(group)}" type="button" ${isFixedMenuGroup(group) || groupIndex <= 1 ? 'disabled' : ''}>↑</button>
+          <button class="move-btn" data-action="groupDown" data-group="${escapeHtml(group)}" type="button" ${isFixedMenuGroup(group) || groupIndex < 1 || groupIndex >= order.length - 1 ? 'disabled' : ''}>↓</button>
+          <button class="move-btn" data-action="menuAddInGroup" data-group="${escapeHtml(group)}" type="button">＋</button>
+          <div class="menu-group-card-toggle" data-menu-group-toggle="${escapeHtml(group)}">${open ? '−' : '＋'}</div>
         </div>
       </div>
 
-      <div class="menu-group-card-body collapsed" id="menuGroupBody_${escapeHtml(groupKey)}">
-        <div class="menu-item-card" style="margin-bottom:16px;background:${isVisible ? '#f8fafc' : '#f1f5f9'};">
-          <div class="menu-item-main">
-            <div class="form-group">
-              <label class="form-label">グループ名</label>
-              <input type="text" value="${escapeHtml(String(group.label || groupKey || ''))}" data-group-field="label" data-group-key="${escapeHtml(groupKey)}" ${isCustom ? '' : 'disabled'}>
-            </div>
-            <div class="form-group">
-              <label class="form-label">表示切替</label>
-              <select data-group-field="is_visible" data-group-key="${escapeHtml(groupKey)}">
-                <option value="1" ${isVisible ? 'selected' : ''}>表示</option>
-                <option value="0" ${!isVisible ? 'selected' : ''}>非表示</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label class="form-label">内部キー</label>
-              <input type="text" value="${escapeHtml(groupKey)}" disabled>
-            </div>
-            <div class="form-group">
-              <label class="form-label">グループ種別</label>
-              <input type="text" value="${isCustom ? '追加グループ' : '標準グループ'}" disabled>
-            </div>
-          </div>
-          <div class="menu-item-bottom">
-            <div class="form-group" style="grid-column:1 / -1;">
-              <label class="form-label">説明</label>
-              <input type="text" value="${escapeHtml(String(group.description || ''))}" data-group-field="description" data-group-key="${escapeHtml(groupKey)}" ${isCustom ? '' : 'disabled'} placeholder="公開側フォームに表示する補足文">
-            </div>
-          </div>
-        </div>
-
+      <div class="menu-group-card-body ${open ? '' : 'collapsed'}" id="menuGroupBody_${escapeHtml(group)}">
         <div>
           ${items.length ? items.map(item => renderMenuItemCard(item, items)).join('') : `
             <div class="text-sm text-slate-500 font-bold py-3">まだ項目がありません</div>
           `}
         </div>
 
-        <div class="menu-add-row" style="display:flex;gap:12px;flex-wrap:wrap;">
-          <button class="cute-btn px-5 py-3 bg-gradient-to-r from-amber-500 to-amber-600 text-white hover:from-amber-600 hover:to-amber-700" data-action="menuAddInGroup" data-group="${escapeHtml(groupKey)}" type="button">
+        <div class="menu-add-row">
+          <button class="cute-btn px-5 py-3 bg-gradient-to-r from-amber-500 to-amber-600 text-white hover:from-amber-600 hover:to-amber-700" data-action="menuAddInGroup" data-group="${escapeHtml(group)}" type="button">
             このグループに追加
           </button>
-          ${isCustom ? `<button class="cute-btn px-5 py-3 bg-gradient-to-r from-rose-500 to-rose-600 text-white hover:from-rose-600 hover:to-rose-700" data-action="menuRemoveGroup" data-group="${escapeHtml(groupKey)}" type="button">このグループを削除</button>` : ''}
         </div>
       </div>
     </div>
   `;
 }
 
+function ensureMenuToolbar(){
+  const list = document.getElementById('menuAdminList');
+  if (!list || !list.parentNode) return;
+
+  let toolbar = document.getElementById('menuGroupToolbar');
+  if (!toolbar){
+    toolbar = document.createElement('div');
+    toolbar.id = 'menuGroupToolbar';
+    toolbar.className = 'mb-4 flex justify-end';
+    toolbar.innerHTML = `
+      <button id="addMenuGroupBtn" class="cute-btn px-5 py-3 bg-gradient-to-r from-indigo-500 to-violet-600 text-white hover:from-indigo-600 hover:to-violet-700" type="button">
+        プルダウングループを追加
+      </button>
+    `;
+    list.parentNode.insertBefore(toolbar, list);
+    const addBtn = document.getElementById('addMenuGroupBtn');
+    if (addBtn && !addBtn.dataset.bound){
+      addBtn.dataset.bound = '1';
+      addBtn.addEventListener('click', promptAddMenuGroup);
+    }
+  }
+}
+
 function renderMenuAdminList(){
   const wrap = document.getElementById('menuAdminList');
   if (!wrap) return;
 
+  ensureMenuToolbar();
+
   adminMenuMaster = adminNormalizeMenuRows();
   resequenceMenuSortOrderByGroup();
 
-  const groups = getOrderedMenuGroups();
-  wrap.innerHTML = `
-    <div style="display:flex;justify-content:flex-end;margin-bottom:16px;">
-      <button class="cute-btn px-5 py-3 bg-gradient-to-r from-indigo-500 to-indigo-600 text-white hover:from-indigo-600 hover:to-indigo-700" data-action="menuAddGroup" type="button">
-        プルダウングループを追加
-      </button>
-    </div>
-    ${groups.map(group => renderMenuGroupCard(group)).join('')}
-  `;
-}
-
-function addMenuGroup(){
-  const label = window.prompt('追加するプルダウングループ名を入力してください', '新しい項目');
-  if (label === null) return;
-  const trimmed = String(label || '').trim();
-  if (!trimmed) {
-    toast('グループ名を入力してください');
-    return;
-  }
-
-  const key = buildMenuGroupInternalKey(trimmed);
-  adminMenuGroupCatalog = getOrderedMenuGroups().concat([{
-    key: key,
-    label: trimmed,
-    description: '',
-    is_visible: true,
-    sort_order: (getOrderedMenuGroups().length + 1) * 100,
-    is_custom: true
-  }]);
-
-  renderMenuAdminList();
-  setTimeout(()=>{
-    const body = document.getElementById(`menuGroupBody_${key}`);
-    const toggle = document.querySelector(`[data-menu-group-toggle="${key}"]`);
-    if (body && body.classList.contains('collapsed')) {
-      body.classList.remove('collapsed');
-      if (toggle) toggle.textContent = '−';
-    }
-  }, 0);
+  wrap.innerHTML = getEffectiveMenuGroupOrder().map(group => renderMenuGroupCard(group)).join('');
 }
 
 function addMenuItemToGroup(group){
-  const normalizedGroup = normalizeGroupKey(group);
   const nextIndex = adminMenuMaster.length;
   adminMenuMaster.push({
     key: '',
@@ -357,7 +441,7 @@ function addMenuItemToGroup(group){
     note: '',
     is_visible: true,
     sort_order: 9999,
-    menu_group: normalizedGroup,
+    menu_group: normalizeGroupKey(group),
     required_flag: false,
     auto_apply_group: '',
     auto_apply_key: ''
@@ -366,16 +450,7 @@ function addMenuItemToGroup(group){
   adminMenuMaster = adminNormalizeMenuRows();
   adminMenuMaster[adminMenuMaster.length - 1].key = makeMenuInternalKey(adminMenuMaster[adminMenuMaster.length - 1], nextIndex);
   resequenceMenuSortOrderByGroup();
-  renderMenuAdminList();
-}
-
-function removeMenuGroup(groupKey){
-  const hit = findMenuGroupByKey(groupKey);
-  if (!hit || !(hit.is_custom === true || String(hit.is_custom).toUpperCase() === 'TRUE')) return;
-
-  adminMenuMaster = (adminMenuMaster || []).filter(item => String(item.menu_group || '') !== String(groupKey || ''));
-  adminMenuGroupCatalog = getOrderedMenuGroups().filter(group => String(group.key || '') !== String(groupKey || ''));
-  resequenceMenuSortOrderByGroup();
+  setMenuGroupOpenState(group, true);
   renderMenuAdminList();
 }
 
@@ -410,6 +485,7 @@ function moveMenuItemWithinGroup(key, direction){
   }
 
   resequenceMenuSortOrderByGroup();
+  setMenuGroupOpenState(group, true);
   renderMenuAdminList();
 }
 
@@ -419,34 +495,82 @@ function toggleMenuGroup(group){
   if (!body || !toggle) return;
 
   const collapsed = body.classList.toggle('collapsed');
+  setMenuGroupOpenState(group, !collapsed);
   toggle.textContent = collapsed ? '＋' : '−';
 }
 
-function updateAdminMenuGroupField(groupKey, field, value){
-  const list = getOrderedMenuGroups();
-  const idx = list.findIndex(group => String(group.key || '') === String(groupKey || ''));
-  if (idx < 0) return;
+function slugifyMenuGroupLabel(label){
+  return String(label || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[　\s]+/g, '_')
+    .replace(/[^\w\u3040-\u30ff\u4e00-\u9fafー]+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
 
-  if (field === 'is_visible') {
-    list[idx][field] = String(value) === '1' || value === true;
-  } else {
-    list[idx][field] = value;
+function makeMenuGroupKeyFromLabel(label){
+  const slug = slugifyMenuGroupLabel(label);
+  if (!slug) return '';
+
+  const ascii = slug.replace(/[^\x00-\x7F]/g, '');
+  const base = ascii || `group_${Date.now()}`;
+  let key = base;
+  let count = 2;
+  const used = getAllKnownMenuGroups().map(group => String(group.key || ''));
+  while (used.includes(key)){
+    key = `${base}_${count}`;
+    count += 1;
+  }
+  return key;
+}
+
+function promptAddMenuGroup(){
+  const label = window.prompt('新しいプルダウングループ名を入力してください', '');
+  if (label === null) return;
+
+  const trimmed = String(label || '').trim();
+  if (!trimmed){
+    toast('グループ名を入力してください');
+    return;
   }
 
-  adminMenuGroupCatalog = list;
+  const key = makeMenuGroupKeyFromLabel(trimmed);
+  if (!key){
+    toast('グループキーの作成に失敗しました');
+    return;
+  }
+
+  const catalog = getStoredMenuGroupCatalog().slice();
+  catalog.push({
+    key: key,
+    label: trimmed
+  });
+  adminConfig.menu_group_catalog_json = JSON.stringify(catalog);
+
+  const order = getEffectiveMenuGroupOrder().filter(group => group !== key);
+  order.push(key);
+  adminConfig.menu_group_order_json = JSON.stringify(order);
+
+  const visibility = cloneMenuObject(getStoredMenuGroupVisibility());
+  visibility[key] = true;
+  adminConfig.menu_group_visibility_json = JSON.stringify(visibility);
+
+  adminMenuGroupCatalog = getAdminResolvedGroupCatalog();
+  setMenuGroupOpenState(key, true);
+  renderMenuAdminList();
 }
 
 function bindMenuEvents(){
   const wrap = document.getElementById('menuAdminList');
-  if (!wrap) return;
-  if (wrap.dataset.boundMenuEvents === '1') return;
+  if (!wrap || wrap.dataset.boundMenuEvents === '1') return;
   wrap.dataset.boundMenuEvents = '1';
 
   wrap.addEventListener('click', (e)=>{
     const btn = e.target.closest('[data-action]');
     if (!btn) return;
 
-    const action = btn.dataset.action;
+    const action = String(btn.dataset.action || '');
     const key = String(btn.dataset.key || '');
     const group = String(btn.dataset.group || '');
 
@@ -455,20 +579,28 @@ function bindMenuEvents(){
       return;
     }
 
-    if (action === 'menuAddGroup'){
-      addMenuGroup();
-      return;
-    }
-
     if (action === 'menuAddInGroup'){
       addMenuItemToGroup(group);
-      toggleMenuGroup(group);
-      toggleMenuGroup(group);
       return;
     }
 
-    if (action === 'menuRemoveGroup'){
-      removeMenuGroup(group);
+    if (action === 'groupUp'){
+      moveMenuGroup(group, 'up');
+      renderMenuAdminList();
+      return;
+    }
+
+    if (action === 'groupDown'){
+      moveMenuGroup(group, 'down');
+      renderMenuAdminList();
+      return;
+    }
+
+    if (action === 'toggleGroupVisibility'){
+      if (!isFixedMenuGroup(group)){
+        setMenuGroupVisible(group, !isMenuGroupVisible(group));
+        renderMenuAdminList();
+      }
       return;
     }
 
@@ -485,8 +617,10 @@ function bindMenuEvents(){
     if (action === 'menuRemove'){
       const idx = findMenuIndexByKey(key);
       if (idx >= 0){
+        const row = adminMenuMaster[idx];
         adminMenuMaster.splice(idx, 1);
         resequenceMenuSortOrderByGroup();
+        setMenuGroupOpenState(row && row.menu_group || '', true);
         renderMenuAdminList();
       }
     }
@@ -494,16 +628,6 @@ function bindMenuEvents(){
 
   wrap.addEventListener('input', (e)=>{
     const el = e.target;
-
-    const groupKey = String(el.dataset.groupKey || '');
-    const groupField = String(el.dataset.groupField || '');
-    if (groupKey && groupField) {
-      updateAdminMenuGroupField(groupKey, groupField, el.value);
-      const headerTitle = wrap.querySelector(`[data-menu-group="${groupKey}"] .menu-group-card-title`);
-      if (headerTitle && groupField === 'label') headerTitle.textContent = el.value || groupKey;
-      return;
-    }
-
     const key = String(el.dataset.key || '');
     const field = String(el.dataset.field || '');
     const idx = findMenuIndexByKey(key);
@@ -525,15 +649,6 @@ function bindMenuEvents(){
 
   wrap.addEventListener('change', (e)=>{
     const el = e.target;
-
-    const groupKey = String(el.dataset.groupKey || '');
-    const groupField = String(el.dataset.groupField || '');
-    if (groupKey && groupField) {
-      updateAdminMenuGroupField(groupKey, groupField, el.value);
-      renderMenuAdminList();
-      return;
-    }
-
     const key = String(el.dataset.key || '');
     const field = String(el.dataset.field || '');
     const idx = findMenuIndexByKey(key);
@@ -584,15 +699,18 @@ function buildSaveMenuPayload(){
   }).filter(item => String(item.label || '').trim());
 }
 
-function buildSaveMenuGroupPayload(){
-  return getOrderedMenuGroups().map((group, idx) => {
-    return {
-      key: String(group.key || '').trim(),
-      label: String(group.label || group.key || '').trim(),
-      description: String(group.description || '').trim(),
-      is_visible: !(group.is_visible === false || String(group.is_visible).toUpperCase() === 'FALSE'),
-      sort_order: Number(group.sort_order || ((idx + 1) * 100)),
-      is_custom: !!(group.is_custom === true || String(group.is_custom).toUpperCase() === 'TRUE')
-    };
-  }).filter(group => !!group.key);
+function buildMenuGroupConfigPayload(){
+  const catalog = getAllKnownMenuGroups().map(group => ({
+    key: String(group.key || '').trim(),
+    label: String(group.label || group.key || '').trim()
+  })).filter(group => !!group.key);
+
+  const visibility = cloneMenuObject(getStoredMenuGroupVisibility());
+  const order = getEffectiveMenuGroupOrder().slice();
+
+  return {
+    menu_group_catalog_json: JSON.stringify(catalog),
+    menu_group_visibility_json: JSON.stringify(visibility),
+    menu_group_order_json: JSON.stringify(order)
+  };
 }

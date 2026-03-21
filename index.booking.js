@@ -661,6 +661,75 @@ function syncEquipmentFromMoveTypePatched(){
   return '';
 }
 
+
+
+function getPublicMenuGroupOrderConfig(){
+  try{
+    const parsed = JSON.parse(String(config.menu_group_order_json || '[]'));
+    return Array.isArray(parsed) ? parsed.map(v => String(v || '').trim()).filter(Boolean) : [];
+  }catch(_){
+    return [];
+  }
+}
+
+function getPublicMenuGroupVisibilityConfig(){
+  try{
+    const parsed = JSON.parse(String(config.menu_group_visibility_json || '{}'));
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  }catch(_){
+    return {};
+  }
+}
+
+function getPublicServiceGroupCardMap(){
+  const moveTypeEl = document.getElementById('moveType');
+  const assistanceEl = document.getElementById('assistanceType');
+  const stairEl = document.getElementById('stairAssistance');
+  const equipmentEl = document.getElementById('equipmentRental');
+  const roundTripEl = document.getElementById('roundTrip');
+
+  const map = {
+    move_type: moveTypeEl ? moveTypeEl.closest('.bg-sky-50, .bg-white, .rounded-xl, .rounded-2xl') : null,
+    assistance: assistanceEl ? assistanceEl.closest('.bg-yellow-50, .bg-white, .rounded-xl, .rounded-2xl') : null,
+    stair: stairEl ? stairEl.closest('.bg-orange-50, .bg-white, .rounded-xl, .rounded-2xl') : null,
+    equipment: equipmentEl ? equipmentEl.closest('.bg-cyan-50, .bg-white, .rounded-xl, .rounded-2xl') : null,
+    round_trip: roundTripEl ? roundTripEl.closest('.bg-pink-50, .bg-white, .rounded-xl, .rounded-2xl') : null
+  };
+
+  return map;
+}
+
+function applyPublicServiceGroupLayout(){
+  const cardMap = getPublicServiceGroupCardMap();
+  const firstCard = cardMap.move_type || cardMap.assistance || cardMap.stair || cardMap.equipment || cardMap.round_trip;
+  if (!firstCard || !firstCard.parentNode) return;
+
+  const wrap = firstCard.parentNode;
+  const order = getPublicMenuGroupOrderConfig();
+  const visibility = getPublicMenuGroupVisibilityConfig();
+
+  const fallback = ['move_type', 'assistance', 'stair', 'equipment', 'round_trip'];
+  const finalOrder = [];
+  const pushUnique = (key) => {
+    const value = String(key || '').trim();
+    if (!value) return;
+    if (!cardMap[value]) return;
+    if (finalOrder.includes(value)) return;
+    finalOrder.push(value);
+  };
+
+  order.forEach(pushUnique);
+  fallback.forEach(pushUnique);
+
+  finalOrder.forEach(group => {
+    const el = cardMap[group];
+    if (!el) return;
+    const visible = visibility[group] === undefined || visibility[group] === null || visibility[group] === '' || visibility[group] === true || String(visibility[group]) === '1' || String(visibility[group]).toUpperCase() === 'TRUE';
+    el.style.display = visible ? '' : 'none';
+    wrap.appendChild(el);
+  });
+}
+
 const _renderServiceSelectorsOriginal = renderServiceSelectors;
 renderServiceSelectors = function(){
   const moveTypeItems = getItemsByGroup('move_type');
@@ -689,6 +758,8 @@ renderServiceSelectors = function(){
       `<strong>階段移動:</strong>${escapeHtml(getMenuNote('STAIR_2F', '1名体制での目安'))}`
     ].join('<br>');
   }
+
+  applyPublicServiceGroupLayout();
 };
 
 const _applyAutoSelectionsOriginal = applyAutoSelections;
@@ -755,238 +826,3 @@ document.addEventListener('DOMContentLoaded', function(){
   }
 });
 /* ===== move_type live patch end ===== */
-
-
-/* ===== dynamic menu group patch ===== */
-const BUILTIN_BOOKING_GROUPS = ['price', 'assistance', 'stair', 'equipment', 'round_trip', 'move_type', 'custom'];
-
-function getVisibleMenuGroupCatalogPatched(){
-  const list = Array.isArray(menuGroupCatalog) ? menuGroupCatalog.slice() : [];
-  return list.sort((a, b) => {
-    const ao = Number(a && a.sort_order || 9999);
-    const bo = Number(b && b.sort_order || 9999);
-    if (ao !== bo) return ao - bo;
-    return String(a && a.key || '').localeCompare(String(b && b.key || ''));
-  });
-}
-
-function getExtraBookingGroupsPatched(){
-  return getVisibleMenuGroupCatalogPatched().filter(group => {
-    const key = String(group && group.key || '');
-    if (!key) return false;
-    if (BUILTIN_BOOKING_GROUPS.includes(key)) return false;
-    return true;
-  });
-}
-
-function getVisibleExtraBookingGroupsPatched(){
-  return getExtraBookingGroupsPatched().filter(group => !(group.is_visible === false || String(group.is_visible).toUpperCase() === 'FALSE'));
-}
-
-function getExtraSelectIdPatched(groupKey){
-  return `extraMenuGroup__${String(groupKey || '').replace(/[^\w-]/g, '_')}`;
-}
-
-function getMenuGroupItemsPatched(groupKey){
-  return (menuMaster || []).filter(item => {
-    if (String(item.menu_group || '') !== String(groupKey || '')) return false;
-    if (item.is_visible === false || String(item.is_visible).toUpperCase() === 'FALSE') return false;
-    return true;
-  }).sort((a, b) => {
-    const ao = Number(a && a.sort_order || 9999);
-    const bo = Number(b && b.sort_order || 9999);
-    if (ao !== bo) return ao - bo;
-    return String(a && a.key || '').localeCompare(String(b && b.key || ''));
-  });
-}
-
-function getSelectedExtraGroupItemPatched(groupKey){
-  const select = document.getElementById(getExtraSelectIdPatched(groupKey));
-  if (!select) return null;
-  const value = String(select.value || '');
-  if (!value) return null;
-  return getMenuGroupItemsPatched(groupKey).find(item => String(item.label || '') === value || String(item.key || '') === value) || null;
-}
-
-function ensureExtraMenuGroupContainerPatched(){
-  const serviceSection = document.getElementById('serviceSectionTitle') ? document.getElementById('serviceSectionTitle').closest('.bg-white.rounded-2xl') : null;
-  if (!serviceSection) return null;
-
-  let wrap = document.getElementById('extraMenuGroupWrap');
-  if (!wrap) {
-    wrap = document.createElement('div');
-    wrap.id = 'extraMenuGroupWrap';
-    wrap.className = 'space-y-5';
-    const stack = serviceSection.querySelector('.space-y-5');
-    if (stack) {
-      stack.appendChild(wrap);
-    }
-  }
-  return wrap;
-}
-
-function applyBuiltinGroupVisibilityPatched(){
-  const mappings = [
-    { key:'move_type', selectId:'moveType' },
-    { key:'assistance', selectId:'assistanceType' },
-    { key:'stair', selectId:'stairAssistance' },
-    { key:'equipment', selectId:'equipmentRental' },
-    { key:'round_trip', selectId:'roundTrip' }
-  ];
-
-  const groupMap = {};
-  getVisibleMenuGroupCatalogPatched().forEach(group => {
-    groupMap[String(group.key || '')] = group;
-  });
-
-  mappings.forEach(item => {
-    const select = document.getElementById(item.selectId);
-    const card = select ? select.closest('.bg-sky-50, .bg-yellow-50, .bg-orange-50, .bg-cyan-50, .bg-pink-50') : null;
-    if (!card) return;
-    const group = groupMap[item.key] || { is_visible: true };
-    const isVisible = !(group.is_visible === false || String(group.is_visible).toUpperCase() === 'FALSE');
-    card.style.display = isVisible ? '' : 'none';
-  });
-}
-
-function bindExtraMenuGroupEventsPatched(){
-  const wrap = document.getElementById('extraMenuGroupWrap');
-  if (!wrap || wrap.dataset.boundExtraMenuGroupEvents === '1') return;
-  wrap.dataset.boundExtraMenuGroupEvents = '1';
-  wrap.addEventListener('change', function(){
-    calculatePrice();
-    updateSubmitButton();
-  });
-  wrap.addEventListener('input', function(){
-    updateSubmitButton();
-  });
-}
-
-function renderExtraMenuGroupSelectorsPatched(){
-  const wrap = ensureExtraMenuGroupContainerPatched();
-  if (!wrap) return;
-
-  const previousValues = {};
-  getExtraBookingGroupsPatched().forEach(group => {
-    const key = String(group.key || '');
-    const select = document.getElementById(getExtraSelectIdPatched(key));
-    if (select) previousValues[key] = String(select.value || '');
-  });
-
-  const groups = getExtraBookingGroupsPatched();
-  wrap.innerHTML = groups.map((group, idx) => {
-    const key = String(group.key || '');
-    const label = String(group.label || key || '');
-    const description = String(group.description || '');
-    const isVisible = !(group.is_visible === false || String(group.is_visible).toUpperCase() === 'FALSE');
-    const items = getMenuGroupItemsPatched(key);
-    const selectId = getExtraSelectIdPatched(key);
-    const required = items.some(item => item && (item.required_flag === true || String(item.required_flag).toUpperCase() === 'TRUE'));
-    const currentValue = previousValues[key] || '';
-    const optionHtml = [`<option value="">選択してください</option>`].concat(items.map(item => {
-      const value = escapeHtml(String(item.label || item.key || ''));
-      const selected = String(item.label || item.key || '') === currentValue ? 'selected' : '';
-      const text = `${escapeHtml(String(item.label || item.key || ''))}${Number(item.price || 0) ? `(${Number(item.price || 0).toLocaleString()}円)` : ''}`;
-      return `<option value="${value}" ${selected}>${text}</option>`;
-    })).join('');
-    const palette = ['bg-violet-50 border-violet-200','bg-lime-50 border-lime-200','bg-fuchsia-50 border-fuchsia-200','bg-emerald-50 border-emerald-200'];
-    const paletteClass = palette[idx % palette.length];
-    return `
-      <div class="${paletteClass} border-2 rounded-xl p-4" data-extra-group-card="${escapeHtml(key)}" style="display:${isVisible ? 'block' : 'none'};">
-        <label class="form-label">${escapeHtml(label)}${required ? ' <span class="required">*</span>' : ''}</label>
-        <select id="${escapeHtml(selectId)}" class="w-full" data-extra-group-key="${escapeHtml(key)}">${optionHtml}</select>
-        <p class="text-xs text-gray-700 mt-3 leading-relaxed">${escapeHtml(description || '追加項目です')}</p>
-      </div>
-    `;
-  }).join('');
-
-  bindExtraMenuGroupEventsPatched();
-}
-
-const _renderServiceSelectorsOriginalDynamic = renderServiceSelectors;
-renderServiceSelectors = function(){
-  _renderServiceSelectorsOriginalDynamic();
-  applyBuiltinGroupVisibilityPatched();
-  renderExtraMenuGroupSelectorsPatched();
-};
-
-const _calculatePriceOriginalDynamic = calculatePrice;
-calculatePrice = function(){
-  let total = Number(_calculatePriceOriginalDynamic() || 0);
-  const breakdownEl = document.getElementById('priceBreakdown');
-  const extraRows = [];
-
-  getExtraBookingGroupsPatched().forEach(group => {
-    const item = getSelectedExtraGroupItemPatched(group.key);
-    if (!item) return;
-    const price = Number(item.price || 0);
-    total += price;
-    extraRows.push(`
-      <div class="price-item">
-        <span class="price-label">${escapeHtml(String(group.label || group.key || ''))}(${escapeHtml(String(item.label || item.key || ''))})</span>
-        <span class="price-value">${price.toLocaleString()}円</span>
-      </div>
-    `);
-  });
-
-  if (breakdownEl && extraRows.length) {
-    breakdownEl.innerHTML += extraRows.join('');
-  }
-
-  const totalPriceEl = document.getElementById('totalPrice');
-  if (totalPriceEl) totalPriceEl.textContent = `${total.toLocaleString()}円`;
-  return total;
-};
-
-const _updateSubmitButtonOriginalDynamic = updateSubmitButton;
-updateSubmitButton = function(){
-  _updateSubmitButtonOriginalDynamic();
-
-  let extraRequiredOk = true;
-  getVisibleExtraBookingGroupsPatched().forEach(group => {
-    const items = getMenuGroupItemsPatched(group.key);
-    const required = items.some(item => item && (item.required_flag === true || String(item.required_flag).toUpperCase() === 'TRUE'));
-    if (!required) return;
-    const select = document.getElementById(getExtraSelectIdPatched(group.key));
-    if (!select || !String(select.value || '').trim()) extraRequiredOk = false;
-  });
-
-  const submitBtn = document.getElementById('submitBooking');
-  if (!submitBtn) return;
-  if (submitBtn.disabled && !extraRequiredOk) return;
-  if (!extraRequiredOk){
-    submitBtn.disabled = true;
-    submitBtn.className = 'w-full cute-btn py-4 bg-gray-300 text-white cursor-not-allowed text-lg';
-  }
-};
-
-const _resetBookingFormOriginalDynamic = resetBookingForm;
-resetBookingForm = function(){
-  _resetBookingFormOriginalDynamic();
-  getExtraBookingGroupsPatched().forEach(group => {
-    const select = document.getElementById(getExtraSelectIdPatched(group.key));
-    if (select) select.selectedIndex = 0;
-  });
-};
-
-const _submitBookingOriginalDynamic = submitBooking;
-submitBooking = async function(e){
-  const noteEl = document.getElementById('notes');
-  const originalNotes = noteEl ? String(noteEl.value || '') : '';
-  const extraText = getExtraBookingGroupsPatched().map(group => {
-    const item = getSelectedExtraGroupItemPatched(group.key);
-    if (!item) return '';
-    return `${String(group.label || group.key || '')}: ${String(item.label || item.key || '')}`;
-  }).filter(Boolean).join(' / ');
-
-  if (noteEl && extraText){
-    noteEl.value = originalNotes ? `${originalNotes}\n追加選択: ${extraText}` : `追加選択: ${extraText}`;
-  }
-
-  try{
-    return await _submitBookingOriginalDynamic(e);
-  } finally {
-    if (noteEl) noteEl.value = originalNotes;
-  }
-};
-/* ===== dynamic menu group patch end ===== */
