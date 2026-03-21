@@ -1,5 +1,5 @@
 const ADMIN_ICON_FILE_ID = '1a0QB8ei00w_lSfL4PnF_xuEFUC2JP6FW';
-const GAS_URL = "https://script.google.com/macros/s/AKfycbxu88C5VMsgp6eFOLAKyAv4n4X0Z4aFZnWOJIPhk5ytpdFM-7X8wMPRnUngIYGnYlTCoQ/exec";
+const GAS_URL = "https://script.google.com/macros/s/AKfycbzVIEREUxN43gudkQU077sjRbqineT-Jp-gBF_fcYKGAgnHc4BsXAKbaj_kcHLeUfnL/exec";
 const ADMIN_PAGE_URL = "admin.html";
 
 function toast(msg='通信エラー', ms=2200){
@@ -247,7 +247,7 @@ function hydratePublicCacheForFastPaint(){
   return bootLoaded || blockedLoaded;
 }
 
-const TRIGGER_URL = 'https://script.google.com/macros/s/AKfycbxzM8EPlE-1hwHx6qwh4Q1jXgYa0nyc3_WtK0NYbYbcm5JExMJOi1zzjQocUhsoCuUQ/exec?secret=secret1';
+const TRIGGER_URL = 'https://script.google.com/macros/s/AKfycbzVIEREUxN43gudkQU077sjRbqineT-Jp-gBF_fcYKGAgnHc4BsXAKbaj_kcHLeUfnL/exec?secret=secret1';
 
 function fireTrigger(){
   try{
@@ -398,14 +398,6 @@ const defaultConfig = {
   form_stair_label: '階段介助',
   form_equipment_label: '機材レンタル',
   form_round_trip_label: '往復送迎',
-  form_move_type_label: '移動方法',
-  form_move_type_placeholder: '選択してください',
-  form_move_type_help_text: '最初に移動方法をお選びください',
-  form_move_type_note_wheelchair: '無料車いすで移動します。次に介助内容を選択してください。',
-  form_move_type_note_reclining: 'リクライニング車いすで移動します。身体介助が必要になる場合があります。',
-  form_move_type_note_stretcher: 'ストレッチャーで移動します。身体介助が必要です。状況により安全確保のため2名体制となる場合があります。',
-  form_move_type_note_own: 'ご自身の車いすで移動します。固定可否を確認します。',
-  warning_staff_add_text: '表示価格は1名体制での目安です。状況により安全確保のため2名体制となる場合があります（＋5,000円）',
   form_price_section_title: '料金概算',
   form_price_total_label: '概算合計',
   form_price_notice_text: '上記料金に加え、距離運賃(2km以上200mごと/90円)が加算されます。また、時速10km以下の移行時は時間制運賃(1分30秒毎/90円)に切り替わります。',
@@ -426,7 +418,16 @@ const defaultConfig = {
   calendar_scroll_guide_text: '上下・左右にスクロールして、他の日付や時間を確認できます。',
   warning_stair_bodyassist_text: '警告: 階段介助ご利用の場合、身体介助がセットになります',
   warning_wheelchair_damage_text: '警告: 車いす固定による傷、すり傷などは保証対象外になります',
-  warning_stretcher_bodyassist_text: '警告: ストレッチャー利用時に2名体制介助料5,000円と身体介助が必須となります',
+  warning_stretcher_bodyassist_text: 'ストレッチャー利用時は身体介助が必要です',
+  warning_staff_add_text: '表示価格は1名体制での目安です。状況により安全確保のため2名体制となる場合があります（＋5,000円）',
+  warning_staff_add_confirm_text: '安全確保のため2名体制での対応となる場合があります',
+  form_move_type_label: '移動方法',
+  form_move_type_placeholder: '選択してください',
+  form_move_type_help_text: '最初に移動方法をお選びください',
+  form_move_type_note_wheelchair: '無料車いすで移動します。次に介助内容を選択してください。',
+  form_move_type_note_reclining: 'リクライニング車いすで移動します。身体介助が必要になる場合があります。',
+  form_move_type_note_stretcher: 'ストレッチャーで移動します。身体介助が必要です。状況により安全確保のため2名体制となる場合があります。',
+  form_move_type_note_own: 'ご自身の車いすで移動します。固定可否を確認します。',
   rule_force_body_assist_on_stair: '1',
   rule_force_body_assist_on_stretcher: '1',
   rule_force_stretcher_staff2_on_stretcher: '1'
