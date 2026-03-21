@@ -534,14 +534,14 @@
             </h3>
 
             <div class="space-y-5">
-              
-              <div class="bg-indigo-50 border-2 border-indigo-200 rounded-xl p-4">
+
+              <div class="bg-sky-50 border-2 border-sky-200 rounded-xl p-4">
                 <label id="moveTypeLabel" class="form-label">移動方法 <span class="required">*</span></label>
                 <select id="moveType" class="w-full"></select>
-                <p id="moveTypeNote" class="text-xs text-gray-700 mt-3 leading-relaxed"></p>
+                <p id="moveTypeNote" class="text-xs text-gray-700 mt-3 leading-relaxed">最初に移動方法を選択してください</p>
               </div>
 
-<div class="bg-yellow-50 border-2 border-yellow-200 rounded-xl p-4">
+              <div class="bg-yellow-50 border-2 border-yellow-200 rounded-xl p-4">
                 <label id="assistanceLabel" class="form-label">介助内容 <span class="required">*</span></label>
                 <select id="assistanceType" class="w-full"></select>
                 <p id="assistanceNote" class="text-xs text-gray-700 mt-3 leading-relaxed"></p>
@@ -554,7 +554,7 @@
                 <p id="stairWarning" class="warning-text mt-3 hidden">警告: 階段介助ご利用の場合、身体介助がセットになります</p>
               </div>
 
-              <div class="bg-cyan-50 border-2 border-cyan-200 rounded-xl p-4">
+              <div id="equipmentBlock" class="bg-cyan-50 border-2 border-cyan-200 rounded-xl p-4 hidden">
                 <label id="equipmentLabel" class="form-label">機材レンタル <span class="required">*</span></label>
                 <select id="equipmentRental" class="w-full"></select>
                 <p id="equipmentNote" class="text-xs text-gray-700 mt-3 leading-relaxed"></p>
