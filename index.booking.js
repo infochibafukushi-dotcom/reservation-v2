@@ -12,15 +12,16 @@ function buildSelectOptions(selectEl, items, includePlaceholder, placeholderText
 }
 
 
+const MOVE_TYPE_FALLBACK_ITEMS = [
+  { key:'MOVE_FREE_WHEELCHAIR', label:'無料車いす', price:0 },
+  { key:'MOVE_RECLINING', label:'リクライニング車いす', price:2500 },
+  { key:'MOVE_STRETCHER', label:'ストレッチャー', price:5000 },
+  { key:'MOVE_OWN_WHEELCHAIR', label:'ご自身の車いす', price:0 }
+];
+
 function getMoveTypeItems(){
   const items = getItemsByGroup('move_type');
-  if (items && items.length) return items;
-  return [
-    { key:'MOVE_FREE_WHEELCHAIR', label:'無料車いす', price:0, note:'当社の標準車いすを使用します' },
-    { key:'MOVE_RECLINING', label:'リクライニング車いす', price:getMenuPrice('EQUIP_RECLINING', 2500), note:'リクライニング車いすを使用します' },
-    { key:'MOVE_STRETCHER', label:'ストレッチャー', price:getMenuPrice('EQUIP_STRETCHER', 5000), note:'ストレッチャー利用時は身体介助・2名体制が自動適用されます' },
-    { key:'MOVE_OWN_WHEELCHAIR', label:'ご自身の車いす', price:0, note:'ご自身の車いすを使用します。固定確認を行います' }
-  ];
+  return (items && items.length) ? items : MOVE_TYPE_FALLBACK_ITEMS;
 }
 
 function renderServiceSelectors(){
@@ -35,7 +36,11 @@ function renderServiceSelectors(){
     moveTypeItems,
     true,
     config.form_usage_type_placeholder || '選択してください',
-    function(item){ return `${item.label}${Number(item.price || 0) ? `(${Number(item.price || 0).toLocaleString()}円)` : ''}`; }
+    function(item){
+      return Number(item.price || 0) > 0
+        ? `${item.label}(${Number(item.price || 0).toLocaleString()}円)`
+        : `${item.label}`;
+    }
   );
 
   buildSelectOptions(
@@ -88,15 +93,15 @@ function renderServiceSelectors(){
   ].join('<br>');
   document.getElementById('stairNote').innerHTML = stairNote;
 
-  document.getElementById('equipmentNote').innerHTML = '移動方法に応じて自動で設定されます';
+  document.getElementById('equipmentNote').innerHTML = '';
 
   const roundTripNote = [
     `<strong>${escapeHtml(getMenuLabel('ROUND_STANDBY', '待機'))}:</strong>病院駐車場等で待機`,
     `<strong>${escapeHtml(getMenuLabel('ROUND_HOSPITAL', '病院付き添い'))}:</strong>病院内での移動や会計などをサポート`
   ].join('<br>');
   document.getElementById('roundTripNote').innerHTML = roundTripNote;
-
-  handleMoveTypeChange(true);
+  const hintEl = document.getElementById('moveTypeHint');
+  if (hintEl) hintEl.innerHTML = '最初に移動方法をお選びください';
 }
 
 function getSelectedOptionKey(selectId){
@@ -143,48 +148,42 @@ function setSelectValueByKey(selectId, key){
 }
 
 
-function handleMoveTypeChange(isInit){
-  const moveTypeKey = getSelectedOptionKey('moveType');
-  const noteEl = document.getElementById('moveTypeNote');
-  const assistanceSelect = document.getElementById('assistanceType');
-  const equipmentCard = document.getElementById('equipmentCard');
-  const stairCard = document.getElementById('stairCard');
-  const roundTripCard = document.getElementById('roundTripCard');
-  const wheelchairWarning = document.getElementById('wheelchairWarning');
-  const stretcherWarning = document.getElementById('stretcherWarning');
+function setSelectValueByKeySafe(selectId, key){
+  const select = document.getElementById(selectId);
+  if (!select) return false;
+  const options = Array.from(select.options || []);
+  const found = options.find(opt => String(opt.dataset.key || '') === String(key || ''));
+  if (!found) return false;
+  select.value = found.value;
+  return true;
+}
 
-  if (wheelchairWarning) wheelchairWarning.classList.add('hidden');
-  if (stretcherWarning) stretcherWarning.classList.add('hidden');
+function handleMoveTypeChange(){
+  const moveKey = getSelectedOptionKey('moveType');
+  const hintEl = document.getElementById('moveTypeHint');
+  const equipmentBlock = document.getElementById('equipmentBlock');
 
-  if (!moveTypeKey){
-    if (noteEl) noteEl.textContent = '最初に移動方法をお選びください';
-    if (equipmentCard) equipmentCard.classList.add('hidden');
+  if (equipmentBlock) equipmentBlock.classList.add('hidden');
+
+  if (!moveKey){
+    if (hintEl) hintEl.innerHTML = '最初に移動方法をお選びください';
     return;
   }
 
-  if (equipmentCard) equipmentCard.classList.add('hidden');
-
-  if (moveTypeKey === 'MOVE_FREE_WHEELCHAIR'){
-    setSelectValueByKey('equipmentRental', 'EQUIP_WHEELCHAIR');
-    if (noteEl) noteEl.textContent = '当社の無料車いすを使用します';
-    if (assistanceSelect) assistanceSelect.disabled = false;
-  } else if (moveTypeKey === 'MOVE_RECLINING'){
-    setSelectValueByKey('equipmentRental', 'EQUIP_RECLINING');
-    if (noteEl) noteEl.textContent = 'リクライニング車いすを使用します';
-    if (assistanceSelect) assistanceSelect.disabled = false;
-  } else if (moveTypeKey === 'MOVE_STRETCHER'){
-    setSelectValueByKey('equipmentRental', 'EQUIP_STRETCHER');
-    setSelectValueByKey('assistanceType', 'BODY_ASSIST');
-    if (noteEl) noteEl.textContent = 'ストレッチャー利用時は身体介助・2名体制が自動適用されます';
-    if (assistanceSelect) assistanceSelect.disabled = true;
-    if (stretcherWarning) stretcherWarning.classList.remove('hidden');
-  } else if (moveTypeKey === 'MOVE_OWN_WHEELCHAIR'){
-    setSelectValueByKey('equipmentRental', 'EQUIP_OWN_WHEELCHAIR');
-    if (noteEl) noteEl.textContent = 'ご自身の車いすを使用します。固定確認を行います';
-    if (assistanceSelect) assistanceSelect.disabled = false;
-    if (wheelchairWarning) wheelchairWarning.classList.remove('hidden');
-  } else {
-    if (assistanceSelect) assistanceSelect.disabled = false;
+  if (moveKey === 'MOVE_FREE_WHEELCHAIR'){
+    setSelectValueByKeySafe('equipmentRental', '');
+    if (hintEl) hintEl.innerHTML = '無料車いすで移動します。次に介助内容を選択してください。';
+  } else if (moveKey === 'MOVE_RECLINING'){
+    setSelectValueByKeySafe('equipmentRental', 'EQUIP_RECLINING');
+    setSelectValueByKeySafe('assistanceType', 'BODY_ASSIST');
+    if (hintEl) hintEl.innerHTML = 'リクライニング車いすを利用します。身体介助をおすすめしています。';
+  } else if (moveKey === 'MOVE_STRETCHER'){
+    setSelectValueByKeySafe('equipmentRental', 'EQUIP_STRETCHER');
+    setSelectValueByKeySafe('assistanceType', 'BODY_ASSIST');
+    if (hintEl) hintEl.innerHTML = 'ストレッチャー選択時は身体介助・2名体制が自動反映されます。';
+  } else if (moveKey === 'MOVE_OWN_WHEELCHAIR'){
+    setSelectValueByKeySafe('equipmentRental', 'EQUIP_OWN_WHEELCHAIR');
+    if (hintEl) hintEl.innerHTML = 'ご自身の車いすを使用します。固定による傷等は保証対象外です。';
   }
 
   applyAutoSelections();
@@ -287,6 +286,9 @@ function resetBookingForm(){
   const roundDefault = getItemsByGroup('round_trip')[0];
   if (stairDefault) document.getElementById('stairAssistance').value = stairDefault.label;
   if (roundDefault) document.getElementById('roundTrip').value = roundDefault.label;
+  const moveSelect = document.getElementById('moveType');
+  if (moveSelect) moveSelect.value = '';
+  handleMoveTypeChange();
 
   updateSubmitButton();
 }
@@ -295,7 +297,8 @@ function calculatePrice(){
   let total = 0;
   const breakdown = [];
 
-  const moveType = document.getElementById('moveType') ? document.getElementById('moveType').value : '';
+  const moveType = document.getElementById('moveType').value;
+  const moveTypeKey = getSelectedOptionKey('moveType');
   const assistanceType = document.getElementById('assistanceType').value;
   const stairAssistance = document.getElementById('stairAssistance').value;
   const equipmentRental = document.getElementById('equipmentRental').value;
@@ -319,10 +322,21 @@ function calculatePrice(){
   const hospitalEscortPrice = getMenuPrice('ROUND_HOSPITAL', 1600);
 
   total += baseFare + dispatch + specialVehicle;
-  if (moveType){ breakdown.push({ name:`移動方法(${moveType})`, price:0 }); }
   breakdown.push({ name:getMenuLabel('BASE_FARE', '運賃'), price:baseFare, suffix:' から' });
   breakdown.push({ name:getMenuLabel('DISPATCH', '配車予約'), price:dispatch });
   breakdown.push({ name:getMenuLabel('SPECIAL_VEHICLE', '特殊車両使用料'), price:specialVehicle });
+
+  if (moveTypeKey){
+    if (moveTypeKey === 'MOVE_RECLINING') {
+      breakdown.push({ name:'移動方法', price:0, suffix:'（リクライニング車いす）' });
+    } else if (moveTypeKey === 'MOVE_STRETCHER') {
+      breakdown.push({ name:'移動方法', price:0, suffix:'（ストレッチャー）' });
+    } else if (moveTypeKey === 'MOVE_OWN_WHEELCHAIR') {
+      breakdown.push({ name:'移動方法', price:0, suffix:'（ご自身の車いす）' });
+    } else if (moveTypeKey === 'MOVE_FREE_WHEELCHAIR') {
+      breakdown.push({ name:'移動方法', price:0, suffix:'（無料車いす）' });
+    }
+  }
 
   if (autoState.appliedBodyAssist){
     total += bodyAssistPrice;
@@ -390,14 +404,13 @@ function calculatePrice(){
 function updateSubmitButton(){
   const privacy = document.getElementById('privacyAgreement').checked;
   const usageType = document.getElementById('usageType').value;
-  const moveType = document.getElementById('moveType') ? document.getElementById('moveType').value : '';
   const customerName = document.getElementById('customerName').value.trim();
   const phoneNumber = document.getElementById('phoneNumber').value.trim();
   const pickupLocation = document.getElementById('pickupLocation').value.trim();
+  const moveType = document.getElementById('moveType').value;
   const assistanceType = document.getElementById('assistanceType').value;
-  const equipmentRental = document.getElementById('equipmentRental').value;
 
-  const isValid = privacy && usageType && moveType && customerName && phoneNumber && pickupLocation && assistanceType && equipmentRental;
+  const isValid = privacy && usageType && customerName && phoneNumber && pickupLocation && moveType && assistanceType;
 
   const submitBtn = document.getElementById('submitBooking');
   if (isValid){
@@ -441,13 +454,13 @@ async function submitBooking(e){
     reservation_id: reservationId,
     reservation_datetime: `${slotDateStr} ${String(selectedSlot.hour).padStart(2,'0')}:${String(selectedSlot.minute).padStart(2,'0')}`,
     usage_type: document.getElementById('usageType').value,
-    move_type: document.getElementById('moveType') ? document.getElementById('moveType').value : '',
     customer_name: document.getElementById('customerName').value.trim(),
     phone_number: document.getElementById('phoneNumber').value.trim(),
     pickup_location: document.getElementById('pickupLocation').value.trim(),
     destination: document.getElementById('destination').value.trim() || '',
     assistance_type: document.getElementById('assistanceType').value,
     stair_assistance: document.getElementById('stairAssistance').value,
+    move_type: document.getElementById('moveType').value,
     equipment_rental: equipmentRental,
     stretcher_two_staff: stretcherTwoStaff,
     round_trip: document.getElementById('roundTrip').value,
@@ -690,7 +703,7 @@ async function init(){
     renderCalendar();
   });
 
-  const formInputs = ['privacyAgreement','usageType','moveType','customerName','phoneNumber','pickupLocation','assistanceType','equipmentRental'];
+  const formInputs = ['privacyAgreement','usageType','customerName','phoneNumber','pickupLocation','moveType','assistanceType'];
   formInputs.forEach(id=>{
     document.getElementById(id).addEventListener('change', updateSubmitButton);
     document.getElementById(id).addEventListener('input', updateSubmitButton);
@@ -699,12 +712,9 @@ async function init(){
   const priceInputs = ['moveType','assistanceType','stairAssistance','equipmentRental','roundTrip'];
   priceInputs.forEach(id=>{
     document.getElementById(id).addEventListener('change', ()=>{
-      if (id === 'moveType') {
-        handleMoveTypeChange();
-      } else {
-        calculatePrice();
-        updateSubmitButton();
-      }
+      if (id === 'moveType') handleMoveTypeChange();
+      calculatePrice();
+      updateSubmitButton();
     });
   });
 
