@@ -447,7 +447,9 @@ function bindUI(){
   document.getElementById('saveMenuMasterBtn').addEventListener('click', async ()=>{
     try{
       const items = buildSaveMenuPayload();
+      const groups = buildSaveMenuGroupPayload();
       await withLoading(async ()=>{
+        await gsRun('api_saveConfig', { menu_group_settings_json: JSON.stringify(groups) });
         await gsRun('api_saveMenuMaster', { items });
         await adminRefreshAllData();
       }, 'メニュー保存中...');

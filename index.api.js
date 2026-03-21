@@ -1,5 +1,5 @@
 const ADMIN_ICON_FILE_ID = '1a0QB8ei00w_lSfL4PnF_xuEFUC2JP6FW';
-const GAS_URL = "https://script.google.com/macros/s/AKfycbz7kOTa2H8Rd1uKrA54M3ofVO9pskZ6S0guMmPQk917NWGNpqUBzxuErzlPQRoubZoL/exec";
+const GAS_URL = "https://script.google.com/macros/s/AKfycbw5CVprU5ZaH6quD5idUnO4vbbSVM0TIEyYmZPFfknGCkCiCW5zKghfT4JL7rtXKVOP/exec";
 const ADMIN_PAGE_URL = "admin.html";
 
 function toast(msg='通信エラー', ms=2200){
