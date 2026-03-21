@@ -1,12 +1,12 @@
-const MENU_GROUP_ORDER = ['price', 'move_type', 'assistance', 'stair', 'equipment', 'round_trip', 'custom'];
+const MENU_GROUP_ORDER = ['price', 'assistance', 'stair', 'equipment', 'round_trip', 'move_type', 'custom'];
 
 function buildMenuAutoApplyOptions(selectedGroup, selectedKey){
   const groupOptions = [
     `<option value="">自動セットなし</option>`,
-    `<option value="move_type" ${selectedGroup === 'move_type' ? 'selected' : ''}>移動方法</option>`,
     `<option value="assistance" ${selectedGroup === 'assistance' ? 'selected' : ''}>介助内容</option>`,
     `<option value="equipment" ${selectedGroup === 'equipment' ? 'selected' : ''}>機材レンタル</option>`,
-    `<option value="round_trip" ${selectedGroup === 'round_trip' ? 'selected' : ''}>往復送迎</option>`
+    `<option value="round_trip" ${selectedGroup === 'round_trip' ? 'selected' : ''}>往復送迎</option>`,
+    `<option value="move_type" ${selectedGroup === 'move_type' ? 'selected' : ''}>移動方法</option>`
   ].join('');
 
   let keyCandidates = [];
@@ -81,11 +81,11 @@ function resequenceMenuSortOrderByGroup(){
 
 function getGroupDescription(group){
   if (group === 'price') return '料金概算の基本項目';
-  if (group === 'move_type') return '予約フォームの「移動方法」';
   if (group === 'assistance') return '予約フォームの「介助内容」';
   if (group === 'stair') return '予約フォームの「階段介助」';
   if (group === 'equipment') return '予約フォームの「機材レンタル」';
   if (group === 'round_trip') return '予約フォームの「往復送迎」';
+  if (group === 'move_type') return '予約フォームの「移動方法」';
   return '保存のみ';
 }
 
