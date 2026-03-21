@@ -1,4 +1,7 @@
-
 function initCalendar(){
-  // 既存ロジック保持 placeholder
+  if(typeof renderCalendar === "function"){
+    renderCalendar();
+  }else{
+    console.error("renderCalendarが未定義");
+  }
 }
