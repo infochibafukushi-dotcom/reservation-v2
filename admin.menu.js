@@ -1,4 +1,4 @@
-const MENU_GROUP_ORDER = ['price', 'assistance', 'stair', 'equipment', 'round_trip', 'custom'];
+const MENU_GROUP_ORDER = ['price', 'move_type', 'assistance', 'stair', 'equipment', 'round_trip', 'custom'];
 
 function buildMenuAutoApplyOptions(selectedGroup, selectedKey){
   const groupOptions = [
@@ -80,6 +80,7 @@ function resequenceMenuSortOrderByGroup(){
 
 function getGroupDescription(group){
   if (group === 'price') return '料金概算の基本項目';
+  if (group === 'move_type') return '予約フォームの最初の選択（無料車いす / リクライニング車いす / ストレッチャー / ご自身の車いす）';
   if (group === 'assistance') return '予約フォームの「介助内容」';
   if (group === 'stair') return '予約フォームの「階段介助」';
   if (group === 'equipment') return '予約フォームの「機材レンタル」';
