@@ -49,9 +49,48 @@ function buildAdminSlots(){
   return { regularSlots, otherSlots };
 }
 
+function adminCeilToNext30Min(dt){
+  const rounded = new Date(dt.getTime());
+  rounded.setSeconds(0, 0);
+
+  const minute = rounded.getMinutes();
+  const mod = minute % 30;
+
+  if (mod !== 0) {
+    rounded.setMinutes(minute + (30 - mod), 0, 0);
+  }
+
+  return rounded;
+}
+
+function isAdminSameDayAutoBlocked(dateObj, hour, minute){
+  const dateStr = ymdLocal(dateObj);
+  if (String(adminConfig.same_day_enabled || '0') !== '1') return false;
+
+  const todayStr = ymdLocal(new Date());
+  if (dateStr !== todayStr) return false;
+
+  const minHours = Number(adminConfig.same_day_min_hours || 3);
+  const threshold = new Date(Date.now() + minHours * 60 * 60 * 1000);
+  const rounded = adminCeilToNext30Min(threshold);
+  const slotDt = new Date(
+    dateObj.getFullYear(),
+    dateObj.getMonth(),
+    dateObj.getDate(),
+    Number(hour),
+    Number(minute || 0),
+    0,
+    0
+  );
+
+  return slotDt.getTime() < rounded.getTime();
+}
+
 function isAdminSlotBlocked(dateObj, hour, minute){
   const key = `${ymdLocal(dateObj)}-${hour}-${minute}`;
-  return adminBlockedSlots.has(key) || adminReservedSlots.has(key);
+  if (adminBlockedSlots.has(key) || adminReservedSlots.has(key)) return true;
+  if (isAdminSameDayAutoBlocked(dateObj, hour, minute)) return true;
+  return false;
 }
 
 function renderAdminCalendar(){
