@@ -470,7 +470,7 @@
           <p id="selectedSlotInfo" class="text-emerald-100 text-sm font-medium"></p>
         </div>
 
-        <form id="bookingForm" class="p-6 space-y-5">
+        <form id="bookingForm" class="p-6 space-y-6">
           <div class="bg-gradient-to-r from-pink-50 to-purple-50 border-2 border-pink-200 rounded-xl p-4">
             <label class="flex items-start gap-3 cursor-pointer">
               <input type="checkbox" id="privacyAgreement" class="mt-1 w-5 h-5 accent-pink-500 flex-shrink-0">
@@ -482,13 +482,12 @@
           </div>
 
           <div class="bg-white rounded-2xl border-2 border-emerald-100 p-5">
-            <h3 class="form-label text-base mb-4 flex items-center gap-2 text-emerald-700">
+            <h3 class="form-label text-base mb-5 flex items-center gap-2 text-emerald-700">
               <span id="basicSectionTitle" class="text-lg">基本情報</span>
               <span id="basicSectionBadge" class="text-xs text-gray-500">必須項目</span>
             </h3>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div class="form-group md:col-span-1">
+            <div class="space-y-5">
+              <div class="form-group">
                 <label id="usageTypeLabel" class="form-label">ご利用区分 <span class="required">*</span></label>
                 <select id="usageType" class="w-full">
                   <option value="">選択してください</option>
@@ -496,50 +495,45 @@
                   <option value="2回目以上">2回目以上</option>
                 </select>
               </div>
-
-              <div class="form-group md:col-span-1">
+              <div class="form-group">
                 <label id="customerNameLabel" class="form-label">お名前(カタカナ) <span class="required">*</span></label>
                 <input type="text" id="customerName" placeholder="ヤマダ タロウ">
               </div>
-
-              <div class="form-group md:col-span-1">
+              <div class="form-group">
                 <label id="phoneLabel" class="form-label">連絡先(電話番号) <span class="required">*</span></label>
                 <input type="tel" id="phoneNumber" placeholder="090-1234-5678">
               </div>
-
-              <div class="form-group md:col-span-1">
+              <div class="form-group">
                 <label id="pickupLabel" class="form-label">お伺い場所または施設名 <span class="required">*</span></label>
-                <input type="text" id="pickupLocation" placeholder="千葉市○○区○○、○○病院、○○施設 など">
+                <input type="text" id="pickupLocation" placeholder="東京都渋谷区...">
               </div>
             </div>
           </div>
 
           <div class="bg-white rounded-2xl border-2 border-sky-100 p-5">
-            <h3 class="form-label text-base mb-4 flex items-center gap-2 text-sky-700">
-              <span id="optionalSectionTitle" class="text-lg">送迎先・備考</span>
+            <h3 class="form-label text-base mb-5 flex items-center gap-2 text-sky-700">
+              <span id="optionalSectionTitle" class="text-lg">追加情報</span>
               <span id="optionalSectionBadge" class="text-xs text-gray-500">任意項目</span>
             </h3>
-
-            <div class="space-y-4">
+            <div class="space-y-5">
               <div class="form-group">
                 <label id="destinationLabel" class="form-label">送迎先住所または施設名</label>
-                <input type="text" id="destination" placeholder="病院、クリニック、ご自宅、施設 など">
+                <input type="text" id="destination" placeholder="病院、クリニック など">
               </div>
-
               <div class="form-group">
                 <label id="notesLabel" class="form-label">ご要望・備考</label>
-                <textarea id="notes" rows="3" placeholder="診療科、建物名、車いすの有無、ご要望など"></textarea>
+                <textarea id="notes" rows="3" placeholder="その他ご要望があればご記入ください"></textarea>
               </div>
             </div>
           </div>
 
           <div class="bg-white rounded-2xl border-2 border-purple-100 p-5">
-            <h3 class="form-label text-base mb-4 flex items-center gap-2 text-purple-700">
-              <span id="serviceSectionTitle" class="text-lg">ご予約内容</span>
+            <h3 class="form-label text-base mb-5 flex items-center gap-2 text-purple-700">
+              <span id="serviceSectionTitle" class="text-lg">サービス選択</span>
               <span id="serviceSectionBadge" class="text-xs text-gray-500">必須項目</span>
             </h3>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="space-y-5">
               <div class="bg-yellow-50 border-2 border-yellow-200 rounded-xl p-4">
                 <label id="assistanceLabel" class="form-label">介助内容 <span class="required">*</span></label>
                 <select id="assistanceType" class="w-full"></select>
