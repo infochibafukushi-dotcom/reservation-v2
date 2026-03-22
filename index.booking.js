@@ -380,6 +380,21 @@ function isPublicGroupRequired(groupKey){
   return true;
 }
 
+
+function isPublicGroupVisible(groupKey){
+  const key = String(groupKey || '').trim();
+  if (!key) return false;
+  if (['price','custom','auto_set'].includes(key)) return false;
+  try{
+    const visibility = getPublicMenuGroupVisibilityConfig();
+    if (visibility && Object.prototype.hasOwnProperty.call(visibility, key)){
+      const v = visibility[key];
+      return v === true || v === 1 || String(v) === '1' || String(v).toUpperCase() === 'TRUE';
+    }
+  }catch(_){ }
+  return true;
+}
+
 function updateSubmitButton(){
   try{ applyAutoSelections(); }catch(_){ }
 
@@ -399,6 +414,7 @@ function updateSubmitButton(){
 
   const requiredGroups = ['move_type','assistance','stair','equipment','round_trip'];
   const groupsValid = requiredGroups.every((groupKey)=>{
+    if (!isPublicGroupVisible(groupKey)) return true;
     if (!isPublicGroupRequired(groupKey)) return true;
     return !!groupValues[groupKey];
   });
