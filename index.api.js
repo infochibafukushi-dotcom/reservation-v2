@@ -1,5 +1,5 @@
 const ADMIN_ICON_FILE_ID = '1a0QB8ei00w_lSfL4PnF_xuEFUC2JP6FW';
-const GAS_URL = "https://script.google.com/macros/s/AKfycbw5CVprU5ZaH6quD5idUnO4vbbSVM0TIEyYmZPFfknGCkCiCW5zKghfT4JL7rtXKVOP/exec";
+const GAS_URL = "https://script.google.com/macros/s/AKfycbxLifJts5ZeIHajhgXvg1EQECjI7mv9R0F6DhkiMAQzvYlaOWsVgRxKDxeBri9JJrij/exec";
 const ADMIN_PAGE_URL = "admin.html";
 
 function toast(msg='通信エラー', ms=2200){
@@ -247,7 +247,7 @@ function hydratePublicCacheForFastPaint(){
   return bootLoaded || blockedLoaded;
 }
 
-const TRIGGER_URL = 'https://script.google.com/macros/s/AKfycbxr09I3uVlNzfCc7L3s4q9NyASKL10aGlss03xT3aTMItRfCZRKz6Ggs6KwgXlt5J2W/exec?secret=secret1';
+const TRIGGER_URL = 'https://script.google.com/macros/s/AKfycbxLifJts5ZeIHajhgXvg1EQECjI7mv9R0F6DhkiMAQzvYlaOWsVgRxKDxeBri9JJrij/exec?secret=secret1';
 
 function fireTrigger(){
   try{

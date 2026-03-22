@@ -1,4 +1,4 @@
-const GAS_URL = "https://script.google.com/macros/s/AKfycbw5CVprU5ZaH6quD5idUnO4vbbSVM0TIEyYmZPFfknGCkCiCW5zKghfT4JL7rtXKVOP/exec";
+const GAS_URL = "https://script.google.com/macros/s/AKfycbxLifJts5ZeIHajhgXvg1EQECjI7mv9R0F6DhkiMAQzvYlaOWsVgRxKDxeBri9JJrij/exec";
 const PUBLIC_PAGE_URL = "index.html";
 
 function toast(msg='通信エラー', ms=2200){
@@ -90,6 +90,11 @@ async function _jsonpCallWithRetry(url, retryCount = 1, timeoutMs = 20000){
   throw lastError || new Error('JSONP error');
 }
 
+function _buildGetUrl(path){
+  const sep = path.includes('?') ? '&' : '?';
+  return path + sep + 't=' + Date.now();
+}
+
 async function _postJson(action, payload){
   const res = await fetch(GAS_URL, {
     method: 'POST',
@@ -116,13 +121,25 @@ const gsRun = async (func, ...args) => {
   let data = null;
 
   if (func === 'api_getConfig') {
-    data = await _jsonpCallWithRetry(`${GAS_URL}?action=getConfig`, 1, 20000);
+    data = await _jsonpCallWithRetry(_buildGetUrl(`${GAS_URL}?action=getConfig`), 1, 20000);
   } else if (func === 'api_getInitData') {
-    data = await _jsonpCallWithRetry(`${GAS_URL}?action=getInitData`, 1, 25000);
+    data = await _jsonpCallWithRetry(_buildGetUrl(`${GAS_URL}?action=getInitData`), 1, 25000);
+  } else if (func === 'api_getAdminBootstrap') {
+    data = await _jsonpCallWithRetry(_buildGetUrl(`${GAS_URL}?action=getAdminBootstrap`), 1, 15000);
+  } else if (func === 'api_getReservationsRange') {
+    const payload = args[0] || {};
+    const start = encodeURIComponent(String(payload.start || ''));
+    const end = encodeURIComponent(String(payload.end || ''));
+    data = await _jsonpCallWithRetry(_buildGetUrl(`${GAS_URL}?action=getReservationsRange&start=${start}&end=${end}`), 1, 15000);
+  } else if (func === 'api_getBlocksRange') {
+    const payload = args[0] || {};
+    const start = encodeURIComponent(String(payload.start || ''));
+    const end = encodeURIComponent(String(payload.end || ''));
+    data = await _jsonpCallWithRetry(_buildGetUrl(`${GAS_URL}?action=getBlocksRange&start=${start}&end=${end}`), 1, 15000);
   } else if (func === 'api_getMenuKeyCatalog') {
-    data = await _jsonpCallWithRetry(`${GAS_URL}?action=getMenuKeyCatalog`, 1, 20000);
+    data = await _jsonpCallWithRetry(_buildGetUrl(`${GAS_URL}?action=getMenuKeyCatalog`), 1, 20000);
   } else if (func === 'api_getMenuGroupCatalog') {
-    data = await _jsonpCallWithRetry(`${GAS_URL}?action=getMenuGroupCatalog`, 1, 20000);
+    data = await _jsonpCallWithRetry(_buildGetUrl(`${GAS_URL}?action=getMenuGroupCatalog`), 1, 20000);
   } else if (func === 'api_toggleBlock') {
     data = await _postJson('toggleBlock', args[0]);
   } else if (func === 'api_setRegularDayBlocked') {
@@ -241,51 +258,11 @@ const ADMIN_MENU_GROUPS = [
   { key: 'stair', label: '階段介助' },
   { key: 'equipment', label: '機材レンタル' },
   { key: 'round_trip', label: '往復送迎' },
-  { key: 'move_type', label: '移動方法' },
   { key: 'custom', label: 'その他（表示先なし）' }
 ];
 
-
-function safeJsonParse(text, fallback){
-  try{
-    const parsed = JSON.parse(String(text || ''));
-    return parsed === undefined || parsed === null ? fallback : parsed;
-  }catch(_){
-    return fallback;
-  }
-}
-
-function getAdminResolvedGroupCatalog(){
-  const baseCatalog = Array.isArray(adminMenuGroupCatalog) && adminMenuGroupCatalog.length
-    ? adminMenuGroupCatalog
-    : ADMIN_MENU_GROUPS;
-
-  const savedCatalog = safeJsonParse(adminConfig && adminConfig.menu_group_catalog_json, []);
-  const map = {};
-
-  (baseCatalog || []).forEach(group => {
-    const key = String(group && group.key || '').trim();
-    if (!key) return;
-    map[key] = {
-      key: key,
-      label: String(group && group.label || key).trim()
-    };
-  });
-
-  (savedCatalog || []).forEach(group => {
-    const key = String(group && group.key || '').trim();
-    if (!key) return;
-    map[key] = {
-      key: key,
-      label: String(group && group.label || map[key]?.label || key).trim()
-    };
-  });
-
-  return Object.keys(map).map(key => map[key]);
-}
-
 function getAdminGroupLabel(key){
-  const found = getAdminResolvedGroupCatalog().find(g => String(g.key) === String(key));
+  const found = (adminMenuGroupCatalog || ADMIN_MENU_GROUPS).find(g => String(g.key) === String(key));
   return found ? found.label : key;
 }
 
