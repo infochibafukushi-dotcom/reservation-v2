@@ -202,47 +202,37 @@ function hasBookingSelectOptionsReady(){
   const moveTypeReady = !!(moveTypeEl && moveTypeEl.options && moveTypeEl.options.length > 1);
   const assistanceReady = !!(assistanceEl && assistanceEl.options && assistanceEl.options.length > 1);
   const stairReady = !!(stairEl && stairEl.options && stairEl.options.length > 0);
-  const equipmentReady = !!(equipmentEl && equipmentEl.options && equipmentEl.options.length > 0);
+  const equipmentReady = !!(equipmentEl && equipmentEl.options && equipmentEl.options.length >= 1);
   const roundTripReady = !!(roundTripEl && roundTripEl.options && roundTripEl.options.length > 0);
 
   return moveTypeReady && assistanceReady && stairReady && equipmentReady && roundTripReady;
 }
 
-function softRenderBookingFormOptions(){
-  try {
-    renderServiceSelectors();
-  } catch (_) {}
-}
 
 async function ensureBookingFormOptionsReady(){
   if (hasBookingSelectOptionsReady()) return true;
 
-  softRenderBookingFormOptions();
-  if (hasBookingSelectOptionsReady()) return true;
-
-  try {
+  try{
     await refreshAllData(true);
-  } catch (_) {}
+  }catch(_){ }
 
-  softRenderBookingFormOptions();
+  try{
+    renderServiceSelectors();
+  }catch(_){ }
+
   if (hasBookingSelectOptionsReady()) return true;
 
-  try {
-    await sleep(150);
-  } catch (_) {}
+  try{
+    await sleep(250);
+    renderServiceSelectors();
+  }catch(_){ }
 
-  softRenderBookingFormOptions();
   return hasBookingSelectOptionsReady();
 }
 
 async function openBookingForm(date, hour, minute=0){
-  let ready = await ensureBookingFormOptionsReady();
+  const ready = await ensureBookingFormOptionsReady();
   if (!ready){
-    softRenderBookingFormOptions();
-    ready = hasBookingSelectOptionsReady();
-  }
-
-  if (!ready && (!Array.isArray(menuMaster) || menuMaster.length === 0)){
     toast('フォーム読込中です。少し待ってからもう一度お試しください');
     return;
   }
@@ -803,9 +793,20 @@ function applyPublicServiceGroupLayout(){
   });
 }
 
+function getMoveTypeItemsPatched(){
+  const primary = getItemsByGroup('move_type');
+  if (Array.isArray(primary) && primary.length) return primary;
+  const fallback = getItemsByGroup('equipment');
+  return Array.isArray(fallback) ? fallback.filter(item => {
+    const key = String(item && item.key || '').trim();
+    if (!key) return false;
+    return /WHEELCHAIR|RECLINING|STRETCHER|OWN/i.test(key);
+  }) : [];
+}
+
 const _renderServiceSelectorsOriginal = renderServiceSelectors;
 renderServiceSelectors = function(){
-  const moveTypeItems = getItemsByGroup('move_type');
+  const moveTypeItems = getMoveTypeItemsPatched();
   const moveTypeEl = document.getElementById('moveType');
 
   _renderServiceSelectorsOriginal();
