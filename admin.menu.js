@@ -368,13 +368,13 @@ function renderMenuGroupCard(group){
           <div class="menu-group-card-sub">${escapeHtml(getMenuGroupDescription(group))}</div>
         </div>
 
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 shrink-0">
           <button class="cute-btn px-3 py-2 ${visible ? 'text-emerald-600' : 'text-slate-500'}" data-action="toggleGroupVisibility" data-group="${escapeHtml(group)}" type="button" ${isFixedMenuGroup(group) ? 'disabled' : ''}>
             ${isFixedMenuGroup(group) ? '固定表示' : (visible ? '公開表示' : '非表示')}
           </button>
-          <button class="move-btn" data-action="groupUp" data-group="${escapeHtml(group)}" type="button" ${isFixedMenuGroup(group) || groupIndex <= 1 ? 'disabled' : ''}>↑</button>
-          <button class="move-btn" data-action="groupDown" data-group="${escapeHtml(group)}" type="button" ${isFixedMenuGroup(group) || groupIndex < 1 || groupIndex >= order.length - 1 ? 'disabled' : ''}>↓</button>
-          <button class="move-btn" data-action="menuAddInGroup" data-group="${escapeHtml(group)}" type="button">＋</button>
+          <button class="cute-btn px-3 py-2" data-action="groupUp" data-group="${escapeHtml(group)}" type="button" ${isFixedMenuGroup(group) || groupIndex <= 1 ? 'disabled' : ''}>↑</button>
+          <button class="cute-btn px-3 py-2" data-action="groupDown" data-group="${escapeHtml(group)}" type="button" ${isFixedMenuGroup(group) || groupIndex < 1 || groupIndex >= order.length - 1 ? 'disabled' : ''}>↓</button>
+          <button class="cute-btn px-3 py-2" data-action="menuAddInGroup" data-group="${escapeHtml(group)}" type="button">＋</button>
           <div class="menu-group-card-toggle" data-menu-group-toggle="${escapeHtml(group)}">${open ? '−' : '＋'}</div>
         </div>
       </div>
@@ -568,6 +568,7 @@ function bindMenuEvents(){
 
   wrap.addEventListener('click', (e)=>{
     const btn = e.target.closest('[data-action]');
+    if (btn && btn !== e.target.closest('.menu-group-card-header')) { e.stopPropagation(); }
     if (!btn) return;
 
     const action = String(btn.dataset.action || '');
