@@ -242,42 +242,6 @@ function getMenuGroupIndex(group){
   return getEffectiveMenuGroupOrder().findIndex(key => String(key) === String(group || ''));
 }
 
-
-function isMenuGroupDeletable(group){
-  const key = String(group || '').trim();
-  if (!key || isFixedMenuGroup(key)) return false;
-  const items = getMenuItemsByGroup(key);
-  if (items.length > 0) return false;
-  return true;
-}
-
-function deleteMenuGroup(group){
-  const key = String(group || '').trim();
-  if (!isMenuGroupDeletable(key)) return false;
-
-  const label = getGroupLabelByKey(key) || key;
-  const ok = window.confirm(`「${label}」を削除します。よろしいですか？`);
-  if (!ok) return false;
-
-  const catalog = getStoredMenuGroupCatalog().filter(item => String(item && item.key || '').trim() !== key);
-  adminConfig.menu_group_catalog_json = JSON.stringify(catalog);
-
-  const order = getEffectiveMenuGroupOrder().filter(groupKey => String(groupKey || '').trim() !== key);
-  adminConfig.menu_group_order_json = JSON.stringify(order);
-
-  const visibility = cloneMenuObject(getStoredMenuGroupVisibility());
-  delete visibility[key];
-  adminConfig.menu_group_visibility_json = JSON.stringify(visibility);
-
-  const state = ensureMenuOpenStateStore();
-  delete state[key];
-
-  adminMenuGroupCatalog = getAdminResolvedGroupCatalog();
-  renderMenuAdminList();
-  toast('空のグループを削除しました');
-  return true;
-}
-
 function moveMenuGroup(group, direction){
   const target = String(group || '').trim();
   if (!target || isFixedMenuGroup(target)) return;
@@ -405,6 +369,14 @@ function renderMenuGroupCard(group){
   const visible = isFixedMenuGroup(group) ? true : isMenuGroupVisible(group);
   const groupIndex = getMenuGroupIndex(group);
   const order = getEffectiveMenuGroupOrder();
+  const groupRequired = isMenuGroupRequired(group);
+  const showGroupRequired = isPublicMenuGroup(group) && !['price','custom','auto_set'].includes(String(group || '').trim());
+  const requiredControl = showGroupRequired ? `
+          <select class="cute-select px-3 py-2" data-action="setGroupRequired" data-group="${escapeHtml(group)}">
+            <option value="1" ${groupRequired ? 'selected' : ''}>必須</option>
+            <option value="0" ${!groupRequired ? 'selected' : ''}>任意</option>
+          </select>
+  ` : '';
 
   return `
     <div class="menu-group-card" data-menu-group="${escapeHtml(group)}">
@@ -415,13 +387,13 @@ function renderMenuGroupCard(group){
         </div>
 
         <div class="flex items-center gap-2">
+          ${requiredControl}
           <button class="cute-btn px-3 py-2 ${visible ? 'text-emerald-600' : 'text-slate-500'}" data-action="toggleGroupVisibility" data-group="${escapeHtml(group)}" type="button" ${isFixedMenuGroup(group) ? 'disabled' : ''}>
             ${isFixedMenuGroup(group) ? '固定表示' : (visible ? '公開表示' : '非表示')}
           </button>
           <button class="move-btn" data-action="groupUp" data-group="${escapeHtml(group)}" type="button" ${isFixedMenuGroup(group) || groupIndex <= 1 ? 'disabled' : ''}>↑</button>
           <button class="move-btn" data-action="groupDown" data-group="${escapeHtml(group)}" type="button" ${isFixedMenuGroup(group) || groupIndex < 1 || groupIndex >= order.length - 1 ? 'disabled' : ''}>↓</button>
           <button class="move-btn" data-action="menuAddInGroup" data-group="${escapeHtml(group)}" type="button">＋</button>
-          ${isMenuGroupDeletable(group) ? `<button class="move-btn" data-action="groupDelete" data-group="${escapeHtml(group)}" type="button" title="空のグループを削除">🗑</button>` : ''}
           <div class="menu-group-card-toggle" data-menu-group-toggle="${escapeHtml(group)}">${open ? '−' : '＋'}</div>
         </div>
       </div>
@@ -651,11 +623,6 @@ function bindMenuEvents(){
       return;
     }
 
-    if (action === 'groupDelete'){
-      deleteMenuGroup(group);
-      return;
-    }
-
     if (action === 'menuUp'){
       moveMenuItemWithinGroup(key, 'up');
       return;
@@ -701,6 +668,13 @@ function bindMenuEvents(){
 
   wrap.addEventListener('change', (e)=>{
     const el = e.target;
+    const action = String(el.dataset.action || '');
+    const group = String(el.dataset.group || '');
+    if (action === 'setGroupRequired' && group){
+      setMenuGroupRequired(group, String(el.value || '1') === '1');
+      return;
+    }
+
     const key = String(el.dataset.key || '');
     const field = String(el.dataset.field || '');
     const idx = findMenuIndexByKey(key);
@@ -760,9 +734,12 @@ function buildMenuGroupConfigPayload(){
   const visibility = cloneMenuObject(getStoredMenuGroupVisibility());
   const order = getEffectiveMenuGroupOrder().slice();
 
+  const requiredMap = cloneMenuObject(getStoredMenuGroupRequiredMap());
+
   return {
     menu_group_catalog_json: JSON.stringify(catalog),
     menu_group_visibility_json: JSON.stringify(visibility),
-    menu_group_order_json: JSON.stringify(order)
+    menu_group_order_json: JSON.stringify(order),
+    menu_group_required_json: JSON.stringify(requiredMap)
   };
 }

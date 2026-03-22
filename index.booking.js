@@ -87,14 +87,12 @@ function getSelectedOptionKey(selectId){
 function findAutoApplyFromMenu(targetGroup, triggerKey){
   if (!targetGroup || !triggerKey) return null;
 
-  const menuPairs = (typeof getMenuAutoApplyPairs === 'function') ? getMenuAutoApplyPairs(triggerKey) : [];
-  const visiblePair = menuPairs.find(function(pair){
-    return !!pair && isVisibleFormGroup(pair.apply_group);
-  });
-  if (visiblePair) {
+  const menuGroup = getMenuAutoApplyGroup(triggerKey);
+  const menuKey = getMenuAutoApplyKey(triggerKey);
+  if (menuGroup && menuKey) {
     return {
-      apply_group: String(visiblePair.apply_group || ''),
-      apply_key: String(visiblePair.apply_key || '')
+      apply_group: menuGroup,
+      apply_key: menuKey
     };
   }
 
@@ -119,97 +117,6 @@ function setSelectValueByKey(selectId, key){
 
   select.value = found.value;
   return true;
-}
-
-function getMenuItemByKey(key){
-  const map = getMenuMap();
-  return map[String(key || '').trim()] || null;
-}
-
-function getVisibleFormGroupKeys(){
-  return ['move_type', 'assistance', 'stair', 'equipment', 'round_trip'];
-}
-
-function isVisibleFormGroup(groupKey){
-  return getVisibleFormGroupKeys().includes(String(groupKey || '').trim());
-}
-
-function collectSelectedMenuKeysForAutoApply(){
-  const keys = [];
-  const moveTypeKey = getSelectedOptionKey('moveType');
-  const assistanceKey = getSelectedOptionKey('assistanceType');
-  const stairKey = getSelectedOptionKey('stairAssistance');
-  const equipmentKey = getSelectedOptionKey('equipmentRental');
-  const roundTripKey = getSelectedOptionKey('roundTrip');
-
-  [moveTypeKey, assistanceKey, stairKey, equipmentKey, roundTripKey].forEach(function(key){
-    const value = String(key || '').trim();
-    if (!value) return;
-    if (keys.includes(value)) return;
-    keys.push(value);
-  });
-
-  return keys;
-}
-
-function resolveHiddenAutoAppliedItems(baseKeys){
-  const queue = Array.isArray(baseKeys) ? baseKeys.slice() : [];
-  const seen = new Set();
-  const hiddenItems = [];
-  const hiddenKeys = new Set();
-  const ruleSeen = new Set();
-  let guard = 0;
-
-  while (queue.length && guard < 50){
-    guard += 1;
-    const triggerKey = String(queue.shift() || '').trim();
-    if (!triggerKey || seen.has(triggerKey)) continue;
-    seen.add(triggerKey);
-
-    const item = getMenuItemByKey(triggerKey);
-    const targetGroup = String(item && item.menu_group || '').trim();
-
-    const candidates = [];
-    const menuPairs = (typeof getMenuAutoApplyPairs === 'function') ? getMenuAutoApplyPairs(triggerKey) : [];
-    menuPairs.forEach(function(pair){
-      const applyGroup = String(pair && pair.apply_group || '').trim();
-      const applyKey = String(pair && pair.apply_key || '').trim();
-      if (!applyGroup || !applyKey) return;
-      candidates.push({ apply_group: applyGroup, apply_key: applyKey });
-    });
-
-    if (targetGroup){
-      const rule = getAutoRuleByTrigger(targetGroup, triggerKey);
-      if (rule && rule.apply_group && rule.apply_key){
-        const ruleMark = [String(rule.target || ''), String(rule.trigger_key || ''), String(rule.apply_group || ''), String(rule.apply_key || '')].join('::');
-        if (!ruleSeen.has(ruleMark)){
-          ruleSeen.add(ruleMark);
-          candidates.push({ apply_group: String(rule.apply_group || '').trim(), apply_key: String(rule.apply_key || '').trim() });
-        }
-      }
-    }
-
-    candidates.forEach(function(candidate){
-      const applyGroup = String(candidate && candidate.apply_group || '').trim();
-      const applyKey = String(candidate && candidate.apply_key || '').trim();
-      if (!applyGroup || !applyKey) return;
-      if (isVisibleFormGroup(applyGroup)) return;
-
-      const appliedItem = getMenuItemByKey(applyKey);
-      if (!appliedItem) return;
-      if (!hiddenKeys.has(applyKey)){
-        hiddenKeys.add(applyKey);
-        hiddenItems.push(appliedItem);
-      }
-      queue.push(applyKey);
-    });
-  }
-
-  return hiddenItems;
-}
-
-function getCurrentAutoAppliedHiddenItems(){
-  return resolveHiddenAutoAppliedItems(collectSelectedMenuKeysForAutoApply());
 }
 
 function applyAutoSelections(){
@@ -260,14 +167,13 @@ function applyAutoSelections(){
       }
     }
 
-    const menuPairs = (typeof getMenuAutoApplyPairs === 'function') ? getMenuAutoApplyPairs('EQUIP_STRETCHER') : [];
-    if (menuPairs.some(function(pair){
-      return String(pair && pair.apply_group || '') === 'auto_set' && String(pair && pair.apply_key || '') === 'EQUIP_STRETCHER_STAFF2';
-    })) {
+    const equipmentMap = getMenuMap();
+    const stretcherMenu = equipmentMap['EQUIP_STRETCHER'];
+    if (stretcherMenu && String(stretcherMenu.auto_apply_group || '') === 'equipment' && String(stretcherMenu.auto_apply_key || '') === 'EQUIP_STRETCHER_STAFF2'){
       appliedStaff2 = true;
     } else {
       const staffRule = getAutoRuleByTrigger('equipment', 'EQUIP_STRETCHER');
-      if (staffRule && String(staffRule.apply_group || '') === 'auto_set' && String(staffRule.apply_key || '') === 'EQUIP_STRETCHER_STAFF2'){
+      if (staffRule && String(staffRule.apply_group || '') === 'equipment' && String(staffRule.apply_key || '') === 'EQUIP_STRETCHER_STAFF2'){
         appliedStaff2 = true;
       } else if (String(config.rule_force_stretcher_staff2_on_stretcher || '1') === '1'){
         appliedStaff2 = true;
@@ -437,18 +343,6 @@ function calculatePrice(){
     breakdown.push({ name:getMenuLabel('ROUND_HOSPITAL', '病院付き添い'), price:hospitalEscortPrice, suffix:' から/30分毎' });
   }
 
-  const hiddenAutoItems = getCurrentAutoAppliedHiddenItems();
-  hiddenAutoItems.forEach(function(item){
-    const price = Number(item && item.price || 0);
-    total += price;
-    breakdown.push({
-      name: String(item && item.label || item && item.key || '自動セット'),
-      price: price,
-      suffix: '',
-      is_internal_auto: true
-    });
-  });
-
   const breakdownEl = document.getElementById('priceBreakdown');
   breakdownEl.innerHTML = breakdown.map(item => `
     <div class="price-item">
@@ -458,15 +352,6 @@ function calculatePrice(){
   `).join('');
 
   document.getElementById('totalPrice').textContent = `${total.toLocaleString()}円`;
-  window.__currentBookingPriceBreakdown = breakdown.slice();
-  window.__currentBookingHiddenAutoItems = hiddenAutoItems.map(function(item){
-    return {
-      key: String(item && item.key || ''),
-      label: String(item && item.label || ''),
-      price: Number(item && item.price || 0),
-      menu_group: String(item && item.menu_group || '')
-    };
-  });
   return total;
 }
 
@@ -476,10 +361,10 @@ function updateSubmitButton(){
   const customerName = document.getElementById('customerName').value.trim();
   const phoneNumber = document.getElementById('phoneNumber').value.trim();
   const pickupLocation = document.getElementById('pickupLocation').value.trim();
-  const assistanceType = document.getElementById('assistanceType').value;
-  const equipmentRental = document.getElementById('equipmentRental').value;
 
-  const isValid = privacy && usageType && customerName && phoneNumber && pickupLocation && assistanceType && equipmentRental;
+  const requiredGroups = ['move_type','assistance','stair','equipment','round_trip'];
+  const serviceValid = requiredGroups.every(isPublicGroupSelectionSatisfied);
+  const isValid = privacy && usageType && customerName && phoneNumber && pickupLocation && serviceValid;
 
   const submitBtn = document.getElementById('submitBooking');
   if (isValid){
@@ -519,23 +404,6 @@ async function submitBooking(e){
 
   const slotDateStr = ymdLocal(selectedSlot.date);
 
-  const hiddenAutoItems = Array.isArray(window.__currentBookingHiddenAutoItems) ? window.__currentBookingHiddenAutoItems.slice() : getCurrentAutoAppliedHiddenItems().map(function(item){
-    return {
-      key: String(item && item.key || ''),
-      label: String(item && item.label || ''),
-      price: Number(item && item.price || 0),
-      menu_group: String(item && item.menu_group || '')
-    };
-  });
-  const hiddenAutoSummary = hiddenAutoItems.map(function(item){
-    return `${String(item.label || item.key || '自動セット')}(${Number(item.price || 0).toLocaleString()}円)`;
-  }).join(' / ');
-  const notesRaw = document.getElementById('notes').value.trim() || '';
-  const notes = hiddenAutoSummary
-    ? (notesRaw ? `${notesRaw}
-[自動セット] ${hiddenAutoSummary}` : `[自動セット] ${hiddenAutoSummary}`)
-    : notesRaw;
-
   const reservation = {
     reservation_id: reservationId,
     reservation_datetime: `${slotDateStr} ${String(selectedSlot.hour).padStart(2,'0')}:${String(selectedSlot.minute).padStart(2,'0')}`,
@@ -549,7 +417,7 @@ async function submitBooking(e){
     equipment_rental: equipmentRental,
     stretcher_two_staff: stretcherTwoStaff,
     round_trip: document.getElementById('roundTrip').value,
-    notes: notes,
+    notes: document.getElementById('notes').value.trim() || '',
     total_price: total,
     status: '未対応',
     slot_date: slotDateStr,
@@ -633,10 +501,7 @@ function applyConfigToUI(){
   document.getElementById('notesLabel').textContent = config.form_notes_label || defaultConfig.form_notes_label;
   document.getElementById('serviceSectionTitle').textContent = config.form_service_section_title || defaultConfig.form_service_section_title;
   document.getElementById('serviceSectionBadge').textContent = config.form_service_section_badge || defaultConfig.form_service_section_badge;
-  document.getElementById('assistanceLabel').innerHTML = `${escapeHtml(config.form_assistance_label || defaultConfig.form_assistance_label)} <span class="required">*</span>`;
-  document.getElementById('stairLabel').innerHTML = `${escapeHtml(config.form_stair_label || defaultConfig.form_stair_label)} <span class="required">*</span>`;
-  document.getElementById('equipmentLabel').innerHTML = `${escapeHtml(config.form_equipment_label || defaultConfig.form_equipment_label)} <span class="required">*</span>`;
-  document.getElementById('roundTripLabel').innerHTML = `${escapeHtml(config.form_round_trip_label || defaultConfig.form_round_trip_label)} <span class="required">*</span>`;
+  applyPublicRequiredLabels();
   document.getElementById('priceSectionTitle').textContent = config.form_price_section_title || defaultConfig.form_price_section_title;
   document.getElementById('priceTotalLabel').textContent = config.form_price_total_label || defaultConfig.form_price_total_label;
   document.getElementById('priceNoticeText').textContent = config.form_price_notice_text || defaultConfig.form_price_notice_text;
@@ -857,6 +722,75 @@ function getPublicMenuGroupVisibilityConfig(){
   }
 }
 
+
+function getPublicMenuGroupRequiredConfig(){
+  try{
+    const parsed = JSON.parse(String(config.menu_group_required_json || '{}'));
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  }catch(_){
+    return {};
+  }
+}
+
+function inferPublicMenuGroupRequired(group){
+  const key = String(group || '').trim();
+  if (!key || ['price','custom','auto_set'].includes(key)) return false;
+  return getItemsByGroup(key).some(item => !!item.required_flag);
+}
+
+function isPublicMenuGroupRequired(group){
+  const key = String(group || '').trim();
+  if (!key) return false;
+  const map = getPublicMenuGroupRequiredConfig();
+  if (Object.prototype.hasOwnProperty.call(map, key)) return !!map[key];
+  return inferPublicMenuGroupRequired(key);
+}
+
+function isPublicMenuGroupShown(group){
+  const key = String(group || '').trim();
+  if (!key) return true;
+  const visibility = getPublicMenuGroupVisibilityConfig();
+  if (!Object.prototype.hasOwnProperty.call(visibility, key)) return true;
+  const raw = visibility[key];
+  return raw === true || raw === 1 || raw === '1' || String(raw).toUpperCase() === 'TRUE';
+}
+
+function setRequiredLabelHTML(elId, text, required){
+  const el = document.getElementById(elId);
+  if (!el) return;
+  el.innerHTML = required
+    ? `${escapeHtml(text || '')} <span class="required">*</span>`
+    : escapeHtml(text || '');
+}
+
+function applyPublicRequiredLabels(){
+  setRequiredLabelHTML('moveTypeLabel', config.form_move_type_label || defaultConfig.form_move_type_label || '移動方法', isPublicMenuGroupRequired('move_type'));
+  setRequiredLabelHTML('assistanceLabel', config.form_assistance_label || defaultConfig.form_assistance_label, isPublicMenuGroupRequired('assistance'));
+  setRequiredLabelHTML('stairLabel', config.form_stair_label || defaultConfig.form_stair_label, isPublicMenuGroupRequired('stair'));
+  setRequiredLabelHTML('equipmentLabel', config.form_equipment_label || defaultConfig.form_equipment_label, isPublicMenuGroupRequired('equipment'));
+  setRequiredLabelHTML('roundTripLabel', config.form_round_trip_label || defaultConfig.form_round_trip_label, isPublicMenuGroupRequired('round_trip'));
+}
+
+function getPublicGroupSelectedValue(group){
+  const map = {
+    move_type: 'moveType',
+    assistance: 'assistanceType',
+    stair: 'stairAssistance',
+    equipment: 'equipmentRental',
+    round_trip: 'roundTrip'
+  };
+  const el = document.getElementById(map[String(group || '').trim()] || '');
+  return el ? String(el.value || '').trim() : '';
+}
+
+function isPublicGroupSelectionSatisfied(group){
+  const key = String(group || '').trim();
+  if (!key) return true;
+  if (!isPublicMenuGroupShown(key)) return true;
+  if (!isPublicMenuGroupRequired(key)) return true;
+  return !!getPublicGroupSelectedValue(key);
+}
+
 function getPublicServiceGroupCardMap(){
   const moveTypeEl = document.getElementById('moveType');
   const assistanceEl = document.getElementById('assistanceType');
@@ -921,8 +855,7 @@ renderServiceSelectors = function(){
       config.form_move_type_placeholder || defaultConfig.form_move_type_placeholder || '選択してください',
       function(item){ return `${item.label}${Number(item.price || 0) ? `(${Number(item.price || 0).toLocaleString()}円)` : ''}`; }
     );
-    const moveTypeLabel = document.getElementById('moveTypeLabel');
-    if (moveTypeLabel) moveTypeLabel.innerHTML = `${escapeHtml(config.form_move_type_label || defaultConfig.form_move_type_label || '移動方法')} <span class="required">*</span>`;
+    applyPublicRequiredLabels();
     const moveTypeNote = document.getElementById('moveTypeNote');
     if (moveTypeNote) moveTypeNote.textContent = config.form_move_type_help_text || defaultConfig.form_move_type_help_text || '最初に移動方法をお選びください';
   }
@@ -1005,138 +938,3 @@ document.addEventListener('DOMContentLoaded', function(){
   }
 });
 /* ===== move_type live patch end ===== */
-
-
-/* ===== visible auto lock patch start ===== */
-function getVisibleAutoApplySelectIdPatched(groupKey){
-  const map = {
-    move_type: 'moveType',
-    assistance: 'assistanceType',
-    stair: 'stairAssistance',
-    equipment: 'equipmentRental',
-    round_trip: 'roundTrip'
-  };
-  return map[String(groupKey || '').trim()] || '';
-}
-
-function unlockVisibleAutoLockedSelectsPatched(){
-  getVisibleFormGroupKeys().forEach(function(groupKey){
-    const selectId = getVisibleAutoApplySelectIdPatched(groupKey);
-    const select = selectId ? document.getElementById(selectId) : null;
-    if (!select) return;
-    select.disabled = false;
-    select.removeAttribute('data-auto-locked');
-    select.classList.remove('cursor-not-allowed', 'opacity-80');
-  });
-}
-
-function resolveVisibleAutoAppliedSelectionsPatched(baseKeys){
-  const queue = Array.isArray(baseKeys) ? baseKeys.slice() : [];
-  const seen = new Set();
-  const ruleSeen = new Set();
-  const applied = {};
-  let guard = 0;
-
-  while (queue.length && guard < 80){
-    guard += 1;
-    const triggerKey = String(queue.shift() || '').trim();
-    if (!triggerKey || seen.has(triggerKey)) continue;
-    seen.add(triggerKey);
-
-    const item = getMenuItemByKey(triggerKey);
-    const targetGroup = String(item && item.menu_group || '').trim();
-    const candidates = [];
-
-    const menuPairs = (typeof getMenuAutoApplyPairs === 'function') ? getMenuAutoApplyPairs(triggerKey) : [];
-    menuPairs.forEach(function(pair){
-      const applyGroup = String(pair && pair.apply_group || '').trim();
-      const applyKey = String(pair && pair.apply_key || '').trim();
-      if (!applyGroup || !applyKey) return;
-      candidates.push({ apply_group: applyGroup, apply_key: applyKey });
-    });
-
-    if (targetGroup){
-      const rule = getAutoRuleByTrigger(targetGroup, triggerKey);
-      if (rule && rule.apply_group && rule.apply_key){
-        const ruleMark = [String(rule.target || ''), String(rule.trigger_key || ''), String(rule.apply_group || ''), String(rule.apply_key || '')].join('::');
-        if (!ruleSeen.has(ruleMark)){
-          ruleSeen.add(ruleMark);
-          candidates.push({ apply_group: String(rule.apply_group || '').trim(), apply_key: String(rule.apply_key || '').trim() });
-        }
-      }
-    }
-
-    candidates.forEach(function(candidate){
-      const applyGroup = String(candidate && candidate.apply_group || '').trim();
-      const applyKey = String(candidate && candidate.apply_key || '').trim();
-      if (!applyGroup || !applyKey) return;
-      if (!isVisibleFormGroup(applyGroup)) return;
-      if (!applied[applyGroup]) applied[applyGroup] = applyKey;
-      queue.push(applyKey);
-    });
-  }
-
-  return applied;
-}
-
-function lockVisibleAutoAppliedSelectPatched(groupKey, itemKey){
-  const selectId = getVisibleAutoApplySelectIdPatched(groupKey);
-  const select = selectId ? document.getElementById(selectId) : null;
-  if (!select) return false;
-  if (!setSelectValueByKey(selectId, itemKey)) return false;
-  select.disabled = true;
-  select.setAttribute('data-auto-locked', '1');
-  select.classList.add('cursor-not-allowed', 'opacity-80');
-  return true;
-}
-
-const _applyAutoSelectionsVisibleLockBase = applyAutoSelections;
-applyAutoSelections = function(){
-  unlockVisibleAutoLockedSelectsPatched();
-
-  const state = _applyAutoSelectionsVisibleLockBase() || {
-    appliedBodyAssist: false,
-    appliedStaff2: false
-  };
-
-  const visibleApplied = resolveVisibleAutoAppliedSelectionsPatched(collectSelectedMenuKeysForAutoApply());
-
-  Object.keys(visibleApplied).forEach(function(groupKey){
-    const itemKey = String(visibleApplied[groupKey] || '').trim();
-    if (!itemKey) return;
-    lockVisibleAutoAppliedSelectPatched(groupKey, itemKey);
-  });
-
-  if (String(visibleApplied.assistance || '') === 'BODY_ASSIST'){
-    state.appliedBodyAssist = true;
-
-    const stairKey = getSelectedOptionKey('stairAssistance');
-    const equipmentKey = getSelectedOptionKey('equipmentRental');
-    const moveTypeKey = getSelectedOptionKey('moveType');
-
-    if (stairKey && !['STAIR_NONE', 'STAIR_WATCH'].includes(stairKey)){
-      const stairWarning = document.getElementById('stairWarning');
-      if (stairWarning){
-        stairWarning.textContent = config.warning_stair_bodyassist_text || defaultConfig.warning_stair_bodyassist_text || '階段介助ご利用時は身体介助が必要です';
-        stairWarning.classList.remove('hidden');
-      }
-    }
-
-    if (moveTypeKey === 'MOVE_STRETCHER' || equipmentKey === 'EQUIP_STRETCHER'){
-      const stretcherWarning = document.getElementById('stretcherWarning');
-      if (stretcherWarning){
-        stretcherWarning.textContent = config.warning_stretcher_bodyassist_text || defaultConfig.warning_stretcher_bodyassist_text || 'ストレッチャー利用時は身体介助が必要です';
-        stretcherWarning.classList.remove('hidden');
-      }
-    }
-  }
-
-  return state;
-};
-
-const _resetBookingFormVisibleLockBase = resetBookingForm;
-resetBookingForm = function(){
-  _resetBookingFormVisibleLockBase();
-  unlockVisibleAutoLockedSelectsPatched();
-};
-/* ===== visible auto lock patch end ===== */
