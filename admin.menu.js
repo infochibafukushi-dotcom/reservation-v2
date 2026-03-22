@@ -175,7 +175,7 @@ function buildMenuAutoApplyOptions(selectedGroup, selectedKey){
 
   let keyCandidates = [];
   if (selectedGroup) {
-    keyCandidates = (adminMenuMaster || []).filter(item => String(item.menu_group || '') === String(selectedGroup || ''));
+    keyCandidates = (adminMenuMaster || []).filter(item => isMenuItemInGroup(item, selectedGroup));
   }
 
   const keyOptions = [`<option value="">選択してください</option>`].concat(
@@ -223,9 +223,19 @@ function adminNormalizeMenuRows(){
   });
 }
 
+
+function isMenuItemInGroup(item, group){
+  const targetGroup = String(group || '').trim();
+  const itemGroup = String(item && item.menu_group || '').trim();
+  const itemKey = String(item && item.key || '').trim();
+  if (itemGroup === targetGroup) return true;
+  if (targetGroup === 'move_type' && itemGroup === 'custom' && itemKey.indexOf('MOVE_') === 0) return true;
+  return false;
+}
+
 function getMenuItemsByGroup(group){
   return (adminMenuMaster || [])
-    .filter(item => String(item.menu_group || '') === String(group || ''))
+    .filter(item => isMenuItemInGroup(item, group))
     .sort((a, b) => Number(a.sort_order || 9999) - Number(b.sort_order || 9999));
 }
 
@@ -454,9 +464,7 @@ function addMenuItemToGroup(group){
     menu_group: normalizeGroupKey(group),
     required_flag: false,
     auto_apply_group: '',
-    auto_apply_key: '',
-    auto_apply_group_2: '',
-    auto_apply_key_2: ''
+    auto_apply_key: ''
   });
 
   adminMenuMaster = adminNormalizeMenuRows();
@@ -596,38 +604,6 @@ function bindMenuEvents(){
       return;
     }
 
-    if (action === 'groupDelete'){
-      const items = getMenuItemsByGroup(group);
-      if (items.length > 0){
-        toast('項目があるグループは削除できません');
-        return;
-      }
-      if (isFixedMenuGroup(group) || isBaseMenuGroup(group)){
-        toast('このグループは削除できません');
-        return;
-      }
-      if (!window.confirm(`「${getGroupLabelByKey(group)}」を削除しますか？`)) return;
-
-      const catalog = getStoredMenuGroupCatalog().filter(item => String(item && item.key || '').trim() !== group);
-      adminConfig.menu_group_catalog_json = JSON.stringify(catalog);
-
-      const order = getEffectiveMenuGroupOrder().filter(key => String(key || '').trim() !== group);
-      adminConfig.menu_group_order_json = JSON.stringify(order);
-
-      const visibility = cloneMenuObject(getStoredMenuGroupVisibility());
-      delete visibility[group];
-      adminConfig.menu_group_visibility_json = JSON.stringify(visibility);
-
-      const required = cloneMenuObject(getStoredMenuGroupRequired());
-      delete required[group];
-      adminConfig.menu_group_required_json = JSON.stringify(required);
-
-      if (window.__menuGroupOpenState){ delete window.__menuGroupOpenState[group]; }
-      adminMenuGroupCatalog = getAdminResolvedGroupCatalog();
-      renderMenuAdminList();
-      return;
-    }
-
     if (action === 'groupUp'){
       moveMenuGroup(group, 'up');
       renderMenuAdminList();
@@ -709,13 +685,6 @@ function bindMenuEvents(){
     if (field === 'auto_apply_group'){
       adminMenuMaster[idx].auto_apply_key = '';
       renderMenuAdminList();
-      return;
-    }
-
-    if (field === 'auto_apply_group_2'){
-      adminMenuMaster[idx].auto_apply_key_2 = '';
-      renderMenuAdminList();
-      return;
     }
   });
 }
@@ -745,9 +714,7 @@ function buildSaveMenuPayload(){
       menu_group: group,
       required_flag: !!item.required_flag,
       auto_apply_group: String(item.auto_apply_group || '').trim(),
-      auto_apply_key: String(item.auto_apply_key || '').trim(),
-      auto_apply_group_2: String(item.auto_apply_group_2 || '').trim(),
-      auto_apply_key_2: String(item.auto_apply_key_2 || '').trim()
+      auto_apply_key: String(item.auto_apply_key || '').trim()
     };
   }).filter(item => String(item.label || '').trim());
 }

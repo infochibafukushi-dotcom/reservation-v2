@@ -210,8 +210,7 @@ const MENU_GROUP_CATALOG = [
   { key: 'equipment',  label: '機材レンタル',            description: '予約フォームの「機材レンタル」プルダウンに表示' },
   { key: 'round_trip', label: '往復送迎',                description: '予約フォームの「往復送迎」プルダウンに表示' },
   { key: 'move_type',  label: '移動方法',                description: '予約フォームの「移動方法」プルダウンに表示' },
-  { key: 'custom',     label: 'その他（表示先なし）',    description: '保存のみ。どのプルダウンにも出さない' },
-  { key: 'auto_set',   label: '自動セット',              description: '予約フォームには出さず、内部加算だけに使う' }
+  { key: 'custom',     label: 'その他（表示先なし）',    description: '保存のみ。どのプルダウンにも出さない' }
 ];
 
 // ===== 日本語キー候補（管理画面プルダウン用） =====
@@ -551,7 +550,7 @@ function api_getPublicBootstrap() {
       config: configResult.data || {},
       menu_master: menuResult.data || [],
       menu_key_catalog: MENU_KEY_CATALOG,
-      menu_group_catalog: _getResolvedMenuGroupCatalog_(),
+      menu_group_catalog: MENU_GROUP_CATALOG,
       auto_rule_catalog: _buildAutoRuleCatalog_()
     };
 
@@ -597,7 +596,7 @@ function api_getInitData() {
       config: configResult.data || {},
       menu_master: menuResult.data || [],
       menu_key_catalog: MENU_KEY_CATALOG,
-      menu_group_catalog: _getResolvedMenuGroupCatalog_(),
+      menu_group_catalog: MENU_GROUP_CATALOG,
       auto_rule_catalog: _buildAutoRuleCatalog_(),
       reservations: reservations,
       blocks: blocks
@@ -626,7 +625,7 @@ function api_getAdminBootstrap() {
       config: configResult.data || {},
       menu_master: menuResult.data || [],
       menu_key_catalog: MENU_KEY_CATALOG,
-      menu_group_catalog: _getResolvedMenuGroupCatalog_(),
+      menu_group_catalog: MENU_GROUP_CATALOG,
       auto_rule_catalog: _buildAutoRuleCatalog_()
     };
 
@@ -693,7 +692,7 @@ function api_getMenuKeyCatalog() {
 
 function api_getMenuGroupCatalog() {
   try {
-    return _ok(_getResolvedMenuGroupCatalog_());
+    return _ok(MENU_GROUP_CATALOG);
   } catch (e) {
     return _ng(e);
   }
@@ -884,6 +883,40 @@ function api_verifyAdminPassword(payload) {
   }
 }
 
+
+function _postReservationNotify_(reservationObj) {
+  try {
+    var cfg = _getConfigMap_();
+    var url = String(cfg.gas_notify_url || '').trim();
+    if (!url) return;
+
+    var secret = String(cfg.gas_notify_secret || '').trim();
+    var payload = {
+      secret: secret,
+      event: 'reservation_created',
+      reservation_id: String((reservationObj && reservationObj.reservation_id) || '').trim(),
+      slot_date: String((reservationObj && reservationObj.slot_date) || '').trim(),
+      slot_hour: Number((reservationObj && reservationObj.slot_hour) || 0),
+      slot_minute: Number((reservationObj && reservationObj.slot_minute) || 0),
+      customer_name: String((reservationObj && (reservationObj.customer_name || reservationObj.name || reservationObj.customer_name_kana || reservationObj.name_kana)) || '').trim(),
+      phone: String((reservationObj && (reservationObj.phone || reservationObj.tel || reservationObj.phone_number)) || '').trim(),
+      pickup_address: String((reservationObj && (reservationObj.pickup_address || reservationObj.from_address || reservationObj.location_name)) || '').trim(),
+      raw: reservationObj || {}
+    };
+
+    UrlFetchApp.fetch(url, {
+      method: 'post',
+      contentType: 'application/json; charset=utf-8',
+      muteHttpExceptions: true,
+      payload: JSON.stringify(payload)
+    });
+  } catch (e) {
+    try {
+      _logAdmin_('RESERVATION_NOTIFY_ERROR', String((reservationObj && reservationObj.reservation_id) || ''), '', '', String(e && e.message ? e.message : e));
+    } catch (_) {}
+  }
+}
+
 /**
  * 予約作成
  * - round_trip === '不要'               → 2枠（60分）
@@ -930,6 +963,7 @@ function api_createReservation(obj) {
     );
 
     _invalidateBlockedSlotKeysCache_();
+    _postReservationNotify_(obj);
     return _ok({ added: true });
   } catch (e) {
     return _ng(e);

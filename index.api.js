@@ -260,6 +260,19 @@ function _writeLocalJson_(key, value){
   }catch(_){ }
 }
 
+
+function normalizePublicMenuItems(items){
+  return (Array.isArray(items) ? items : []).map(item => {
+    const clone = { ...(item || {}) };
+    const key = String(clone.key || '').trim();
+    const group = String(clone.menu_group || '').trim();
+    if (key.startsWith('MOVE_') && group === 'custom') {
+      clone.menu_group = 'move_type';
+    }
+    return clone;
+  });
+}
+
 function _isFreshCache_(entry, ttlMs){
   if (!entry || !entry.savedAt) return false;
   const age = Date.now() - Number(entry.savedAt || 0);
@@ -268,7 +281,7 @@ function _isFreshCache_(entry, ttlMs){
 
 function _applyBootstrapData_(data){
   config = { ...defaultConfig, ...(data.config || config || {}) };
-  menuMaster = Array.isArray(data.menu_master) ? data.menu_master : [];
+  menuMaster = normalizePublicMenuItems(Array.isArray(data.menu_master) ? data.menu_master : []);
   menuKeyCatalog = Array.isArray(data.menu_key_catalog) ? data.menu_key_catalog : [];
   menuGroupCatalog = Array.isArray(data.menu_group_catalog) && data.menu_group_catalog.length ? data.menu_group_catalog : defaultMenuGroupCatalog;
   autoRuleCatalog = Array.isArray(data.auto_rule_catalog) ? data.auto_rule_catalog : [];
@@ -494,8 +507,8 @@ const defaultConfig = {
   warning_wheelchair_damage_text: '警告: 車いす固定による傷、すり傷などは保証対象外になります',
   warning_stretcher_bodyassist_text: '警告: ストレッチャー利用時に2名体制介助料5,000円と身体介助が必須となります',
   rule_force_body_assist_on_stair: '1',
-  rule_force_body_assist_on_stretcher: '0',
-  rule_force_stretcher_staff2_on_stretcher: '0'
+  rule_force_body_assist_on_stretcher: '1',
+  rule_force_stretcher_staff2_on_stretcher: '1'
 };
 
 const defaultMenuGroupCatalog = [
@@ -541,57 +554,29 @@ function getMenuNote(key, fallback){
   return fallback || '';
 }
 
-function getMenuAutoApplyGroupAt(key, slot){
-  const suffix = Number(slot || 1) === 2 ? '_2' : '';
-  const field = `auto_apply_group${suffix}`;
-  const map = getMenuMap();
-  if (map[key] && map[key][field] !== undefined) return String(map[key][field] || '');
-  const catalog = findCatalogByKey(key);
-  if (catalog && catalog[field] !== undefined) return String(catalog[field] || '');
-  return '';
-}
-
-function getMenuAutoApplyKeyAt(key, slot){
-  const suffix = Number(slot || 1) === 2 ? '_2' : '';
-  const field = `auto_apply_key${suffix}`;
-  const map = getMenuMap();
-  if (map[key] && map[key][field] !== undefined) return String(map[key][field] || '');
-  const catalog = findCatalogByKey(key);
-  if (catalog && catalog[field] !== undefined) return String(catalog[field] || '');
-  return '';
-}
-
 function getMenuAutoApplyGroup(key){
-  return getMenuAutoApplyGroupAt(key, 1);
+  const map = getMenuMap();
+  if (map[key] && map[key].auto_apply_group !== undefined) return String(map[key].auto_apply_group || '');
+  const catalog = findCatalogByKey(key);
+  if (catalog && catalog.auto_apply_group !== undefined) return String(catalog.auto_apply_group || '');
+  return '';
 }
 
 function getMenuAutoApplyKey(key){
-  return getMenuAutoApplyKeyAt(key, 1);
-}
-
-function getMenuAutoApplyPairs(key){
-  const pairs = [];
-  for (let i = 1; i <= 2; i++) {
-    const applyGroup = getMenuAutoApplyGroupAt(key, i);
-    const applyKey = getMenuAutoApplyKeyAt(key, i);
-    if (!applyGroup || !applyKey) continue;
-    pairs.push({ apply_group: String(applyGroup || '').trim(), apply_key: String(applyKey || '').trim() });
-  }
-  return pairs;
+  const map = getMenuMap();
+  if (map[key] && map[key].auto_apply_key !== undefined) return String(map[key].auto_apply_key || '');
+  const catalog = findCatalogByKey(key);
+  if (catalog && catalog.auto_apply_key !== undefined) return String(catalog.auto_apply_key || '');
+  return '';
 }
 
 function getItemsByGroup(group){
-  const target = String(group || '').trim();
   return (menuMaster || []).filter(item => {
-    const itemGroup = String(item.menu_group || '').trim();
+    const targetGroup = String(group || '');
+    const itemGroup = String(item.menu_group || '');
     const itemKey = String(item.key || '').trim();
-
-    let matched = itemGroup === target;
-    if (!matched && target === 'move_type' && itemGroup === 'custom' && /^MOVE_/.test(itemKey)) {
-      matched = true;
-    }
-
-    if (!matched) return false;
+    const isMoveAlias = targetGroup === 'move_type' && itemGroup === 'custom' && itemKey.indexOf('MOVE_') === 0;
+    if (itemGroup !== targetGroup && !isMoveAlias) return false;
     if (item.is_visible === false || String(item.is_visible).toUpperCase() === 'FALSE') return false;
     return true;
   }).sort((a,b) => {
@@ -616,13 +601,6 @@ function getAutoRuleByTrigger(targetGroup, triggerKey){
     if (!rule || !rule.enabled) return false;
     return String(rule.target || '') === String(targetGroup || '') && String(rule.trigger_key || '') === String(triggerKey || '');
   }) || null;
-}
-
-function getAllAutoRulesByTrigger(targetGroup, triggerKey){
-  return (autoRuleCatalog || []).filter(rule => {
-    if (!rule || !rule.enabled) return false;
-    return String(rule.target || '') === String(targetGroup || '') && String(rule.trigger_key || '') === String(triggerKey || '');
-  });
 }
 
 function rebuildBlockedSlotsFromSheet(blocks){
