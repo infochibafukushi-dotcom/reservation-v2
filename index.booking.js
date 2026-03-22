@@ -380,19 +380,13 @@ function isPublicGroupRequired(groupKey){
   return true;
 }
 
-
 function isPublicGroupVisible(groupKey){
   const key = String(groupKey || '').trim();
   if (!key) return false;
-  if (['price','custom','auto_set'].includes(key)) return false;
-  try{
-    const visibility = getPublicMenuGroupVisibilityConfig();
-    if (visibility && Object.prototype.hasOwnProperty.call(visibility, key)){
-      const v = visibility[key];
-      return v === true || v === 1 || String(v) === '1' || String(v).toUpperCase() === 'TRUE';
-    }
-  }catch(_){ }
-  return true;
+  const visibility = getPublicMenuGroupVisibilityConfig();
+  const raw = visibility[key];
+  if (raw === undefined || raw === null || raw === '') return true;
+  return raw === true || raw === 1 || String(raw) === '1' || String(raw).toUpperCase() === 'TRUE';
 }
 
 function updateSubmitButton(){
