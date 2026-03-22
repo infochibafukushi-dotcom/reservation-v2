@@ -356,6 +356,30 @@ function calculatePrice(){
   return total;
 }
 
+
+function isPublicGroupRequired(groupKey){
+  const key = String(groupKey || '').trim();
+  if (!key) return false;
+  if (['price','custom','auto_set'].includes(key)) return false;
+
+  let raw = null;
+  try{ raw = config && config.menu_group_required_json; }catch(_){ raw = null; }
+
+  let requiredMap = {};
+  if (raw && typeof raw === 'string'){
+    try{ requiredMap = JSON.parse(raw) || {}; }catch(_){ requiredMap = {}; }
+  } else if (raw && typeof raw === 'object'){
+    requiredMap = raw || {};
+  }
+
+  if (Object.prototype.hasOwnProperty.call(requiredMap, key)){
+    const v = requiredMap[key];
+    return v === true || v === 1 || String(v) === '1' || String(v).toUpperCase() === 'TRUE';
+  }
+
+  return true;
+}
+
 function updateSubmitButton(){
   try{ applyAutoSelections(); }catch(_){ }
 
@@ -793,20 +817,9 @@ function applyPublicServiceGroupLayout(){
   });
 }
 
-function getMoveTypeItemsPatched(){
-  const primary = getItemsByGroup('move_type');
-  if (Array.isArray(primary) && primary.length) return primary;
-  const fallback = getItemsByGroup('equipment');
-  return Array.isArray(fallback) ? fallback.filter(item => {
-    const key = String(item && item.key || '').trim();
-    if (!key) return false;
-    return /WHEELCHAIR|RECLINING|STRETCHER|OWN/i.test(key);
-  }) : [];
-}
-
 const _renderServiceSelectorsOriginal = renderServiceSelectors;
 renderServiceSelectors = function(){
-  const moveTypeItems = getMoveTypeItemsPatched();
+  const moveTypeItems = getItemsByGroup('move_type');
   const moveTypeEl = document.getElementById('moveType');
 
   _renderServiceSelectorsOriginal();
