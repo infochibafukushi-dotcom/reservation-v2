@@ -586,6 +586,13 @@ function getAutoRuleByTrigger(targetGroup, triggerKey){
   }) || null;
 }
 
+function getAllAutoRulesByTrigger(targetGroup, triggerKey){
+  return (autoRuleCatalog || []).filter(rule => {
+    if (!rule || !rule.enabled) return false;
+    return String(rule.target || '') === String(targetGroup || '') && String(rule.trigger_key || '') === String(triggerKey || '');
+  });
+}
+
 function rebuildBlockedSlotsFromSheet(blocks){
   blockedSlots = new Set();
   (blocks || []).forEach(b => {

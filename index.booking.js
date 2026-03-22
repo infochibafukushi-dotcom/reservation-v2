@@ -84,27 +84,42 @@ function getSelectedOptionKey(selectId){
   return String(option.dataset.key || '').trim();
 }
 
+function findAutoApplyEntriesFromMenu(targetGroup, triggerKey){
+  if (!targetGroup || !triggerKey) return [];
+
+  const entries = [];
+  const pushUnique = (group, key) => {
+    const applyGroup = String(group || '').trim();
+    const applyKey = String(key || '').trim();
+    if (!applyGroup || !applyKey) return;
+
+    const exists = entries.some(entry => String(entry.apply_group || '') === applyGroup && String(entry.apply_key || '') === applyKey);
+    if (exists) return;
+
+    entries.push({
+      apply_group: applyGroup,
+      apply_key: applyKey
+    });
+  };
+
+  const menuMap = getMenuMap();
+  const menuItem = menuMap[String(triggerKey || '')] || {};
+  pushUnique(menuItem.auto_apply_group, menuItem.auto_apply_key);
+  pushUnique(menuItem.auto_apply_group_2, menuItem.auto_apply_key_2);
+
+  const rules = typeof getAllAutoRulesByTrigger === 'function'
+    ? getAllAutoRulesByTrigger(targetGroup, triggerKey)
+    : [];
+  rules.forEach(rule => {
+    pushUnique(rule && rule.apply_group, rule && rule.apply_key);
+  });
+
+  return entries;
+}
+
 function findAutoApplyFromMenu(targetGroup, triggerKey){
-  if (!targetGroup || !triggerKey) return null;
-
-  const menuGroup = getMenuAutoApplyGroup(triggerKey);
-  const menuKey = getMenuAutoApplyKey(triggerKey);
-  if (menuGroup && menuKey) {
-    return {
-      apply_group: menuGroup,
-      apply_key: menuKey
-    };
-  }
-
-  const rule = getAutoRuleByTrigger(targetGroup, triggerKey);
-  if (rule && rule.apply_group && rule.apply_key){
-    return {
-      apply_group: String(rule.apply_group || ''),
-      apply_key: String(rule.apply_key || '')
-    };
-  }
-
-  return null;
+  const entries = findAutoApplyEntriesFromMenu(targetGroup, triggerKey);
+  return entries.length ? entries[0] : null;
 }
 
 function setSelectValueByKey(selectId, key){
@@ -134,8 +149,9 @@ function applyAutoSelections(){
   let appliedBodyAssist = false;
   let appliedStaff2 = false;
 
-  const stairAuto = findAutoApplyFromMenu('stair', stairKey);
-  if (stairAuto && stairAuto.apply_group === 'assistance' && stairAuto.apply_key === 'BODY_ASSIST'){
+  const stairAutoEntries = findAutoApplyEntriesFromMenu('stair', stairKey);
+  const stairHasBodyAssist = stairAutoEntries.some(entry => entry.apply_group === 'assistance' && entry.apply_key === 'BODY_ASSIST');
+  if (stairHasBodyAssist){
     if (setSelectValueByKey('assistanceType', 'BODY_ASSIST')){
       appliedBodyAssist = true;
       stairWarning.textContent = config.warning_stair_bodyassist_text || defaultConfig.warning_stair_bodyassist_text;
@@ -152,12 +168,13 @@ function applyAutoSelections(){
     }
   }
 
-  const equipAuto = findAutoApplyFromMenu('equipment', equipmentKey);
+  const equipAutoEntries = findAutoApplyEntriesFromMenu('equipment', equipmentKey);
   if (equipmentKey === 'EQUIP_STRETCHER'){
     stretcherWarning.textContent = config.warning_stretcher_bodyassist_text || defaultConfig.warning_stretcher_bodyassist_text;
     stretcherWarning.classList.remove('hidden');
 
-    if (equipAuto && equipAuto.apply_group === 'assistance' && equipAuto.apply_key === 'BODY_ASSIST'){
+    const equipHasBodyAssist = equipAutoEntries.some(entry => entry.apply_group === 'assistance' && entry.apply_key === 'BODY_ASSIST');
+    if (equipHasBodyAssist){
       if (setSelectValueByKey('assistanceType', 'BODY_ASSIST')){
         appliedBodyAssist = true;
       }
@@ -167,17 +184,11 @@ function applyAutoSelections(){
       }
     }
 
-    const equipmentMap = getMenuMap();
-    const stretcherMenu = equipmentMap['EQUIP_STRETCHER'];
-    if (stretcherMenu && String(stretcherMenu.auto_apply_group || '') === 'equipment' && String(stretcherMenu.auto_apply_key || '') === 'EQUIP_STRETCHER_STAFF2'){
+    const equipHasStaff2 = equipAutoEntries.some(entry => entry.apply_group === 'equipment' && entry.apply_key === 'EQUIP_STRETCHER_STAFF2');
+    if (equipHasStaff2){
       appliedStaff2 = true;
-    } else {
-      const staffRule = getAutoRuleByTrigger('equipment', 'EQUIP_STRETCHER');
-      if (staffRule && String(staffRule.apply_group || '') === 'equipment' && String(staffRule.apply_key || '') === 'EQUIP_STRETCHER_STAFF2'){
-        appliedStaff2 = true;
-      } else if (String(config.rule_force_stretcher_staff2_on_stretcher || '1') === '1'){
-        appliedStaff2 = true;
-      }
+    } else if (String(config.rule_force_stretcher_staff2_on_stretcher || '1') === '1'){
+      appliedStaff2 = true;
     }
   }
 
@@ -697,11 +708,14 @@ function getMoveTypeNoteTextPatched(key){
 function syncEquipmentFromMoveTypePatched(){
   const moveTypeKey = getSelectedOptionKey('moveType');
   if (!moveTypeKey) return '';
-  const moveTypeAuto = findAutoApplyFromMenu('move_type', moveTypeKey);
-  if (moveTypeAuto && moveTypeAuto.apply_group === 'equipment' && moveTypeAuto.apply_key){
-    setSelectValueByKey('equipmentRental', moveTypeAuto.apply_key);
-    return String(moveTypeAuto.apply_key || '');
+
+  const moveTypeEntries = findAutoApplyEntriesFromMenu('move_type', moveTypeKey);
+  const equipmentEntry = moveTypeEntries.find(entry => entry.apply_group === 'equipment' && entry.apply_key);
+  if (equipmentEntry){
+    setSelectValueByKey('equipmentRental', equipmentEntry.apply_key);
+    return String(equipmentEntry.apply_key || '');
   }
+
   return '';
 }
 

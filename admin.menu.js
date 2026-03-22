@@ -185,6 +185,26 @@ function buildMenuAutoApplyOptions(selectedGroup, selectedKey){
   return { groupOptions, keyOptions };
 }
 
+function getMenuAutoApplySlots(item){
+  const source = item || {};
+  return [
+    {
+      index: 1,
+      groupField: 'auto_apply_group',
+      keyField: 'auto_apply_key',
+      group: String(source.auto_apply_group || ''),
+      key: String(source.auto_apply_key || '')
+    },
+    {
+      index: 2,
+      groupField: 'auto_apply_group_2',
+      keyField: 'auto_apply_key_2',
+      group: String(source.auto_apply_group_2 || ''),
+      key: String(source.auto_apply_key_2 || '')
+    }
+  ];
+}
+
 function makeMenuInternalKey(row, index){
   const existing = String(row && row.key || '').trim();
   if (existing) return existing;
@@ -219,6 +239,9 @@ function adminNormalizeMenuRows(){
     clone.required_flag = normalizeRequiredFlag(clone.required_flag);
     clone.auto_apply_group = String(clone.auto_apply_group || '');
     clone.auto_apply_key = String(clone.auto_apply_key || '');
+    clone.auto_apply_group_2 = String(clone.auto_apply_group_2 || '');
+    clone.auto_apply_key_2 = String(clone.auto_apply_key_2 || '');
+    clone.__auto_apply_open = !!clone.__auto_apply_open;
     return clone;
   });
 }
@@ -282,8 +305,33 @@ function getMenuGroupOpenState(group){
 }
 
 function renderMenuItemCard(item, groupItems){
-  const autoOptions = buildMenuAutoApplyOptions(item.auto_apply_group || '', item.auto_apply_key || '');
+  const autoSlots = getMenuAutoApplySlots(item);
   const groupIndex = groupItems.findIndex(x => String(x.key || '') === String(item.key || ''));
+  const autoOpen = !!(item.__auto_apply_open);
+  const autoBodyId = `menuAutoApplyBody_${escapeHtml(item.key || '')}`;
+
+  const autoApplyHtml = autoSlots.map(slot => {
+    const autoOptions = buildMenuAutoApplyOptions(slot.group, slot.key);
+    return `
+      <div class="menu-auto-grid">
+        <div class="menu-auto-badge">自動セット${slot.index}</div>
+
+        <div class="form-group">
+          <label class="form-label">自動セット先${slot.index}</label>
+          <select data-field="${slot.groupField}" data-key="${escapeHtml(item.key || '')}">
+            ${autoOptions.groupOptions}
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">自動セット項目${slot.index}</label>
+          <select data-field="${slot.keyField}" data-key="${escapeHtml(item.key || '')}">
+            ${autoOptions.keyOptions}
+          </select>
+        </div>
+      </div>
+    `;
+  }).join('');
 
   return `
     <div class="menu-item-card" data-menu-key="${escapeHtml(item.key || '')}">
@@ -329,23 +377,20 @@ function renderMenuItemCard(item, groupItems){
             </div>
 
             <div class="form-group">
-              <label class="form-label">自動セット先</label>
-              <select data-field="auto_apply_group" data-key="${escapeHtml(item.key || '')}">
-                ${autoOptions.groupOptions}
-              </select>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label">自動セット項目</label>
-              <select data-field="auto_apply_key" data-key="${escapeHtml(item.key || '')}">
-                ${autoOptions.keyOptions}
-              </select>
-            </div>
-
-            <div class="form-group">
               <label class="form-label">現在グループ</label>
               <input type="text" value="${escapeHtml(getGroupLabelByKey(item.menu_group || 'custom'))}" disabled>
             </div>
+
+            <div class="form-group menu-auto-toggle-cell">
+              <label class="form-label">自動セット設定</label>
+              <button class="cute-btn px-4 py-3 menu-auto-toggle-btn" data-action="toggleMenuAutoApply" data-key="${escapeHtml(item.key || '')}" type="button">
+                ${autoOpen ? '自動セットを閉じる' : '自動セットを開く'}
+              </button>
+            </div>
+          </div>
+
+          <div class="menu-auto-accordion ${autoOpen ? '' : 'collapsed'}" id="${autoBodyId}">
+            ${autoApplyHtml}
           </div>
 
           <div class="menu-meta">
@@ -362,7 +407,6 @@ function renderMenuItemCard(item, groupItems){
     </div>
   `;
 }
-
 function renderMenuGroupCard(group){
   const items = getMenuItemsByGroup(group);
   const open = getMenuGroupOpenState(group);
@@ -454,7 +498,10 @@ function addMenuItemToGroup(group){
     menu_group: normalizeGroupKey(group),
     required_flag: false,
     auto_apply_group: '',
-    auto_apply_key: ''
+    auto_apply_key: '',
+    auto_apply_group_2: '',
+    auto_apply_key_2: '',
+    __auto_apply_open: true
   });
 
   adminMenuMaster = adminNormalizeMenuRows();
@@ -624,6 +671,15 @@ function bindMenuEvents(){
       return;
     }
 
+    if (action === 'toggleMenuAutoApply'){
+      const idx = findMenuIndexByKey(key);
+      if (idx >= 0){
+        adminMenuMaster[idx].__auto_apply_open = !adminMenuMaster[idx].__auto_apply_open;
+        renderMenuAdminList();
+      }
+      return;
+    }
+
     if (action === 'menuRemove'){
       const idx = findMenuIndexByKey(key);
       if (idx >= 0){
@@ -674,6 +730,13 @@ function bindMenuEvents(){
 
     if (field === 'auto_apply_group'){
       adminMenuMaster[idx].auto_apply_key = '';
+      adminMenuMaster[idx].__auto_apply_open = true;
+      renderMenuAdminList();
+    }
+
+    if (field === 'auto_apply_group_2'){
+      adminMenuMaster[idx].auto_apply_key_2 = '';
+      adminMenuMaster[idx].__auto_apply_open = true;
       renderMenuAdminList();
     }
   });
@@ -704,7 +767,9 @@ function buildSaveMenuPayload(){
       menu_group: group,
       required_flag: !!item.required_flag,
       auto_apply_group: String(item.auto_apply_group || '').trim(),
-      auto_apply_key: String(item.auto_apply_key || '').trim()
+      auto_apply_key: String(item.auto_apply_key || '').trim(),
+      auto_apply_group_2: String(item.auto_apply_group_2 || '').trim(),
+      auto_apply_key_2: String(item.auto_apply_key_2 || '').trim()
     };
   }).filter(item => String(item.label || '').trim());
 }
