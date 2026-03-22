@@ -1005,3 +1005,138 @@ document.addEventListener('DOMContentLoaded', function(){
   }
 });
 /* ===== move_type live patch end ===== */
+
+
+/* ===== visible auto lock patch start ===== */
+function getVisibleAutoApplySelectIdPatched(groupKey){
+  const map = {
+    move_type: 'moveType',
+    assistance: 'assistanceType',
+    stair: 'stairAssistance',
+    equipment: 'equipmentRental',
+    round_trip: 'roundTrip'
+  };
+  return map[String(groupKey || '').trim()] || '';
+}
+
+function unlockVisibleAutoLockedSelectsPatched(){
+  getVisibleFormGroupKeys().forEach(function(groupKey){
+    const selectId = getVisibleAutoApplySelectIdPatched(groupKey);
+    const select = selectId ? document.getElementById(selectId) : null;
+    if (!select) return;
+    select.disabled = false;
+    select.removeAttribute('data-auto-locked');
+    select.classList.remove('cursor-not-allowed', 'opacity-80');
+  });
+}
+
+function resolveVisibleAutoAppliedSelectionsPatched(baseKeys){
+  const queue = Array.isArray(baseKeys) ? baseKeys.slice() : [];
+  const seen = new Set();
+  const ruleSeen = new Set();
+  const applied = {};
+  let guard = 0;
+
+  while (queue.length && guard < 80){
+    guard += 1;
+    const triggerKey = String(queue.shift() || '').trim();
+    if (!triggerKey || seen.has(triggerKey)) continue;
+    seen.add(triggerKey);
+
+    const item = getMenuItemByKey(triggerKey);
+    const targetGroup = String(item && item.menu_group || '').trim();
+    const candidates = [];
+
+    const menuPairs = (typeof getMenuAutoApplyPairs === 'function') ? getMenuAutoApplyPairs(triggerKey) : [];
+    menuPairs.forEach(function(pair){
+      const applyGroup = String(pair && pair.apply_group || '').trim();
+      const applyKey = String(pair && pair.apply_key || '').trim();
+      if (!applyGroup || !applyKey) return;
+      candidates.push({ apply_group: applyGroup, apply_key: applyKey });
+    });
+
+    if (targetGroup){
+      const rule = getAutoRuleByTrigger(targetGroup, triggerKey);
+      if (rule && rule.apply_group && rule.apply_key){
+        const ruleMark = [String(rule.target || ''), String(rule.trigger_key || ''), String(rule.apply_group || ''), String(rule.apply_key || '')].join('::');
+        if (!ruleSeen.has(ruleMark)){
+          ruleSeen.add(ruleMark);
+          candidates.push({ apply_group: String(rule.apply_group || '').trim(), apply_key: String(rule.apply_key || '').trim() });
+        }
+      }
+    }
+
+    candidates.forEach(function(candidate){
+      const applyGroup = String(candidate && candidate.apply_group || '').trim();
+      const applyKey = String(candidate && candidate.apply_key || '').trim();
+      if (!applyGroup || !applyKey) return;
+      if (!isVisibleFormGroup(applyGroup)) return;
+      if (!applied[applyGroup]) applied[applyGroup] = applyKey;
+      queue.push(applyKey);
+    });
+  }
+
+  return applied;
+}
+
+function lockVisibleAutoAppliedSelectPatched(groupKey, itemKey){
+  const selectId = getVisibleAutoApplySelectIdPatched(groupKey);
+  const select = selectId ? document.getElementById(selectId) : null;
+  if (!select) return false;
+  if (!setSelectValueByKey(selectId, itemKey)) return false;
+  select.disabled = true;
+  select.setAttribute('data-auto-locked', '1');
+  select.classList.add('cursor-not-allowed', 'opacity-80');
+  return true;
+}
+
+const _applyAutoSelectionsVisibleLockBase = applyAutoSelections;
+applyAutoSelections = function(){
+  unlockVisibleAutoLockedSelectsPatched();
+
+  const state = _applyAutoSelectionsVisibleLockBase() || {
+    appliedBodyAssist: false,
+    appliedStaff2: false
+  };
+
+  const visibleApplied = resolveVisibleAutoAppliedSelectionsPatched(collectSelectedMenuKeysForAutoApply());
+
+  Object.keys(visibleApplied).forEach(function(groupKey){
+    const itemKey = String(visibleApplied[groupKey] || '').trim();
+    if (!itemKey) return;
+    lockVisibleAutoAppliedSelectPatched(groupKey, itemKey);
+  });
+
+  if (String(visibleApplied.assistance || '') === 'BODY_ASSIST'){
+    state.appliedBodyAssist = true;
+
+    const stairKey = getSelectedOptionKey('stairAssistance');
+    const equipmentKey = getSelectedOptionKey('equipmentRental');
+    const moveTypeKey = getSelectedOptionKey('moveType');
+
+    if (stairKey && !['STAIR_NONE', 'STAIR_WATCH'].includes(stairKey)){
+      const stairWarning = document.getElementById('stairWarning');
+      if (stairWarning){
+        stairWarning.textContent = config.warning_stair_bodyassist_text || defaultConfig.warning_stair_bodyassist_text || '階段介助ご利用時は身体介助が必要です';
+        stairWarning.classList.remove('hidden');
+      }
+    }
+
+    if (moveTypeKey === 'MOVE_STRETCHER' || equipmentKey === 'EQUIP_STRETCHER'){
+      const stretcherWarning = document.getElementById('stretcherWarning');
+      if (stretcherWarning){
+        stretcherWarning.textContent = config.warning_stretcher_bodyassist_text || defaultConfig.warning_stretcher_bodyassist_text || 'ストレッチャー利用時は身体介助が必要です';
+        stretcherWarning.classList.remove('hidden');
+      }
+    }
+  }
+
+  return state;
+};
+
+const _resetBookingFormVisibleLockBase = resetBookingForm;
+resetBookingForm = function(){
+  _resetBookingFormVisibleLockBase();
+  unlockVisibleAutoLockedSelectsPatched();
+};
+/* ===== visible auto lock patch end ===== */
