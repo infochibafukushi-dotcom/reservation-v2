@@ -1,7 +1,3 @@
-let adminBootstrapLoaded = false;
-let adminFullDatasetLoaded = false;
-let adminFullInitPromise = null;
-
 function checkAdminAuth(){
   const auth = sessionStorage.getItem('chiba_care_taxi_admin_auth');
   if (auth !== 'ok'){
@@ -15,168 +11,26 @@ function checkAdminAuth(){
   return true;
 }
 
-function adminGetVisibleRange(){
-  const fallbackToday = new Date();
-  fallbackToday.setHours(0,0,0,0);
+async function adminRefreshAllData(){
+  const res = await gsRun('api_getInitData');
+  const data = res.data || {};
 
-  try{
-    if (typeof getAdminDatesRange === 'function'){
-      const dates = getAdminDatesRange();
-      if (Array.isArray(dates) && dates.length){
-        return {
-          start: ymdLocal(dates[0]),
-          end: ymdLocal(dates[dates.length - 1])
-        };
-      }
-    }
-  }catch(_){}
-
-  const maxForwardDays = Math.max(1, Number(adminConfig.max_forward_days || 30));
-  const start = new Date(fallbackToday);
-  const end = new Date(fallbackToday);
-  end.setDate(start.getDate() + maxForwardDays - 1);
-  return {
-    start: ymdLocal(start),
-    end: ymdLocal(end)
-  };
-}
-
-function adminApplyBootstrapData(data){
   adminConfig = { ...ADMIN_DEFAULT_CONFIG, ...(data.config || {}) };
-  adminMenuMaster = Array.isArray(data.menu_master) ? data.menu_master : [];
-  adminMenuKeyCatalog = Array.isArray(data.menu_key_catalog) ? data.menu_key_catalog : [];
-  adminMenuGroupCatalog = Array.isArray(data.menu_group_catalog) && data.menu_group_catalog.length
-    ? data.menu_group_catalog
-    : (typeof getAdminResolvedGroupCatalog === 'function' ? getAdminResolvedGroupCatalog() : ADMIN_MENU_GROUPS);
-  adminAutoRuleCatalog = Array.isArray(data.auto_rule_catalog) ? data.auto_rule_catalog : [];
-  adminBootstrapLoaded = true;
-}
-
-function adminApplyWindowData(data){
   adminReservations = Array.isArray(data.reservations) ? data.reservations : [];
   adminBlocks = Array.isArray(data.blocks) ? data.blocks : [];
+  adminMenuMaster = Array.isArray(data.menu_master) ? data.menu_master : [];
+  adminMenuKeyCatalog = Array.isArray(data.menu_key_catalog) ? data.menu_key_catalog : [];
+  adminMenuGroupCatalog = Array.isArray(data.menu_group_catalog) && data.menu_group_catalog.length ? data.menu_group_catalog : getAdminResolvedGroupCatalog();
+  adminAutoRuleCatalog = Array.isArray(data.auto_rule_catalog) ? data.auto_rule_catalog : [];
+
   buildAdminBlockedSlots(adminBlocks);
   buildAdminReservedSlots(adminReservations);
-}
 
-function adminRenderAll(){
   applyAdminConfigToForm();
   renderAdminStats();
   renderMenuAdminList();
   renderAdminCalendar();
   renderReservationTable();
-}
-
-async function adminRefreshFastData(showToastOnFail){
-  try{
-    const bootRes = await gsRun('api_getAdminBootstrap');
-    const bootData = bootRes && bootRes.data ? bootRes.data : {};
-    adminApplyBootstrapData(bootData);
-
-    const range = adminGetVisibleRange();
-    const results = await Promise.all([
-      gsRun('api_getReservationsRange', range),
-      gsRun('api_getBlocksRange', range)
-    ]);
-
-    const reservationsData = results[0] && results[0].data ? results[0].data : {};
-    const blocksData = results[1] && results[1].data ? results[1].data : {};
-
-    adminApplyWindowData({
-      reservations: reservationsData.reservations || [],
-      blocks: blocksData.blocks || []
-    });
-
-    adminRenderAll();
-  }catch(e){
-    if (showToastOnFail) toast(e?.message || '通信エラー');
-    throw e;
-  }
-}
-
-
-async function adminRefreshVisibleWindow(showToastOnFail=false){
-  try{
-    const range = adminGetVisibleRange();
-    const results = await Promise.all([
-      gsRun('api_getReservationsRange', range),
-      gsRun('api_getBlocksRange', range)
-    ]);
-
-    const reservationsData = results[0] && results[0].data ? results[0].data : {};
-    const blocksData = results[1] && results[1].data ? results[1].data : {};
-
-    adminApplyWindowData({
-      reservations: reservationsData.reservations || [],
-      blocks: blocksData.blocks || []
-    });
-
-    renderAdminStats();
-    renderAdminCalendar();
-    renderReservationTable();
-  }catch(e){
-    if (showToastOnFail) toast(e?.message || '通信エラー');
-    throw e;
-  }
-}
-
-async function adminWarmFullDataInBackground(){
-  if (adminFullDatasetLoaded) return;
-  if (adminFullInitPromise) return adminFullInitPromise;
-
-  adminFullInitPromise = (async ()=>{
-    try{
-      const res = await gsRun('api_getInitData');
-      const data = res && res.data ? res.data : {};
-
-      adminConfig = { ...ADMIN_DEFAULT_CONFIG, ...(data.config || {}) };
-      adminReservations = Array.isArray(data.reservations) ? data.reservations : [];
-      adminBlocks = Array.isArray(data.blocks) ? data.blocks : [];
-      adminMenuMaster = Array.isArray(data.menu_master) ? data.menu_master : [];
-      adminMenuKeyCatalog = Array.isArray(data.menu_key_catalog) ? data.menu_key_catalog : [];
-      adminMenuGroupCatalog = Array.isArray(data.menu_group_catalog) && data.menu_group_catalog.length
-    ? data.menu_group_catalog
-    : (typeof getAdminResolvedGroupCatalog === 'function' ? getAdminResolvedGroupCatalog() : ADMIN_MENU_GROUPS);
-      adminAutoRuleCatalog = Array.isArray(data.auto_rule_catalog) ? data.auto_rule_catalog : [];
-
-      buildAdminBlockedSlots(adminBlocks);
-      buildAdminReservedSlots(adminReservations);
-
-      adminFullDatasetLoaded = true;
-      adminRenderAll();
-    }catch(_){
-    }finally{
-      adminFullInitPromise = null;
-    }
-  })();
-
-  return adminFullInitPromise;
-}
-
-async function adminRefreshAllData(showToastOnFail){
-  if (adminFullDatasetLoaded){
-    const res = await gsRun('api_getInitData');
-    const data = res.data || {};
-
-    adminConfig = { ...ADMIN_DEFAULT_CONFIG, ...(data.config || {}) };
-    adminReservations = Array.isArray(data.reservations) ? data.reservations : [];
-    adminBlocks = Array.isArray(data.blocks) ? data.blocks : [];
-    adminMenuMaster = Array.isArray(data.menu_master) ? data.menu_master : [];
-    adminMenuKeyCatalog = Array.isArray(data.menu_key_catalog) ? data.menu_key_catalog : [];
-    adminMenuGroupCatalog = Array.isArray(data.menu_group_catalog) && data.menu_group_catalog.length
-    ? data.menu_group_catalog
-    : (typeof getAdminResolvedGroupCatalog === 'function' ? getAdminResolvedGroupCatalog() : ADMIN_MENU_GROUPS);
-    adminAutoRuleCatalog = Array.isArray(data.auto_rule_catalog) ? data.auto_rule_catalog : [];
-
-    buildAdminBlockedSlots(adminBlocks);
-    buildAdminReservedSlots(adminReservations);
-
-    adminRenderAll();
-    return;
-  }
-
-  await adminRefreshFastData(showToastOnFail);
-  adminWarmFullDataInBackground();
 }
 
 function renderAdminStats(){
@@ -593,8 +447,10 @@ function bindUI(){
   document.getElementById('saveMenuMasterBtn').addEventListener('click', async ()=>{
     try{
       const items = buildSaveMenuPayload();
+      const menuConfigPayload = buildMenuGroupConfigPayload();
       await withLoading(async ()=>{
         await gsRun('api_saveMenuMaster', { items });
+        await gsRun('api_saveConfig', menuConfigPayload);
         await adminRefreshAllData();
       }, 'メニュー保存中...');
       toast('保存しました');

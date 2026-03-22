@@ -12,7 +12,7 @@ function safeJsonParseMenu(text, fallback){
 }
 
 function getBaseMenuGroupCatalog(){
-  return (typeof getAdminResolvedGroupCatalog === 'function') && Array.isArray(getAdminResolvedGroupCatalog()) && getAdminResolvedGroupCatalog().length
+  return Array.isArray(getAdminResolvedGroupCatalog()) && getAdminResolvedGroupCatalog().length
     ? getAdminResolvedGroupCatalog()
     : [
         { key: 'price', label: '料金概算（基本料金）' },
@@ -556,7 +556,7 @@ function promptAddMenuGroup(){
   visibility[key] = true;
   adminConfig.menu_group_visibility_json = JSON.stringify(visibility);
 
-  adminMenuGroupCatalog = (typeof getAdminResolvedGroupCatalog === 'function') ? getAdminResolvedGroupCatalog() : getBaseMenuGroupCatalog();
+  adminMenuGroupCatalog = getAdminResolvedGroupCatalog();
   setMenuGroupOpenState(key, true);
   renderMenuAdminList();
 }
