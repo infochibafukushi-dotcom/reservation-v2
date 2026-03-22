@@ -1,6 +1,6 @@
 
 const MENU_GROUP_FIXED_FIRST = 'price';
-const MENU_GROUP_FALLBACK_ORDER = ['price', 'assistance', 'stair', 'equipment', 'round_trip', 'move_type', 'custom'];
+const MENU_GROUP_FALLBACK_ORDER = ['price', 'assistance', 'stair', 'equipment', 'round_trip', 'move_type', 'custom', 'auto_set'];
 
 function safeJsonParseMenu(text, fallback){
   try{
@@ -21,7 +21,8 @@ function getBaseMenuGroupCatalog(){
         { key: 'equipment', label: '機材レンタル' },
         { key: 'round_trip', label: '往復送迎' },
         { key: 'move_type', label: '移動方法' },
-        { key: 'custom', label: 'その他（表示先なし）' }
+        { key: 'custom', label: 'その他（表示先なし）' },
+        { key: 'auto_set', label: '自動セット' }
       ];
 }
 
@@ -134,6 +135,11 @@ function normalizeGroupKey(group){
 
 function isFixedMenuGroup(group){
   return String(group || '') === MENU_GROUP_FIXED_FIRST;
+}
+
+function isBaseMenuGroup(group){
+  const key = String(group || '').trim();
+  return getBaseMenuGroupCatalog().some(item => String(item && item.key || '').trim() === key);
 }
 
 function isPublicMenuGroup(group){
@@ -411,7 +417,7 @@ function renderMenuGroupCard(group){
   const groupRequired = isMenuGroupRequired(group);
   const groupIndex = getMenuGroupIndex(group);
   const order = getEffectiveMenuGroupOrder();
-  const canDelete = !isFixedMenuGroup(group) && items.length === 0;
+  const canDelete = !isFixedMenuGroup(group) && !isBaseMenuGroup(group) && items.length === 0;
 
   return `
     <div class="menu-group-card" data-menu-group="${escapeHtml(group)}">
@@ -650,6 +656,10 @@ function bindMenuEvents(){
 
     if (action === 'groupDelete'){
       const items = getMenuItemsByGroup(group);
+      if (isBaseMenuGroup(group)){
+        toast('標準グループは削除できません');
+        return;
+      }
       if (items.length > 0){
         toast('項目があるグループは削除できません');
         return;

@@ -145,7 +145,72 @@ function setSelectValueByKey(selectId, key){
   return true;
 }
 
+function getGroupSelectId(groupKey){
+  const map = {
+    move_type: 'moveType',
+    assistance: 'assistanceType',
+    stair: 'stairAssistance',
+    equipment: 'equipmentRental',
+    round_trip: 'roundTrip'
+  };
+  return map[String(groupKey || '').trim()] || '';
+}
+
+function unlockAutoManagedSelects(){
+  ['moveType','assistanceType','stairAssistance','equipmentRental','roundTrip'].forEach((id)=>{
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (el.dataset.autoLocked === '1'){
+      el.disabled = false;
+      delete el.dataset.autoLocked;
+      el.classList.remove('opacity-70');
+    }
+  });
+}
+
+function lockSelectByGroup(groupKey, applyKey){
+  const selectId = getGroupSelectId(groupKey);
+  if (!selectId) return false;
+  const ok = setSelectValueByKey(selectId, applyKey);
+  const el = document.getElementById(selectId);
+  if (ok && el){
+    el.disabled = true;
+    el.dataset.autoLocked = '1';
+    el.classList.add('opacity-70');
+  }
+  return ok;
+}
+
+function getAllAutoAppliesFromMenu(targetGroup, triggerKey){
+  const pairs = [];
+  if (!targetGroup || !triggerKey) return pairs;
+  try{
+    if (typeof getMenuAutoApplyPairs === 'function'){
+      getMenuAutoApplyPairs(triggerKey).forEach((pair)=>{
+        if (pair && pair.apply_group && pair.apply_key) pairs.push({ apply_group: String(pair.apply_group||''), apply_key: String(pair.apply_key||'') });
+      });
+    }
+  }catch(_){ }
+  try{
+    if (typeof getAllAutoRulesByTrigger === 'function'){
+      getAllAutoRulesByTrigger(targetGroup, triggerKey).forEach((rule)=>{
+        if (rule && rule.apply_group && rule.apply_key) pairs.push({ apply_group: String(rule.apply_group||''), apply_key: String(rule.apply_key||'') });
+      });
+    }
+  }catch(_){ }
+  const uniq=[];
+  const seen=new Set();
+  pairs.forEach((pair)=>{
+    const sig=`${pair.apply_group}::${pair.apply_key}`;
+    if (seen.has(sig)) return;
+    seen.add(sig);
+    uniq.push(pair);
+  });
+  return uniq;
+}
+
 function applyAutoSelections(){
+  const moveTypeKey = getSelectedOptionKey('moveType');
   const stairKey = getSelectedOptionKey('stairAssistance');
   const equipmentKey = getSelectedOptionKey('equipmentRental');
 
@@ -153,61 +218,62 @@ function applyAutoSelections(){
   const stretcherWarning = document.getElementById('stretcherWarning');
   const wheelchairWarning = document.getElementById('wheelchairWarning');
 
-  stairWarning.classList.add('hidden');
-  stretcherWarning.classList.add('hidden');
-  wheelchairWarning.classList.add('hidden');
+  if (stairWarning) stairWarning.classList.add('hidden');
+  if (stretcherWarning) stretcherWarning.classList.add('hidden');
+  if (wheelchairWarning) wheelchairWarning.classList.add('hidden');
+
+  unlockAutoManagedSelects();
 
   let appliedBodyAssist = false;
   let appliedStaff2 = false;
 
-  const stairAuto = findAutoApplyFromMenu('stair', stairKey);
-  if (stairAuto && stairAuto.apply_group === 'assistance' && stairAuto.apply_key === 'BODY_ASSIST'){
-    if (setSelectValueByKey('assistanceType', 'BODY_ASSIST')){
-      appliedBodyAssist = true;
-      stairWarning.textContent = config.warning_stair_bodyassist_text || defaultConfig.warning_stair_bodyassist_text;
-      stairWarning.classList.remove('hidden');
-    }
-  } else {
-    const stairNeedBody = stairKey && !['STAIR_NONE','STAIR_WATCH'].includes(stairKey);
-    if (stairNeedBody && String(config.rule_force_body_assist_on_stair || '1') === '1'){
-      if (setSelectValueByKey('assistanceType', 'BODY_ASSIST')){
-        appliedBodyAssist = true;
-        stairWarning.textContent = config.warning_stair_bodyassist_text || defaultConfig.warning_stair_bodyassist_text;
-        stairWarning.classList.remove('hidden');
-      }
-    }
-  }
+  const applyPairs = []
+    .concat(getAllAutoAppliesFromMenu('move_type', moveTypeKey))
+    .concat(getAllAutoAppliesFromMenu('stair', stairKey))
+    .concat(getAllAutoAppliesFromMenu('equipment', equipmentKey));
 
-  const equipAuto = findAutoApplyFromMenu('equipment', equipmentKey);
-  if (equipmentKey === 'EQUIP_STRETCHER'){
-    stretcherWarning.textContent = config.warning_stretcher_bodyassist_text || defaultConfig.warning_stretcher_bodyassist_text;
-    stretcherWarning.classList.remove('hidden');
-
-    if (equipAuto && equipAuto.apply_group === 'assistance' && equipAuto.apply_key === 'BODY_ASSIST'){
-      if (setSelectValueByKey('assistanceType', 'BODY_ASSIST')){
-        appliedBodyAssist = true;
+  applyPairs.forEach((pair)=>{
+    if (!pair || !pair.apply_group || !pair.apply_key) return;
+    if (pair.apply_group === 'assistance'){
+      if (lockSelectByGroup('assistance', pair.apply_key)){
+        if (String(pair.apply_key) === 'BODY_ASSIST'){
+          appliedBodyAssist = true;
+        }
       }
-    } else if (String(config.rule_force_body_assist_on_stretcher || '1') === '1'){
-      if (setSelectValueByKey('assistanceType', 'BODY_ASSIST')){
-        appliedBodyAssist = true;
-      }
-    }
-
-    const equipmentMap = getMenuMap();
-    const stretcherMenu = equipmentMap['EQUIP_STRETCHER'];
-    if (stretcherMenu && String(stretcherMenu.auto_apply_group || '') === 'equipment' && String(stretcherMenu.auto_apply_key || '') === 'EQUIP_STRETCHER_STAFF2'){
+    } else if (pair.apply_group === 'stair' || pair.apply_group === 'equipment' || pair.apply_group === 'round_trip' || pair.apply_group === 'move_type') {
+      lockSelectByGroup(pair.apply_group, pair.apply_key);
+    } else if (pair.apply_group === 'auto_set' && String(pair.apply_key) === 'EQUIP_STRETCHER_STAFF2'){
       appliedStaff2 = true;
-    } else {
-      const staffRule = getAutoRuleByTrigger('equipment', 'EQUIP_STRETCHER');
-      if (staffRule && String(staffRule.apply_group || '') === 'equipment' && String(staffRule.apply_key || '') === 'EQUIP_STRETCHER_STAFF2'){
-        appliedStaff2 = true;
-      } else if (String(config.rule_force_stretcher_staff2_on_stretcher || '1') === '1'){
-        appliedStaff2 = true;
+    }
+  });
+
+  const stairNeedBody = stairKey && !['STAIR_NONE','STAIR_WATCH'].includes(stairKey);
+  if (!appliedBodyAssist && stairNeedBody && String(config.rule_force_body_assist_on_stair || '1') === '1'){
+    if (lockSelectByGroup('assistance', 'BODY_ASSIST')){
+      appliedBodyAssist = true;
+    }
+  }
+  if (stairNeedBody && stairWarning){
+    stairWarning.textContent = config.warning_stair_bodyassist_text || defaultConfig.warning_stair_bodyassist_text;
+    stairWarning.classList.remove('hidden');
+  }
+
+  if (equipmentKey === 'EQUIP_STRETCHER'){
+    if (stretcherWarning){
+      stretcherWarning.textContent = config.warning_stretcher_bodyassist_text || defaultConfig.warning_stretcher_bodyassist_text;
+      stretcherWarning.classList.remove('hidden');
+    }
+    if (!appliedBodyAssist && String(config.rule_force_body_assist_on_stretcher || '1') === '1'){
+      if (lockSelectByGroup('assistance', 'BODY_ASSIST')){
+        appliedBodyAssist = true;
       }
+    }
+    if (!appliedStaff2 && String(config.rule_force_stretcher_staff2_on_stretcher || '1') === '1'){
+      appliedStaff2 = true;
     }
   }
 
-  if (equipmentKey === 'EQUIP_OWN_WHEELCHAIR'){
+  if (equipmentKey === 'EQUIP_OWN_WHEELCHAIR' && wheelchairWarning){
     wheelchairWarning.textContent = config.warning_wheelchair_damage_text || defaultConfig.warning_wheelchair_damage_text;
     wheelchairWarning.classList.remove('hidden');
   }
@@ -271,6 +337,7 @@ async function openBookingForm(date, hour, minute=0){
 }
 
 function resetBookingForm(){
+  unlockAutoManagedSelects();
   document.getElementById('bookingForm').reset();
   document.getElementById('stairWarning').classList.add('hidden');
   document.getElementById('wheelchairWarning').classList.add('hidden');
