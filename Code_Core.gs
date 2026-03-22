@@ -248,6 +248,122 @@ function _headerMap(sheet) {
   return { headers: headers, map: map };
 }
 
+function _getSchemaReadyFlag_(name) {
+  const props = PropertiesService.getScriptProperties();
+  const key = 'schema_ready_' + String(name || '').trim();
+  return String(props.getProperty(key) || '') === '1';
+}
+
+function _setSchemaReadyFlag_(name, value) {
+  const props = PropertiesService.getScriptProperties();
+  const key = 'schema_ready_' + String(name || '').trim();
+  props.setProperty(key, value ? '1' : '0');
+}
+
+function _isConfigSheetHeaderValid_(sheet) {
+  if (!sheet) return false;
+  if (sheet.getLastRow() < 1 || sheet.getLastColumn() < 2) return false;
+  const a1 = String(sheet.getRange(1, 1).getValue() || '').trim();
+  const b1 = String(sheet.getRange(1, 2).getValue() || '').trim();
+  return a1 === 'key' && b1 === 'value';
+}
+
+function _isPriceMasterHeaderValid_(sheet) {
+  if (!sheet) return false;
+  const required = ['key', 'key_jp', 'label', 'price', 'note', 'is_visible', 'sort_order', 'menu_group', 'required_flag', 'auto_apply_group', 'auto_apply_key'];
+  if (sheet.getLastRow() < 1 || sheet.getLastColumn() < required.length) return false;
+  const headers = sheet.getRange(1, 1, 1, required.length).getValues()[0].map(function(v) {
+    return String(v || '').trim();
+  });
+  for (var i = 0; i < required.length; i++) {
+    if (headers[i] !== required[i]) return false;
+  }
+  return true;
+}
+
+function _readConfigSheetFast_() {
+  const sheet = _sh(SHEETS.CONFIG);
+  if (!sheet) return _clone_(DEFAULT_CONFIG);
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return _clone_(DEFAULT_CONFIG);
+
+  const keys = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  const vals = sheet.getRange(2, 2, lastRow - 1, 1).getValues();
+  const out = _clone_(DEFAULT_CONFIG);
+
+  for (var i = 0; i < keys.length; i++) {
+    const key = String(keys[i][0] || '').trim();
+    if (!key || key === 'key' || key === '項目') continue;
+    out[key] = _cellToPlain(vals[i][0]);
+  }
+
+  out.slot_minutes = String(out.slot_minutes || '30');
+  out.same_day_enabled = _toBool(out.same_day_enabled) ? '1' : '0';
+  out.same_day_min_hours = String(Number(out.same_day_min_hours || 3));
+  out.logo_use_drive_image = _toBool(out.logo_use_drive_image) ? '1' : '0';
+  out.logo_use_github_image = _toBool(out.logo_use_github_image) ? '1' : '0';
+  out.admin_tap_count = String(out.admin_tap_count || '5');
+  out.days_per_page = String(Math.max(1, Number(out.days_per_page || 7)));
+  out.max_forward_days = String(Math.max(1, Number(out.max_forward_days || '30')));
+  out.rule_force_body_assist_on_stair = _toBool(out.rule_force_body_assist_on_stair) ? '1' : '0';
+  out.rule_force_body_assist_on_stretcher = _toBool(out.rule_force_body_assist_on_stretcher) ? '1' : '0';
+  out.rule_force_stretcher_staff2_on_stretcher = _toBool(out.rule_force_stretcher_staff2_on_stretcher) ? '1' : '0';
+  out.admin_panels_collapsed_default = _toBool(out.admin_panels_collapsed_default) ? '1' : '0';
+
+  for (var j = 1; j <= 6; j++) {
+    out['auto_rule_enabled_' + j] = _toBool(out['auto_rule_enabled_' + j]) ? '1' : '0';
+  }
+
+  return out;
+}
+
+function _readMenuMasterFast_() {
+  const sheet = _sh(SHEETS.PRICE_MASTER);
+  if (!sheet) return [];
+
+  const hm = _headerMap(sheet);
+  const map = hm.map;
+  const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
+  if (lastRow < 2 || lastCol < 1) return [];
+
+  const values = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+  const out = values.map(function(row) {
+    const keyIdx = map['key'] ? (map['key'] - 1) : -1;
+    const keyJpIdx = (map['key_jp'] ?? map['keyjp']) ? ((map['key_jp'] ?? map['keyjp']) - 1) : -1;
+    const labelIdx = map['label'] ? (map['label'] - 1) : -1;
+    const priceIdx = map['price'] ? (map['price'] - 1) : -1;
+    const noteIdx = map['note'] ? (map['note'] - 1) : -1;
+    const visIdx = map['is_visible'] ? (map['is_visible'] - 1) : -1;
+    const sortIdx = map['sort_order'] ? (map['sort_order'] - 1) : -1;
+    const groupIdx = map['menu_group'] ? (map['menu_group'] - 1) : -1;
+    const reqIdx = map['required_flag'] ? (map['required_flag'] - 1) : -1;
+    const autoGroupIdx = map['auto_apply_group'] ? (map['auto_apply_group'] - 1) : -1;
+    const autoKeyIdx = map['auto_apply_key'] ? (map['auto_apply_key'] - 1) : -1;
+
+    return {
+      key: keyIdx >= 0 ? String(row[keyIdx] || '').trim() : '',
+      key_jp: keyJpIdx >= 0 ? String(row[keyJpIdx] || '').trim() : '',
+      label: labelIdx >= 0 ? String(row[labelIdx] || '').trim() : '',
+      price: priceIdx >= 0 ? Number(row[priceIdx] || 0) : 0,
+      note: noteIdx >= 0 ? String(row[noteIdx] || '').trim() : '',
+      is_visible: visIdx < 0 || row[visIdx] === '' || row[visIdx] === undefined ? true : _toBool(row[visIdx]),
+      sort_order: sortIdx < 0 || row[sortIdx] === '' || row[sortIdx] === undefined ? 9999 : Number(row[sortIdx]),
+      menu_group: _normalizeMenuGroup_(groupIdx >= 0 ? row[groupIdx] : ''),
+      required_flag: reqIdx < 0 || row[reqIdx] === '' || row[reqIdx] === undefined ? false : _toBool(row[reqIdx]),
+      auto_apply_group: _normalizeAutoApplyGroup_(autoGroupIdx >= 0 ? row[autoGroupIdx] : ''),
+      auto_apply_key: autoKeyIdx >= 0 ? String(row[autoKeyIdx] || '').trim() : ''
+    };
+  }).filter(function(r) {
+    return !!r.key;
+  }).sort(function(a, b) {
+    if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order;
+    return String(a.key).localeCompare(String(b.key));
+  });
+
+  return out;
+}
+
 function _sheetToObjects(sheet) {
   const lastRow = sheet.getLastRow();
   const lastCol = sheet.getLastColumn();
@@ -455,16 +571,21 @@ function _getBlockedSlotKeysInRange_(startDate, endDate) {
   const hourCol = map['block_hour'] ?? map['hour'] ?? map['slot_hour'] ?? null;
   const minuteCol = map['block_minute'] ?? map['minute'] ?? map['slot_minute'] ?? null;
 
-  const values = sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).getValues();
+  const rowCount = sheet.getLastRow() - 1;
+  const keyVals = keyCol ? sheet.getRange(2, keyCol, rowCount, 1).getValues() : [];
+  const blockedVals = isBlockedCol ? sheet.getRange(2, isBlockedCol, rowCount, 1).getValues() : [];
+  const dateVals = dateCol ? sheet.getRange(2, dateCol, rowCount, 1).getValues() : [];
+  const hourVals = hourCol ? sheet.getRange(2, hourCol, rowCount, 1).getValues() : [];
+  const minuteVals = minuteCol ? sheet.getRange(2, minuteCol, rowCount, 1).getValues() : [];
+
   const keySet = new Set();
 
-  for (var i = 0; i < values.length; i++) {
-    var row = values[i];
-    var isBlocked = isBlockedCol ? _toBool(row[isBlockedCol - 1]) : false;
+  for (var i = 0; i < rowCount; i++) {
+    var isBlocked = blockedVals.length ? _toBool(blockedVals[i][0]) : false;
     if (!isBlocked) continue;
 
-    var d = dateCol ? _normalizeYMD(row[dateCol - 1]) : '';
-    var key = keyCol ? String(row[keyCol - 1] || '').trim() : '';
+    var d = dateVals.length ? _normalizeYMD(dateVals[i][0]) : '';
+    var key = keyVals.length ? String(keyVals[i][0] || '').trim() : '';
     if (!d && key) {
       var km = key.match(/^(\d{4}-\d{2}-\d{2})-(\d{1,2})-(\d{1,2})$/);
       if (km) d = km[1];
@@ -472,8 +593,8 @@ function _getBlockedSlotKeysInRange_(startDate, endDate) {
     if (!d || d < start || d > end) continue;
 
     if (!key) {
-      var h = hourCol ? Number(row[hourCol - 1]) : NaN;
-      var m = minuteCol ? Number(row[minuteCol - 1] || 0) : 0;
+      var h = hourVals.length ? Number(hourVals[i][0]) : NaN;
+      var m = minuteVals.length ? Number(minuteVals[i][0] || 0) : 0;
       if (Number.isNaN(h) || Number.isNaN(m)) continue;
       key = d + '-' + h + '-' + m;
     }
@@ -482,6 +603,62 @@ function _getBlockedSlotKeysInRange_(startDate, endDate) {
 
   const result = { start: start, end: end, slot_keys: Array.from(keySet) };
   _cachePutJson_(cacheKey, result, 120);
+  return result;
+}
+
+function _getReservationsInRange_(startDate, endDate) {
+  const start = _normalizeYMD(startDate);
+  const end = _normalizeYMD(endDate || startDate);
+  if (!start) throw new Error('startDate が不正です');
+  if (!end) throw new Error('endDate が不正です');
+  if (start > end) throw new Error('startDate は endDate 以下にしてください');
+
+  const cacheKey = 'reservations_range_v' + _getPublicApiCacheVersion_('public_bootstrap') + '_' + start + '_' + end;
+  const cached = _cacheGetJson_(cacheKey);
+  if (cached && Array.isArray(cached.reservations)) return cached;
+
+  const sheet = _sh(SHEETS.RESERVATIONS);
+  if (!sheet || sheet.getLastRow() < 2) {
+    const empty = { start: start, end: end, reservations: [] };
+    _cachePutJson_(cacheKey, empty, 60);
+    return empty;
+  }
+
+  const rows = _sheetToObjects(sheet).filter(function(r) {
+    const d = _normalizeYMD(r.date || r.reservation_date || r.pickup_date || r.day || '');
+    return d && d >= start && d <= end;
+  });
+
+  const result = { start: start, end: end, reservations: rows };
+  _cachePutJson_(cacheKey, result, 60);
+  return result;
+}
+
+function _getBlocksInRange_(startDate, endDate) {
+  const start = _normalizeYMD(startDate);
+  const end = _normalizeYMD(endDate || startDate);
+  if (!start) throw new Error('startDate が不正です');
+  if (!end) throw new Error('endDate が不正です');
+  if (start > end) throw new Error('startDate は endDate 以下にしてください');
+
+  const cacheKey = 'blocks_range_v' + _getPublicApiCacheVersion_('blocked_slot_keys') + '_' + start + '_' + end;
+  const cached = _cacheGetJson_(cacheKey);
+  if (cached && Array.isArray(cached.blocks)) return cached;
+
+  const sheet = _sh(SHEETS.BLOCK);
+  if (!sheet || sheet.getLastRow() < 2) {
+    const empty = { start: start, end: end, blocks: [] };
+    _cachePutJson_(cacheKey, empty, 60);
+    return empty;
+  }
+
+  const rows = _sheetToObjects(sheet).filter(function(r) {
+    const d = _normalizeYMD(r.block_date || r.date || r.slot_date || '');
+    return d && d >= start && d <= end;
+  });
+
+  const result = { start: start, end: end, blocks: rows };
+  _cachePutJson_(cacheKey, result, 60);
   return result;
 }
 
@@ -716,6 +893,10 @@ function _upsertConfigMap_(mapObj) {
 
 function _ensureConfigDefaults_() {
   let sheet = _sh(SHEETS.CONFIG);
+  const schemaVersion = 'config_schema_v4';
+  if (sheet && _isConfigSheetHeaderValid_(sheet) && _getSchemaReadyFlag_(schemaVersion)) {
+    return;
+  }
   if (!sheet) {
     sheet = _ss().insertSheet(SHEETS.CONFIG);
   }
@@ -880,19 +1061,31 @@ function _ensureConfigDefaults_() {
   const lr = sheet.getLastRow();
   if (lr >= 2) {
     const keys = sheet.getRange(2, 1, lr - 1, 1).getValues();
+    const curNotes = sheet.getRange(2, 3, lr - 1, 1).getValues();
+    const nextNotes = [];
+    let hasDiff = false;
+
     for (let i = 0; i < keys.length; i++) {
-      const row = 2 + i;
       const k = String(keys[i][0] || '').trim();
-      if (!k) continue;
-      if (noteMap[k]) {
-        sheet.getRange(row, 3).setValue(noteMap[k]);
-      }
+      const next = noteMap[k] ? String(noteMap[k]) : String(curNotes[i][0] || '');
+      nextNotes.push([next]);
+      if (String(curNotes[i][0] || '') !== next) hasDiff = true;
+    }
+
+    if (hasDiff) {
+      sheet.getRange(2, 3, nextNotes.length, 1).setValues(nextNotes);
     }
   }
+
+  _setSchemaReadyFlag_(schemaVersion, true);
 }
 
 function _ensurePriceMasterDefaults_() {
   let sheet = _sh(SHEETS.PRICE_MASTER);
+  const schemaVersion = 'price_master_schema_v4';
+  if (sheet && _isPriceMasterHeaderValid_(sheet) && _getSchemaReadyFlag_(schemaVersion)) {
+    return;
+  }
   if (!sheet) {
     sheet = _ss().insertSheet(SHEETS.PRICE_MASTER);
   }
@@ -901,6 +1094,7 @@ function _ensurePriceMasterDefaults_() {
 
   if (sheet.getLastRow() >= 2) {
     _repairExistingPriceMasterRows_(sheet);
+    _setSchemaReadyFlag_(schemaVersion, true);
     return;
   }
 
@@ -913,6 +1107,8 @@ function _ensurePriceMasterDefaults_() {
   if (rows.length > 0) {
     sheet.getRange(2, 1, rows.length, headers.length).setValues(rows);
   }
+
+  _setSchemaReadyFlag_(schemaVersion, true);
 }
 
 function _ensurePriceMasterHeader_(sheet) {
@@ -1183,94 +1379,11 @@ function _normalizeInternalMenuKey_(key) {
   return s;
 }
 
-
-function _parseMenuGroupSettingsJson_() {
-  const cfg = _getConfigMap_();
-  const raw = String((cfg && cfg.menu_group_settings_json) || '[]').trim();
-  if (!raw) return [];
-
-  try {
-    const list = JSON.parse(raw);
-    if (!Array.isArray(list)) return [];
-
-    return list.map(function(item, idx) {
-      const obj = item || {};
-      const key = String(obj.key || '').trim();
-      if (!key) return null;
-
-      return {
-        key: key,
-        label: String(obj.label || key).trim(),
-        description: String(obj.description || '').trim(),
-        is_visible: (obj.is_visible === undefined) ? true : _toBool(obj.is_visible),
-        sort_order: (obj.sort_order === undefined || obj.sort_order === null || obj.sort_order === '') ? ((idx + 1) * 10) : Number(obj.sort_order || ((idx + 1) * 10)),
-        is_custom: (obj.is_custom === undefined) ? true : _toBool(obj.is_custom)
-      };
-    }).filter(function(item) {
-      return !!item && !!item.key;
-    });
-  } catch (e) {
-    return [];
-  }
-}
-
-function _getMenuGroupCatalog_() {
-  const builtins = (typeof BUILTIN_MENU_GROUP_CATALOG !== 'undefined' && Array.isArray(BUILTIN_MENU_GROUP_CATALOG))
-    ? BUILTIN_MENU_GROUP_CATALOG
-    : [];
-
-  const customList = _parseMenuGroupSettingsJson_();
-  const map = {};
-
-  builtins.forEach(function(group, idx) {
-    const key = String(group && group.key || '').trim();
-    if (!key) return;
-    map[key] = {
-      key: key,
-      label: String(group.label || key).trim(),
-      description: String(group.description || '').trim(),
-      is_visible: true,
-      sort_order: Number((idx + 1) * 100),
-      is_custom: false
-    };
-  });
-
-  customList.forEach(function(group, idx) {
-    const key = String(group.key || '').trim();
-    if (!key) return;
-
-    const base = map[key] || {
-      key: key,
-      label: String(group.label || key).trim(),
-      description: String(group.description || '').trim(),
-      is_visible: true,
-      sort_order: Number((idx + 1) * 10),
-      is_custom: true
-    };
-
-    base.label = String(group.label || base.label || key).trim();
-    base.description = String(group.description || base.description || '').trim();
-    base.is_visible = (group.is_visible === undefined) ? base.is_visible : _toBool(group.is_visible);
-    base.sort_order = Number(group.sort_order === undefined ? base.sort_order : group.sort_order);
-    base.is_custom = (group.is_custom === undefined) ? (map[key] ? false : true) : _toBool(group.is_custom);
-    map[key] = base;
-  });
-
-  return Object.keys(map).map(function(key) {
-    return map[key];
-  }).sort(function(a, b) {
-    if (Number(a.sort_order || 0) !== Number(b.sort_order || 0)) {
-      return Number(a.sort_order || 0) - Number(b.sort_order || 0);
-    }
-    return String(a.key || '').localeCompare(String(b.key || ''));
-  });
-}
-
 function _normalizeMenuGroup_(group) {
   const s = String(group || '').trim();
   if (!s) return 'custom';
 
-  const hit = _getMenuGroupCatalog_().find(function(g) {
+  const hit = MENU_GROUP_CATALOG.find(function(g) {
     return String(g.key) === s;
   });
   return hit ? hit.key : 'custom';
@@ -1280,7 +1393,7 @@ function _normalizeAutoApplyGroup_(group) {
   const s = String(group || '').trim();
   if (!s) return '';
 
-  const hit = _getMenuGroupCatalog_().find(function(g) {
+  const hit = MENU_GROUP_CATALOG.find(function(g) {
     return String(g.key) === s;
   });
   if (!hit) return '';

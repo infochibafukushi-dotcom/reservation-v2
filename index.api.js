@@ -1,5 +1,5 @@
 const ADMIN_ICON_FILE_ID = '1a0QB8ei00w_lSfL4PnF_xuEFUC2JP6FW';
-const GAS_URL = "https://script.google.com/macros/s/AKfycbxLifJts5ZeIHajhgXvg1EQECjI7mv9R0F6DhkiMAQzvYlaOWsVgRxKDxeBri9JJrij/exec";
+const GAS_URL = "https://script.google.com/macros/s/AKfycbwZDPOM5zmbV8Q0WMwBE_ZetMSFN0pi_tBhk6k11C6v-p30aDHU5OXBKPu-SIX7v2qn/exec";
 const ADMIN_PAGE_URL = "admin.html";
 
 function toast(msg='通信エラー', ms=2200){
@@ -247,7 +247,7 @@ function hydratePublicCacheForFastPaint(){
   return bootLoaded || blockedLoaded;
 }
 
-const TRIGGER_URL = 'https://script.google.com/macros/s/AKfycbxLifJts5ZeIHajhgXvg1EQECjI7mv9R0F6DhkiMAQzvYlaOWsVgRxKDxeBri9JJrij/exec?secret=secret1';
+const TRIGGER_URL = 'https://script.google.com/macros/s/AKfycbwZDPOM5zmbV8Q0WMwBE_ZetMSFN0pi_tBhk6k11C6v-p30aDHU5OXBKPu-SIX7v2qn/exec?secret=secret1';
 
 function fireTrigger(){
   try{
@@ -588,17 +588,29 @@ function isSlotBlockedWithMinute(dateObj, hour, minute) {
 
 
 function getPublicCalendarRange(){
+  try{
+    if (typeof getDatesRange === 'function'){
+      const dates = getDatesRange();
+      if (Array.isArray(dates) && dates.length){
+        return {
+          start: ymdLocal(dates[0]),
+          end: ymdLocal(dates[dates.length - 1])
+        };
+      }
+    }
+  }catch(_){ }
+
   const today = new Date();
   today.setHours(0,0,0,0);
 
-  const maxForwardDays = Math.max(1, Number(config.max_forward_days || 30));
+  const daysPerPage = Math.max(1, Number(config.days_per_page || 7));
   const startOffset = String(config.same_day_enabled || '0') === '1' ? 0 : 1;
 
   const start = new Date(today);
   start.setDate(today.getDate() + startOffset);
 
   const end = new Date(start);
-  end.setDate(start.getDate() + maxForwardDays - 1);
+  end.setDate(start.getDate() + daysPerPage - 1);
 
   return {
     start: ymdLocal(start),

@@ -92,6 +92,32 @@ async function adminRefreshFastData(showToastOnFail){
   }
 }
 
+
+async function adminRefreshVisibleWindow(showToastOnFail=false){
+  try{
+    const range = adminGetVisibleRange();
+    const results = await Promise.all([
+      gsRun('api_getReservationsRange', range),
+      gsRun('api_getBlocksRange', range)
+    ]);
+
+    const reservationsData = results[0] && results[0].data ? results[0].data : {};
+    const blocksData = results[1] && results[1].data ? results[1].data : {};
+
+    adminApplyWindowData({
+      reservations: reservationsData.reservations || [],
+      blocks: blocksData.blocks || []
+    });
+
+    renderAdminStats();
+    renderAdminCalendar();
+    renderReservationTable();
+  }catch(e){
+    if (showToastOnFail) toast(e?.message || '通信エラー');
+    throw e;
+  }
+}
+
 async function adminWarmFullDataInBackground(){
   if (adminFullDatasetLoaded) return;
   if (adminFullInitPromise) return adminFullInitPromise;

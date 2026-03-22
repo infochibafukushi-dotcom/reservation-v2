@@ -1,3 +1,10 @@
+let adminCalendarPage = 0;
+let hasBoundAdminCalendarNav = false;
+
+function getAdminDaysPerPage(){
+  return Math.max(1, Number(adminConfig.days_per_page || 7));
+}
+
 function adminApplyCalendarGridColumns(gridEl, daysCount){
   const isMobile = window.matchMedia('(max-width: 640px)').matches;
   const timeCol = isMobile ? 44 : 60;
@@ -5,7 +12,7 @@ function adminApplyCalendarGridColumns(gridEl, daysCount){
   const baseW = (sc && sc.clientWidth) ? sc.clientWidth : window.innerWidth;
 
   if (!isMobile){
-    const dayW = Math.max(110, Math.floor((baseW - timeCol) / 7));
+    const dayW = Math.max(110, Math.floor((baseW - timeCol) / Math.max(1, daysCount)));
     gridEl.style.gridTemplateColumns = `${timeCol}px repeat(${daysCount}, ${dayW}px)`;
   } else {
     gridEl.style.gridTemplateColumns = `${timeCol}px repeat(${daysCount}, minmax(62px, 1fr))`;
@@ -16,16 +23,110 @@ function getAdminDatesRange(){
   const today = new Date();
   today.setHours(0,0,0,0);
 
-  const maxForwardDays = Number(adminConfig.max_forward_days || 30);
-  const startOffset = 0;
+  const maxForwardDays = Math.max(1, Number(adminConfig.max_forward_days || 30));
+  const daysPerPage = getAdminDaysPerPage();
+  const startIndex = Math.max(0, adminCalendarPage * daysPerPage);
+  const remaining = Math.max(0, maxForwardDays - startIndex);
+  const visibleDays = Math.max(0, Math.min(daysPerPage, remaining));
   const dates = [];
 
-  for (let i=0;i<maxForwardDays;i++){
+  for (let i=0; i<visibleDays; i++){
     const dt = new Date(today);
-    dt.setDate(today.getDate() + startOffset + i);
+    dt.setDate(today.getDate() + startIndex + i);
     dates.push(dt);
   }
   return dates;
+}
+
+function getAdminCalendarPageInfo(){
+  const maxForwardDays = Math.max(1, Number(adminConfig.max_forward_days || 30));
+  const daysPerPage = getAdminDaysPerPage();
+  const totalPages = Math.max(1, Math.ceil(maxForwardDays / daysPerPage));
+  const currentPage = Math.min(Math.max(0, adminCalendarPage), totalPages - 1);
+  return { daysPerPage, totalPages, currentPage };
+}
+
+function ensureAdminCalendarNav(){
+  const dateRangeEl = document.getElementById('adminDateRange');
+  const headerRow = dateRangeEl ? dateRangeEl.parentElement : null;
+  if (!dateRangeEl || !headerRow) return;
+
+  let nav = document.getElementById('adminCalendarPager');
+  if (!nav){
+    nav = document.createElement('div');
+    nav.id = 'adminCalendarPager';
+    nav.className = 'flex items-center gap-2';
+    nav.innerHTML = `
+      <button id="adminPrevWeekBtn" class="cute-btn px-3 py-2 bg-white border border-slate-200 text-slate-700 text-xs md:text-sm whitespace-nowrap" type="button">← 前へ</button>
+      <button id="adminNextWeekBtn" class="cute-btn px-3 py-2 bg-white border border-slate-200 text-slate-700 text-xs md:text-sm whitespace-nowrap" type="button">次へ →</button>
+    `;
+    const toggleBtn = document.getElementById('toggleAdminTimeView');
+    const toggleWrap = toggleBtn ? toggleBtn.parentElement : null;
+    if (toggleWrap){
+      headerRow.insertBefore(nav, toggleWrap);
+    } else {
+      headerRow.appendChild(nav);
+    }
+  }
+
+  if (!hasBoundAdminCalendarNav){
+    const prevBtn = document.getElementById('adminPrevWeekBtn');
+    const nextBtn = document.getElementById('adminNextWeekBtn');
+
+    if (prevBtn){
+      prevBtn.addEventListener('click', async ()=>{
+        const info = getAdminCalendarPageInfo();
+        if (info.currentPage <= 0) return;
+        adminCalendarPage = info.currentPage - 1;
+        try{
+          await withLoading(async ()=>{
+            if (typeof adminRefreshVisibleWindow === 'function'){
+              await adminRefreshVisibleWindow(false);
+            } else {
+              renderAdminCalendar();
+            }
+          }, '前の週を表示中...');
+        }catch(err){
+          toast(err?.message || '表示更新に失敗しました');
+        }
+      });
+    }
+
+    if (nextBtn){
+      nextBtn.addEventListener('click', async ()=>{
+        const info = getAdminCalendarPageInfo();
+        if (info.currentPage >= info.totalPages - 1) return;
+        adminCalendarPage = info.currentPage + 1;
+        try{
+          await withLoading(async ()=>{
+            if (typeof adminRefreshVisibleWindow === 'function'){
+              await adminRefreshVisibleWindow(false);
+            } else {
+              renderAdminCalendar();
+            }
+          }, '次の週を表示中...');
+        }catch(err){
+          toast(err?.message || '表示更新に失敗しました');
+        }
+      });
+    }
+
+    hasBoundAdminCalendarNav = true;
+  }
+
+  const info = getAdminCalendarPageInfo();
+  const prevBtn = document.getElementById('adminPrevWeekBtn');
+  const nextBtn = document.getElementById('adminNextWeekBtn');
+  if (prevBtn){
+    prevBtn.disabled = info.currentPage <= 0;
+    prevBtn.style.opacity = info.currentPage <= 0 ? '0.45' : '1';
+    prevBtn.style.pointerEvents = info.currentPage <= 0 ? 'none' : '';
+  }
+  if (nextBtn){
+    nextBtn.disabled = info.currentPage >= info.totalPages - 1;
+    nextBtn.style.opacity = info.currentPage >= info.totalPages - 1 ? '0.45' : '1';
+    nextBtn.style.pointerEvents = info.currentPage >= info.totalPages - 1 ? 'none' : '';
+  }
 }
 
 function buildAdminSlots(){
@@ -49,48 +150,9 @@ function buildAdminSlots(){
   return { regularSlots, otherSlots };
 }
 
-function adminCeilToNext30Min(dt){
-  const rounded = new Date(dt.getTime());
-  rounded.setSeconds(0, 0);
-
-  const minute = rounded.getMinutes();
-  const mod = minute % 30;
-
-  if (mod !== 0){
-    rounded.setMinutes(minute + (30 - mod), 0, 0);
-  }
-
-  return rounded;
-}
-
-function isAdminSameDayAutoBlocked(dateObj, hour, minute){
-  if (String(adminConfig.same_day_enabled || '0') !== '1') return false;
-
-  const dateStr = ymdLocal(dateObj);
-  const todayStr = ymdLocal(new Date());
-  if (dateStr !== todayStr) return false;
-
-  const minHours = Number(adminConfig.same_day_min_hours || 3);
-  const threshold = new Date(Date.now() + (minHours * 60 * 60 * 1000));
-  const rounded = adminCeilToNext30Min(threshold);
-  const slotDt = new Date(
-    dateObj.getFullYear(),
-    dateObj.getMonth(),
-    dateObj.getDate(),
-    Number(hour),
-    Number(minute || 0),
-    0,
-    0
-  );
-
-  return slotDt.getTime() < rounded.getTime();
-}
-
 function isAdminSlotBlocked(dateObj, hour, minute){
   const key = `${ymdLocal(dateObj)}-${hour}-${minute}`;
-  if (adminBlockedSlots.has(key) || adminReservedSlots.has(key)) return true;
-  if (isAdminSameDayAutoBlocked(dateObj, hour, minute)) return true;
-  return false;
+  return adminBlockedSlots.has(key) || adminReservedSlots.has(key);
 }
 
 function renderAdminCalendar(){
@@ -98,16 +160,20 @@ function renderAdminCalendar(){
   const dateRangeEl = document.getElementById('adminDateRange');
   if (!grid || !dateRangeEl) return;
 
+  ensureAdminCalendarNav();
+
   const dates = getAdminDatesRange();
   adminCalendarDates = dates;
 
   if (dates.length === 0) {
     dateRangeEl.textContent = '';
     grid.innerHTML = '';
+    ensureAdminCalendarNav();
     return;
   }
 
   dateRangeEl.textContent = `${formatDate(dates[0])} ～ ${formatDate(dates[dates.length - 1])}`;
+  ensureAdminCalendarNav();
 
   const { regularSlots, otherSlots } = buildAdminSlots();
   const slots = adminExtendedView ? otherSlots : regularSlots;

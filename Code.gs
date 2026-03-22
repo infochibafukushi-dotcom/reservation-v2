@@ -26,7 +26,7 @@ const DEFAULT_CONFIG = {
   main_title: '介護タクシー予約',
   admin_password: '95123',
   admin_tap_count: '5',
-  days_per_page: '5',
+  days_per_page: '7',
   max_forward_days: '30',
   slot_minutes: '30',
   service_block_minutes: '120',
@@ -65,7 +65,6 @@ const DEFAULT_CONFIG = {
 
   // ===== 管理画面表示・拡張 =====
   admin_panels_collapsed_default: '1',
-  menu_group_settings_json: '[]',
 
   // ===== 自動ルール設定 =====
   rule_force_body_assist_on_stair: '1',
@@ -200,16 +199,11 @@ const DEFAULT_PRICE_MASTER = [
 
   { key: 'ROUND_NONE',              key_jp: '往復不要',                 label: '不要',                           price: 0,     note: '',                                 is_visible: true, sort_order: 400, menu_group: 'round_trip', required_flag: true,  auto_apply_group: '',           auto_apply_key: '' },
   { key: 'ROUND_STANDBY',           key_jp: '待機',                     label: '待機',                           price: 800,   note: '「から/30分毎」',                  is_visible: true, sort_order: 410, menu_group: 'round_trip', required_flag: true,  auto_apply_group: '',           auto_apply_key: '' },
-  { key: 'ROUND_HOSPITAL',          key_jp: '病院付き添い',             label: '病院付き添い',                   price: 1600,  note: '「から/30分毎」',                  is_visible: true, sort_order: 420, menu_group: 'round_trip', required_flag: true,  auto_apply_group: '',           auto_apply_key: '' },
-
-  { key: 'MOVE_WHEELCHAIR',         key_jp: '無料車いす',               label: '無料車いす',                     price: 0,     note: '',                                 is_visible: true, sort_order: 500, menu_group: 'move_type',  required_flag: true,  auto_apply_group: 'equipment',  auto_apply_key: 'EQUIP_WHEELCHAIR' },
-  { key: 'MOVE_RECLINING',          key_jp: 'リクライニング車いす',     label: 'リクライニング車いす',           price: 2500,  note: '',                                 is_visible: true, sort_order: 510, menu_group: 'move_type',  required_flag: true,  auto_apply_group: 'equipment',  auto_apply_key: 'EQUIP_RECLINING' },
-  { key: 'MOVE_STRETCHER',          key_jp: 'ストレッチャー',           label: 'ストレッチャー',                 price: 5000,  note: '',                                 is_visible: true, sort_order: 520, menu_group: 'move_type',  required_flag: true,  auto_apply_group: 'equipment',  auto_apply_key: 'EQUIP_STRETCHER' },
-  { key: 'MOVE_OWN',                key_jp: '持込車いす',               label: 'ご自身の車いす',                 price: 0,     note: '固定可否を確認',                   is_visible: true, sort_order: 530, menu_group: 'move_type',  required_flag: true,  auto_apply_group: 'equipment',  auto_apply_key: 'EQUIP_OWN_WHEELCHAIR' }
+  { key: 'ROUND_HOSPITAL',          key_jp: '病院付き添い',             label: '病院付き添い',                   price: 1600,  note: '「から/30分毎」',                  is_visible: true, sort_order: 420, menu_group: 'round_trip', required_flag: true,  auto_apply_group: '',           auto_apply_key: '' }
 ];
 
 // ===== 管理画面で選べるプルダウングループ =====
-const BUILTIN_MENU_GROUP_CATALOG = [
+const MENU_GROUP_CATALOG = [
   { key: 'price',      label: '料金概算（基本料金）',    description: '料金概算の基本項目に使う' },
   { key: 'assistance', label: '介助内容',                description: '予約フォームの「介助内容」プルダウンに表示' },
   { key: 'stair',      label: '階段介助',                description: '予約フォームの「階段介助」プルダウンに表示' },
@@ -243,12 +237,7 @@ const MENU_KEY_CATALOG = [
 
   { key: 'ROUND_NONE',              key_jp: '往復不要',                 menu_group: 'round_trip', default_label: '不要',                         default_price: 0,     required_flag: true,  auto_apply_group: '',           auto_apply_key: '' },
   { key: 'ROUND_STANDBY',           key_jp: '待機',                     menu_group: 'round_trip', default_label: '待機',                         default_price: 800,   required_flag: true,  auto_apply_group: '',           auto_apply_key: '' },
-  { key: 'ROUND_HOSPITAL',          key_jp: '病院付き添い',             menu_group: 'round_trip', default_label: '病院付き添い',                 default_price: 1600,  required_flag: true,  auto_apply_group: '',           auto_apply_key: '' },
-
-  { key: 'MOVE_WHEELCHAIR',         key_jp: '無料車いす',               menu_group: 'move_type',  default_label: '無料車いす',                   default_price: 0,     required_flag: true,  auto_apply_group: 'equipment',  auto_apply_key: 'EQUIP_WHEELCHAIR' },
-  { key: 'MOVE_RECLINING',          key_jp: 'リクライニング車いす',     menu_group: 'move_type',  default_label: 'リクライニング車いす',         default_price: 2500,  required_flag: true,  auto_apply_group: 'equipment',  auto_apply_key: 'EQUIP_RECLINING' },
-  { key: 'MOVE_STRETCHER',          key_jp: 'ストレッチャー',           menu_group: 'move_type',  default_label: 'ストレッチャー',               default_price: 5000,  required_flag: true,  auto_apply_group: 'equipment',  auto_apply_key: 'EQUIP_STRETCHER' },
-  { key: 'MOVE_OWN',                key_jp: '持込車いす',               menu_group: 'move_type',  default_label: 'ご自身の車いす',               default_price: 0,     required_flag: true,  auto_apply_group: 'equipment',  auto_apply_key: 'EQUIP_OWN_WHEELCHAIR' }
+  { key: 'ROUND_HOSPITAL',          key_jp: '病院付き添い',             menu_group: 'round_trip', default_label: '病院付き添い',                 default_price: 1600,  required_flag: true,  auto_apply_group: '',           auto_apply_key: '' }
 ];
 
 // ===== Web API / JSONP =====
@@ -266,7 +255,10 @@ function doGet(e) {
           '?action=getConfig',
           '?action=getConfigPublic',
           '?action=getPublicBootstrap',
+          '?action=getAdminBootstrap',
           '?action=getBlockedSlotKeys&start=YYYY-MM-DD&end=YYYY-MM-DD',
+          '?action=getReservationsRange&start=YYYY-MM-DD&end=YYYY-MM-DD',
+          '?action=getBlocksRange&start=YYYY-MM-DD&end=YYYY-MM-DD',
           '?action=getInitData',
           '?action=getMenuMaster',
           '?action=getMenuKeyCatalog',
@@ -299,10 +291,29 @@ function doGet(e) {
       return _respond_(result, callback);
     }
 
+    if (action === 'getAdminBootstrap') {
+      result = api_getAdminBootstrap();
+      return _respond_(result, callback);
+    }
+
     if (action === 'getBlockedSlotKeys') {
       const start = String((e && e.parameter && e.parameter.start) || '').trim();
       const end = String((e && e.parameter && e.parameter.end) || '').trim();
       result = api_getBlockedSlotKeys(start, end);
+      return _respond_(result, callback);
+    }
+
+    if (action === 'getReservationsRange') {
+      const start = String((e && e.parameter && e.parameter.start) || '').trim();
+      const end = String((e && e.parameter && e.parameter.end) || '').trim();
+      result = api_getReservationsRange(start, end);
+      return _respond_(result, callback);
+    }
+
+    if (action === 'getBlocksRange') {
+      const start = String((e && e.parameter && e.parameter.start) || '').trim();
+      const end = String((e && e.parameter && e.parameter.end) || '').trim();
+      result = api_getBlocksRange(start, end);
       return _respond_(result, callback);
     }
 
@@ -491,42 +502,12 @@ function api_getConfig() {
   try {
     _ensureConfigDefaults_();
 
-    const sheet = _sh(SHEETS.CONFIG);
-    if (!sheet) return _ok(_clone_(DEFAULT_CONFIG));
+    const cacheKey = 'config_full_v' + _getPublicApiCacheVersion_('public_bootstrap');
+    const cached = _cacheGetJson_(cacheKey);
+    if (cached) return _ok(cached);
 
-    const values = sheet.getDataRange().getValues();
-    if (!values || values.length < 1) return _ok(_clone_(DEFAULT_CONFIG));
-
-    const out = _clone_(DEFAULT_CONFIG);
-
-    for (let r = 0; r < values.length; r++) {
-      const k = values[r][0];
-      const v = values[r][1];
-      if (!k) continue;
-
-      const key = String(k).trim();
-      if (!key || key === 'key' || key === '項目') continue;
-
-      out[key] = _cellToPlain(v);
-    }
-
-    out.slot_minutes = String(out.slot_minutes || '30');
-    out.same_day_enabled = _toBool(out.same_day_enabled) ? '1' : '0';
-    out.same_day_min_hours = String(Number(out.same_day_min_hours || 3));
-    out.logo_use_drive_image = _toBool(out.logo_use_drive_image) ? '1' : '0';
-    out.logo_use_github_image = _toBool(out.logo_use_github_image) ? '1' : '0';
-    out.admin_tap_count = String(out.admin_tap_count || '5');
-    out.max_forward_days = String(out.max_forward_days || '30');
-
-    out.rule_force_body_assist_on_stair = _toBool(out.rule_force_body_assist_on_stair) ? '1' : '0';
-    out.rule_force_body_assist_on_stretcher = _toBool(out.rule_force_body_assist_on_stretcher) ? '1' : '0';
-    out.rule_force_stretcher_staff2_on_stretcher = _toBool(out.rule_force_stretcher_staff2_on_stretcher) ? '1' : '0';
-    out.admin_panels_collapsed_default = _toBool(out.admin_panels_collapsed_default) ? '1' : '0';
-
-    for (var i = 1; i <= 6; i++) {
-      out['auto_rule_enabled_' + i] = _toBool(out['auto_rule_enabled_' + i]) ? '1' : '0';
-    }
-
+    const out = _readConfigSheetFast_();
+    _cachePutJson_(cacheKey, out, 300);
     return _ok(out);
   } catch (e) {
     return _ng(e);
@@ -569,7 +550,7 @@ function api_getPublicBootstrap() {
       config: configResult.data || {},
       menu_master: menuResult.data || [],
       menu_key_catalog: MENU_KEY_CATALOG,
-      menu_group_catalog: _getMenuGroupCatalog_(),
+      menu_group_catalog: MENU_GROUP_CATALOG,
       auto_rule_catalog: _buildAutoRuleCatalog_()
     };
 
@@ -615,10 +596,70 @@ function api_getInitData() {
       config: configResult.data || {},
       menu_master: menuResult.data || [],
       menu_key_catalog: MENU_KEY_CATALOG,
-      menu_group_catalog: _getMenuGroupCatalog_(),
+      menu_group_catalog: MENU_GROUP_CATALOG,
       auto_rule_catalog: _buildAutoRuleCatalog_(),
       reservations: reservations,
       blocks: blocks
+    });
+  } catch (e) {
+    return _ng(e);
+  }
+}
+
+function api_getAdminBootstrap() {
+  try {
+    _ensureConfigDefaults_();
+    _ensurePriceMasterDefaults_();
+
+    const cacheKey = 'admin_bootstrap_v' + _getPublicApiCacheVersion_('public_bootstrap');
+    const cached = _cacheGetJson_(cacheKey);
+    if (cached) return _ok(cached);
+
+    const configResult = api_getConfig();
+    if (!configResult.isOk) throw new Error(configResult.error || '設定取得失敗');
+
+    const menuResult = api_getMenuMaster();
+    if (!menuResult.isOk) throw new Error(menuResult.error || '料金マスタ取得失敗');
+
+    const out = {
+      config: configResult.data || {},
+      menu_master: menuResult.data || [],
+      menu_key_catalog: MENU_KEY_CATALOG,
+      menu_group_catalog: MENU_GROUP_CATALOG,
+      auto_rule_catalog: _buildAutoRuleCatalog_()
+    };
+
+    _cachePutJson_(cacheKey, out, 180);
+    return _ok(out);
+  } catch (e) {
+    return _ng(e);
+  }
+}
+
+function api_getReservationsRange(startDate, endDate) {
+  try {
+    _ensureConfigDefaults_();
+
+    const out = _getReservationsInRange_(startDate, endDate);
+    return _ok({
+      start: out.start,
+      end: out.end,
+      reservations: out.reservations
+    });
+  } catch (e) {
+    return _ng(e);
+  }
+}
+
+function api_getBlocksRange(startDate, endDate) {
+  try {
+    _ensureConfigDefaults_();
+
+    const out = _getBlocksInRange_(startDate, endDate);
+    return _ok({
+      start: out.start,
+      end: out.end,
+      blocks: out.blocks
     });
   } catch (e) {
     return _ng(e);
@@ -629,31 +670,12 @@ function api_getMenuMaster() {
   try {
     _ensurePriceMasterDefaults_();
 
-    const sheet = _sh(SHEETS.PRICE_MASTER);
-    if (!sheet) return _ok([]);
+    const cacheKey = 'menu_master_v' + _getPublicApiCacheVersion_('public_bootstrap');
+    const cached = _cacheGetJson_(cacheKey);
+    if (cached) return _ok(cached);
 
-    const rows = _sheetToObjects(sheet);
-    const out = rows.map(function(r) {
-      return {
-        key: String(r.key || '').trim(),
-        key_jp: String(r.key_jp || r.keyjp || '').trim(),
-        label: String(r.label || '').trim(),
-        price: Number(r.price || 0),
-        note: String(r.note || '').trim(),
-        is_visible: (r.is_visible === '' || r.is_visible === undefined) ? true : _toBool(r.is_visible),
-        sort_order: (r.sort_order === '' || r.sort_order === undefined) ? 9999 : Number(r.sort_order),
-        menu_group: _normalizeMenuGroup_(r.menu_group || ''),
-        required_flag: (r.required_flag === '' || r.required_flag === undefined) ? false : _toBool(r.required_flag),
-        auto_apply_group: _normalizeAutoApplyGroup_(r.auto_apply_group || ''),
-        auto_apply_key: String(r.auto_apply_key || '').trim()
-      };
-    }).filter(function(r) {
-      return !!r.key;
-    }).sort(function(a, b) {
-      if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order;
-      return String(a.key).localeCompare(String(b.key));
-    });
-
+    const out = _readMenuMasterFast_();
+    _cachePutJson_(cacheKey, out, 300);
     return _ok(out);
   } catch (e) {
     return _ng(e);
@@ -670,7 +692,7 @@ function api_getMenuKeyCatalog() {
 
 function api_getMenuGroupCatalog() {
   try {
-    return _ok(_getMenuGroupCatalog_());
+    return _ok(MENU_GROUP_CATALOG);
   } catch (e) {
     return _ng(e);
   }
@@ -1228,9 +1250,6 @@ function api_saveConfig(payload) {
     if (next.rule_force_body_assist_on_stretcher !== undefined) next.rule_force_body_assist_on_stretcher = _toBool(next.rule_force_body_assist_on_stretcher) ? '1' : '0';
     if (next.rule_force_stretcher_staff2_on_stretcher !== undefined) next.rule_force_stretcher_staff2_on_stretcher = _toBool(next.rule_force_stretcher_staff2_on_stretcher) ? '1' : '0';
     if (next.admin_panels_collapsed_default !== undefined) next.admin_panels_collapsed_default = _toBool(next.admin_panels_collapsed_default) ? '1' : '0';
-    if (next.menu_group_settings_json === undefined || next.menu_group_settings_json === null || String(next.menu_group_settings_json).trim() === '') {
-      next.menu_group_settings_json = '[]';
-    }
 
     for (var i = 1; i <= 6; i++) {
       if (next['auto_rule_enabled_' + i] !== undefined) {
