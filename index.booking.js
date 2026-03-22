@@ -84,32 +84,6 @@ function getSelectedOptionKey(selectId){
   return String(option.dataset.key || '').trim();
 }
 
-function getPublicMenuGroupRequiredConfig(){
-  try{
-    const parsed = JSON.parse(String(config.menu_group_required_json || '{}'));
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
-  }catch(_){
-    return {};
-  }
-}
-
-function isPublicGroupRequired(group){
-  const key = String(group || '').trim();
-  const required = getPublicMenuGroupRequiredConfig();
-  if (required[key] === undefined || required[key] === null || required[key] === '') {
-    return ['move_type','assistance'].includes(key);
-  }
-  return required[key] === true || String(required[key]) === '1' || String(required[key]).toUpperCase() === 'TRUE';
-}
-
-function setRequiredMark(labelId, text, isRequired){
-  const el = document.getElementById(labelId);
-  if (!el) return;
-  el.innerHTML = isRequired
-    ? `${escapeHtml(text)} <span class="required">*</span>`
-    : `${escapeHtml(text)}`;
-}
-
 function findAutoApplyFromMenu(targetGroup, triggerKey){
   if (!targetGroup || !triggerKey) return null;
 
@@ -145,72 +119,7 @@ function setSelectValueByKey(selectId, key){
   return true;
 }
 
-function getGroupSelectId(groupKey){
-  const map = {
-    move_type: 'moveType',
-    assistance: 'assistanceType',
-    stair: 'stairAssistance',
-    equipment: 'equipmentRental',
-    round_trip: 'roundTrip'
-  };
-  return map[String(groupKey || '').trim()] || '';
-}
-
-function unlockAutoManagedSelects(){
-  ['moveType','assistanceType','stairAssistance','equipmentRental','roundTrip'].forEach((id)=>{
-    const el = document.getElementById(id);
-    if (!el) return;
-    if (el.dataset.autoLocked === '1'){
-      el.disabled = false;
-      delete el.dataset.autoLocked;
-      el.classList.remove('opacity-70');
-    }
-  });
-}
-
-function lockSelectByGroup(groupKey, applyKey){
-  const selectId = getGroupSelectId(groupKey);
-  if (!selectId) return false;
-  const ok = setSelectValueByKey(selectId, applyKey);
-  const el = document.getElementById(selectId);
-  if (ok && el){
-    el.disabled = true;
-    el.dataset.autoLocked = '1';
-    el.classList.add('opacity-70');
-  }
-  return ok;
-}
-
-function getAllAutoAppliesFromMenu(targetGroup, triggerKey){
-  const pairs = [];
-  if (!targetGroup || !triggerKey) return pairs;
-  try{
-    if (typeof getMenuAutoApplyPairs === 'function'){
-      getMenuAutoApplyPairs(triggerKey).forEach((pair)=>{
-        if (pair && pair.apply_group && pair.apply_key) pairs.push({ apply_group: String(pair.apply_group||''), apply_key: String(pair.apply_key||'') });
-      });
-    }
-  }catch(_){ }
-  try{
-    if (typeof getAllAutoRulesByTrigger === 'function'){
-      getAllAutoRulesByTrigger(targetGroup, triggerKey).forEach((rule)=>{
-        if (rule && rule.apply_group && rule.apply_key) pairs.push({ apply_group: String(rule.apply_group||''), apply_key: String(rule.apply_key||'') });
-      });
-    }
-  }catch(_){ }
-  const uniq=[];
-  const seen=new Set();
-  pairs.forEach((pair)=>{
-    const sig=`${pair.apply_group}::${pair.apply_key}`;
-    if (seen.has(sig)) return;
-    seen.add(sig);
-    uniq.push(pair);
-  });
-  return uniq;
-}
-
 function applyAutoSelections(){
-  const moveTypeKey = getSelectedOptionKey('moveType');
   const stairKey = getSelectedOptionKey('stairAssistance');
   const equipmentKey = getSelectedOptionKey('equipmentRental');
 
@@ -218,62 +127,61 @@ function applyAutoSelections(){
   const stretcherWarning = document.getElementById('stretcherWarning');
   const wheelchairWarning = document.getElementById('wheelchairWarning');
 
-  if (stairWarning) stairWarning.classList.add('hidden');
-  if (stretcherWarning) stretcherWarning.classList.add('hidden');
-  if (wheelchairWarning) wheelchairWarning.classList.add('hidden');
-
-  unlockAutoManagedSelects();
+  stairWarning.classList.add('hidden');
+  stretcherWarning.classList.add('hidden');
+  wheelchairWarning.classList.add('hidden');
 
   let appliedBodyAssist = false;
   let appliedStaff2 = false;
 
-  const applyPairs = []
-    .concat(getAllAutoAppliesFromMenu('move_type', moveTypeKey))
-    .concat(getAllAutoAppliesFromMenu('stair', stairKey))
-    .concat(getAllAutoAppliesFromMenu('equipment', equipmentKey));
-
-  applyPairs.forEach((pair)=>{
-    if (!pair || !pair.apply_group || !pair.apply_key) return;
-    if (pair.apply_group === 'assistance'){
-      if (lockSelectByGroup('assistance', pair.apply_key)){
-        if (String(pair.apply_key) === 'BODY_ASSIST'){
-          appliedBodyAssist = true;
-        }
-      }
-    } else if (pair.apply_group === 'stair' || pair.apply_group === 'equipment' || pair.apply_group === 'round_trip' || pair.apply_group === 'move_type') {
-      lockSelectByGroup(pair.apply_group, pair.apply_key);
-    } else if (pair.apply_group === 'auto_set' && String(pair.apply_key) === 'EQUIP_STRETCHER_STAFF2'){
-      appliedStaff2 = true;
-    }
-  });
-
-  const stairNeedBody = stairKey && !['STAIR_NONE','STAIR_WATCH'].includes(stairKey);
-  if (!appliedBodyAssist && stairNeedBody && String(config.rule_force_body_assist_on_stair || '1') === '1'){
-    if (lockSelectByGroup('assistance', 'BODY_ASSIST')){
+  const stairAuto = findAutoApplyFromMenu('stair', stairKey);
+  if (stairAuto && stairAuto.apply_group === 'assistance' && stairAuto.apply_key === 'BODY_ASSIST'){
+    if (setSelectValueByKey('assistanceType', 'BODY_ASSIST')){
       appliedBodyAssist = true;
+      stairWarning.textContent = config.warning_stair_bodyassist_text || defaultConfig.warning_stair_bodyassist_text;
+      stairWarning.classList.remove('hidden');
     }
-  }
-  if (stairNeedBody && stairWarning){
-    stairWarning.textContent = config.warning_stair_bodyassist_text || defaultConfig.warning_stair_bodyassist_text;
-    stairWarning.classList.remove('hidden');
+  } else {
+    const stairNeedBody = stairKey && !['STAIR_NONE','STAIR_WATCH'].includes(stairKey);
+    if (stairNeedBody && String(config.rule_force_body_assist_on_stair || '1') === '1'){
+      if (setSelectValueByKey('assistanceType', 'BODY_ASSIST')){
+        appliedBodyAssist = true;
+        stairWarning.textContent = config.warning_stair_bodyassist_text || defaultConfig.warning_stair_bodyassist_text;
+        stairWarning.classList.remove('hidden');
+      }
+    }
   }
 
+  const equipAuto = findAutoApplyFromMenu('equipment', equipmentKey);
   if (equipmentKey === 'EQUIP_STRETCHER'){
-    if (stretcherWarning){
-      stretcherWarning.textContent = config.warning_stretcher_bodyassist_text || defaultConfig.warning_stretcher_bodyassist_text;
-      stretcherWarning.classList.remove('hidden');
-    }
-    if (!appliedBodyAssist && String(config.rule_force_body_assist_on_stretcher || '1') === '1'){
-      if (lockSelectByGroup('assistance', 'BODY_ASSIST')){
+    stretcherWarning.textContent = config.warning_stretcher_bodyassist_text || defaultConfig.warning_stretcher_bodyassist_text;
+    stretcherWarning.classList.remove('hidden');
+
+    if (equipAuto && equipAuto.apply_group === 'assistance' && equipAuto.apply_key === 'BODY_ASSIST'){
+      if (setSelectValueByKey('assistanceType', 'BODY_ASSIST')){
+        appliedBodyAssist = true;
+      }
+    } else if (String(config.rule_force_body_assist_on_stretcher || '1') === '1'){
+      if (setSelectValueByKey('assistanceType', 'BODY_ASSIST')){
         appliedBodyAssist = true;
       }
     }
-    if (!appliedStaff2 && String(config.rule_force_stretcher_staff2_on_stretcher || '1') === '1'){
+
+    const equipmentMap = getMenuMap();
+    const stretcherMenu = equipmentMap['EQUIP_STRETCHER'];
+    if (stretcherMenu && String(stretcherMenu.auto_apply_group || '') === 'equipment' && String(stretcherMenu.auto_apply_key || '') === 'EQUIP_STRETCHER_STAFF2'){
       appliedStaff2 = true;
+    } else {
+      const staffRule = getAutoRuleByTrigger('equipment', 'EQUIP_STRETCHER');
+      if (staffRule && String(staffRule.apply_group || '') === 'equipment' && String(staffRule.apply_key || '') === 'EQUIP_STRETCHER_STAFF2'){
+        appliedStaff2 = true;
+      } else if (String(config.rule_force_stretcher_staff2_on_stretcher || '1') === '1'){
+        appliedStaff2 = true;
+      }
     }
   }
 
-  if (equipmentKey === 'EQUIP_OWN_WHEELCHAIR' && wheelchairWarning){
+  if (equipmentKey === 'EQUIP_OWN_WHEELCHAIR'){
     wheelchairWarning.textContent = config.warning_wheelchair_damage_text || defaultConfig.warning_wheelchair_damage_text;
     wheelchairWarning.classList.remove('hidden');
   }
@@ -294,11 +202,12 @@ function hasBookingSelectOptionsReady(){
   const moveTypeReady = !!(moveTypeEl && moveTypeEl.options && moveTypeEl.options.length > 1);
   const assistanceReady = !!(assistanceEl && assistanceEl.options && assistanceEl.options.length > 1);
   const stairReady = !!(stairEl && stairEl.options && stairEl.options.length > 0);
-  const equipmentReady = !!(equipmentEl && equipmentEl.options && equipmentEl.options.length > 1);
+  const equipmentReady = !!(equipmentEl && equipmentEl.options && equipmentEl.options.length >= 1);
   const roundTripReady = !!(roundTripEl && roundTripEl.options && roundTripEl.options.length > 0);
 
   return moveTypeReady && assistanceReady && stairReady && equipmentReady && roundTripReady;
 }
+
 
 async function ensureBookingFormOptionsReady(){
   if (hasBookingSelectOptionsReady()) return true;
@@ -337,7 +246,6 @@ async function openBookingForm(date, hour, minute=0){
 }
 
 function resetBookingForm(){
-  unlockAutoManagedSelects();
   document.getElementById('bookingForm').reset();
   document.getElementById('stairWarning').classList.add('hidden');
   document.getElementById('wheelchairWarning').classList.add('hidden');
@@ -449,30 +357,41 @@ function calculatePrice(){
 }
 
 function updateSubmitButton(){
-  const privacy = document.getElementById('privacyAgreement').checked;
-  const usageType = document.getElementById('usageType').value.trim();
-  const customerName = document.getElementById('customerName').value.trim();
-  const phoneNumber = document.getElementById('phoneNumber').value.trim();
-  const pickupLocation = document.getElementById('pickupLocation').value.trim();
+  try{ applyAutoSelections(); }catch(_){ }
+
+  const privacy = !!document.getElementById('privacyAgreement')?.checked;
+  const usageType = String(document.getElementById('usageType')?.value || '').trim();
+  const customerName = String(document.getElementById('customerName')?.value || '').trim();
+  const phoneNumber = String(document.getElementById('phoneNumber')?.value || '').trim();
+  const pickupLocation = String(document.getElementById('pickupLocation')?.value || '').trim();
 
   const groupValues = {
-    move_type: document.getElementById('moveType') ? document.getElementById('moveType').value.trim() : '',
-    assistance: document.getElementById('assistanceType') ? document.getElementById('assistanceType').value.trim() : '',
-    stair: document.getElementById('stairAssistance') ? document.getElementById('stairAssistance').value.trim() : '',
-    equipment: document.getElementById('equipmentRental') ? document.getElementById('equipmentRental').value.trim() : '',
-    round_trip: document.getElementById('roundTrip') ? document.getElementById('roundTrip').value.trim() : ''
+    move_type: String(document.getElementById('moveType')?.value || '').trim(),
+    assistance: String(document.getElementById('assistanceType')?.value || '').trim(),
+    stair: String(document.getElementById('stairAssistance')?.value || '').trim(),
+    equipment: String(document.getElementById('equipmentRental')?.value || '').trim(),
+    round_trip: String(document.getElementById('roundTrip')?.value || '').trim()
   };
 
-  const groupRequiredOk = Object.keys(groupValues).every((groupKey) => {
+  const requiredGroups = ['move_type','assistance','stair','equipment','round_trip'];
+  const groupsValid = requiredGroups.every((groupKey)=>{
     if (!isPublicGroupRequired(groupKey)) return true;
     return !!groupValues[groupKey];
   });
 
-  const isValid = !!(privacy && usageType && customerName && phoneNumber && pickupLocation && groupRequiredOk);
+  const isValid = privacy && !!usageType && !!customerName && !!phoneNumber && !!pickupLocation && groupsValid;
 
-  const btn = document.getElementById('submitBooking');
-  btn.disabled = !isValid;
-  return isValid;
+  const submitBtn = document.getElementById('submitBooking');
+  if (!submitBtn) return;
+  if (submitBtn.dataset.sending === '1') return;
+
+  if (isValid){
+    submitBtn.disabled = false;
+    submitBtn.className = 'w-full cute-btn py-4 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white hover:from-emerald-600 hover:to-emerald-700 cursor-pointer text-lg';
+  } else {
+    submitBtn.disabled = true;
+    submitBtn.className = 'w-full cute-btn py-4 bg-gray-300 text-white cursor-not-allowed text-lg';
+  }
 }
 
 
@@ -601,10 +520,10 @@ function applyConfigToUI(){
   document.getElementById('notesLabel').textContent = config.form_notes_label || defaultConfig.form_notes_label;
   document.getElementById('serviceSectionTitle').textContent = config.form_service_section_title || defaultConfig.form_service_section_title;
   document.getElementById('serviceSectionBadge').textContent = config.form_service_section_badge || defaultConfig.form_service_section_badge;
-  setRequiredMark('assistanceLabel', config.form_assistance_label || defaultConfig.form_assistance_label, isPublicGroupRequired('assistance'));
-  setRequiredMark('stairLabel', config.form_stair_label || defaultConfig.form_stair_label, isPublicGroupRequired('stair'));
-  setRequiredMark('equipmentLabel', config.form_equipment_label || defaultConfig.form_equipment_label, isPublicGroupRequired('equipment'));
-  setRequiredMark('roundTripLabel', config.form_round_trip_label || defaultConfig.form_round_trip_label, isPublicGroupRequired('round_trip'));
+  document.getElementById('assistanceLabel').innerHTML = `${escapeHtml(config.form_assistance_label || defaultConfig.form_assistance_label)} <span class="required">*</span>`;
+  document.getElementById('stairLabel').innerHTML = `${escapeHtml(config.form_stair_label || defaultConfig.form_stair_label)} <span class="required">*</span>`;
+  document.getElementById('equipmentLabel').innerHTML = `${escapeHtml(config.form_equipment_label || defaultConfig.form_equipment_label)} <span class="required">*</span>`;
+  document.getElementById('roundTripLabel').innerHTML = `${escapeHtml(config.form_round_trip_label || defaultConfig.form_round_trip_label)} <span class="required">*</span>`;
   document.getElementById('priceSectionTitle').textContent = config.form_price_section_title || defaultConfig.form_price_section_title;
   document.getElementById('priceTotalLabel').textContent = config.form_price_total_label || defaultConfig.form_price_total_label;
   document.getElementById('priceNoticeText').textContent = config.form_price_notice_text || defaultConfig.form_price_notice_text;
@@ -890,7 +809,7 @@ renderServiceSelectors = function(){
       function(item){ return `${item.label}${Number(item.price || 0) ? `(${Number(item.price || 0).toLocaleString()}円)` : ''}`; }
     );
     const moveTypeLabel = document.getElementById('moveTypeLabel');
-    if (moveTypeLabel) setRequiredMark('moveTypeLabel', config.form_move_type_label || defaultConfig.form_move_type_label || '移動方法', isPublicGroupRequired('move_type'));
+    if (moveTypeLabel) moveTypeLabel.innerHTML = `${escapeHtml(config.form_move_type_label || defaultConfig.form_move_type_label || '移動方法')} <span class="required">*</span>`;
     const moveTypeNote = document.getElementById('moveTypeNote');
     if (moveTypeNote) moveTypeNote.textContent = config.form_move_type_help_text || defaultConfig.form_move_type_help_text || '最初に移動方法をお選びください';
   }
