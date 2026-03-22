@@ -541,36 +541,43 @@ function getMenuNote(key, fallback){
   return fallback || '';
 }
 
-function getMenuAutoApplyGroup(key){
+function getMenuAutoApplyGroupAt(key, slot){
+  const suffix = Number(slot || 1) === 2 ? '_2' : '';
+  const field = `auto_apply_group${suffix}`;
   const map = getMenuMap();
-  if (map[key] && map[key].auto_apply_group !== undefined) return String(map[key].auto_apply_group || '');
+  if (map[key] && map[key][field] !== undefined) return String(map[key][field] || '');
   const catalog = findCatalogByKey(key);
-  if (catalog && catalog.auto_apply_group !== undefined) return String(catalog.auto_apply_group || '');
+  if (catalog && catalog[field] !== undefined) return String(catalog[field] || '');
   return '';
+}
+
+function getMenuAutoApplyKeyAt(key, slot){
+  const suffix = Number(slot || 1) === 2 ? '_2' : '';
+  const field = `auto_apply_key${suffix}`;
+  const map = getMenuMap();
+  if (map[key] && map[key][field] !== undefined) return String(map[key][field] || '');
+  const catalog = findCatalogByKey(key);
+  if (catalog && catalog[field] !== undefined) return String(catalog[field] || '');
+  return '';
+}
+
+function getMenuAutoApplyGroup(key){
+  return getMenuAutoApplyGroupAt(key, 1);
 }
 
 function getMenuAutoApplyKey(key){
-  const map = getMenuMap();
-  if (map[key] && map[key].auto_apply_key !== undefined) return String(map[key].auto_apply_key || '');
-  const catalog = findCatalogByKey(key);
-  if (catalog && catalog.auto_apply_key !== undefined) return String(catalog.auto_apply_key || '');
-  return '';
+  return getMenuAutoApplyKeyAt(key, 1);
 }
 
-function getMenuAutoApplyGroup2(key){
-  const map = getMenuMap();
-  if (map[key] && map[key].auto_apply_group_2 !== undefined) return String(map[key].auto_apply_group_2 || '');
-  const catalog = findCatalogByKey(key);
-  if (catalog && catalog.auto_apply_group_2 !== undefined) return String(catalog.auto_apply_group_2 || '');
-  return '';
-}
-
-function getMenuAutoApplyKey2(key){
-  const map = getMenuMap();
-  if (map[key] && map[key].auto_apply_key_2 !== undefined) return String(map[key].auto_apply_key_2 || '');
-  const catalog = findCatalogByKey(key);
-  if (catalog && catalog.auto_apply_key_2 !== undefined) return String(catalog.auto_apply_key_2 || '');
-  return '';
+function getMenuAutoApplyPairs(key){
+  const pairs = [];
+  for (let i = 1; i <= 2; i++) {
+    const applyGroup = getMenuAutoApplyGroupAt(key, i);
+    const applyKey = getMenuAutoApplyKeyAt(key, i);
+    if (!applyGroup || !applyKey) continue;
+    pairs.push({ apply_group: String(applyGroup || '').trim(), apply_key: String(applyKey || '').trim() });
+  }
+  return pairs;
 }
 
 function getItemsByGroup(group){

@@ -221,6 +221,8 @@ function adminNormalizeMenuRows(){
     clone.required_flag = normalizeRequiredFlag(clone.required_flag);
     clone.auto_apply_group = String(clone.auto_apply_group || '');
     clone.auto_apply_key = String(clone.auto_apply_key || '');
+    clone.auto_apply_group_2 = String(clone.auto_apply_group_2 || '');
+    clone.auto_apply_key_2 = String(clone.auto_apply_key_2 || '');
     return clone;
   });
 }
@@ -284,7 +286,8 @@ function getMenuGroupOpenState(group){
 }
 
 function renderMenuItemCard(item, groupItems){
-  const autoOptions = buildMenuAutoApplyOptions(item.auto_apply_group || '', item.auto_apply_key || '');
+  const autoOptions1 = buildMenuAutoApplyOptions(item.auto_apply_group || '', item.auto_apply_key || '');
+  const autoOptions2 = buildMenuAutoApplyOptions(item.auto_apply_group_2 || '', item.auto_apply_key_2 || '');
   const groupIndex = groupItems.findIndex(x => String(x.key || '') === String(item.key || ''));
 
   return `
@@ -331,16 +334,30 @@ function renderMenuItemCard(item, groupItems){
             </div>
 
             <div class="form-group">
-              <label class="form-label">自動セット先</label>
+              <label class="form-label">自動セット先1</label>
               <select data-field="auto_apply_group" data-key="${escapeHtml(item.key || '')}">
-                ${autoOptions.groupOptions}
+                ${autoOptions1.groupOptions}
               </select>
             </div>
 
             <div class="form-group">
-              <label class="form-label">自動セット項目</label>
+              <label class="form-label">自動セット項目1</label>
               <select data-field="auto_apply_key" data-key="${escapeHtml(item.key || '')}">
-                ${autoOptions.keyOptions}
+                ${autoOptions1.keyOptions}
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">自動セット先2</label>
+              <select data-field="auto_apply_group_2" data-key="${escapeHtml(item.key || '')}">
+                ${autoOptions2.groupOptions}
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">自動セット項目2</label>
+              <select data-field="auto_apply_key_2" data-key="${escapeHtml(item.key || '')}">
+                ${autoOptions2.keyOptions}
               </select>
             </div>
 
@@ -456,7 +473,9 @@ function addMenuItemToGroup(group){
     menu_group: normalizeGroupKey(group),
     required_flag: false,
     auto_apply_group: '',
-    auto_apply_key: ''
+    auto_apply_key: '',
+    auto_apply_group_2: '',
+    auto_apply_key_2: ''
   });
 
   adminMenuMaster = adminNormalizeMenuRows();
@@ -677,6 +696,13 @@ function bindMenuEvents(){
     if (field === 'auto_apply_group'){
       adminMenuMaster[idx].auto_apply_key = '';
       renderMenuAdminList();
+      return;
+    }
+
+    if (field === 'auto_apply_group_2'){
+      adminMenuMaster[idx].auto_apply_key_2 = '';
+      renderMenuAdminList();
+      return;
     }
   });
 }
@@ -706,7 +732,9 @@ function buildSaveMenuPayload(){
       menu_group: group,
       required_flag: !!item.required_flag,
       auto_apply_group: String(item.auto_apply_group || '').trim(),
-      auto_apply_key: String(item.auto_apply_key || '').trim()
+      auto_apply_key: String(item.auto_apply_key || '').trim(),
+      auto_apply_group_2: String(item.auto_apply_group_2 || '').trim(),
+      auto_apply_key_2: String(item.auto_apply_key_2 || '').trim()
     };
   }).filter(item => String(item.label || '').trim());
 }
