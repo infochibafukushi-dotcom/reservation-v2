@@ -150,9 +150,52 @@ function buildAdminSlots(){
   return { regularSlots, otherSlots };
 }
 
-function isAdminSlotBlocked(dateObj, hour, minute){
+function ceilAdminToNext30Min(date){
+  const dt = new Date(date.getTime());
+  dt.setSeconds(0, 0);
+  const minute = dt.getMinutes();
+
+  if (minute === 0 || minute === 30) return dt;
+
+  if (minute < 30) {
+    dt.setMinutes(30, 0, 0);
+    return dt;
+  }
+
+  dt.setHours(dt.getHours() + 1, 0, 0, 0);
+  return dt;
+}
+
+function isAdminSlotExplicitlyBlocked(dateObj, hour, minute){
   const key = `${ymdLocal(dateObj)}-${hour}-${minute}`;
   return adminBlockedSlots.has(key) || adminReservedSlots.has(key);
+}
+
+function isAdminSlotSameDayBlocked(dateObj, hour, minute){
+  if (String(adminConfig.same_day_enabled || '0') !== '1') return false;
+
+  const today = new Date();
+  if (ymdLocal(dateObj) !== ymdLocal(today)) return false;
+
+  const minHours = Math.max(0, Number(adminConfig.same_day_min_hours || 3));
+  const threshold = new Date(Date.now() + (minHours * 60 * 60 * 1000));
+  const roundedThreshold = ceilAdminToNext30Min(threshold);
+
+  const slotDt = new Date(
+    dateObj.getFullYear(),
+    dateObj.getMonth(),
+    dateObj.getDate(),
+    Number(hour || 0),
+    Number(minute || 0),
+    0,
+    0
+  );
+
+  return slotDt.getTime() < roundedThreshold.getTime();
+}
+
+function isAdminSlotBlocked(dateObj, hour, minute){
+  return isAdminSlotExplicitlyBlocked(dateObj, hour, minute) || isAdminSlotSameDayBlocked(dateObj, hour, minute);
 }
 
 function renderAdminCalendar(){
@@ -239,13 +282,19 @@ function bindAdminGridDelegation(){
         const date = adminCalendarDates[dateIdx];
         if (!date) return;
 
+        const isSameDayDerivedOnlyBlocked = isAdminSlotSameDayBlocked(date, hour, minute) && !isAdminSlotExplicitlyBlocked(date, hour, minute);
+        if (isSameDayDerivedOnlyBlocked){
+          toast(`当日予約設定により ${Number(adminConfig.same_day_min_hours || 3)}時間後までは×表示です`);
+          return;
+        }
+
         await withLoading(async ()=>{
           await gsRun('api_toggleBlock', {
             dateStr: ymdLocal(date),
             hour: hour,
             minute: minute
           });
-          await adminRefreshVisibleWindow();
+          await adminRefreshAllData();
         }, '枠を更新中...');
       }
 
@@ -261,7 +310,7 @@ function bindAdminGridDelegation(){
         const { regularSlots, otherSlots } = buildAdminSlots();
         const slots = adminExtendedView ? otherSlots : regularSlots;
         slots.forEach(slot => {
-          if (isAdminSlotBlocked(date, slot.hour, slot.minute)) blockedCount++;
+          if (isAdminSlotExplicitlyBlocked(date, slot.hour, slot.minute)) blockedCount++;
         });
 
         const allBlocked = blockedCount === slots.length;
@@ -272,7 +321,7 @@ function bindAdminGridDelegation(){
             dateStr: dateStr,
             isBlocked: nextState
           });
-          await adminRefreshVisibleWindow();
+          await adminRefreshAllData();
         }, '日単位ブロック更新中...');
       }
 
@@ -288,7 +337,7 @@ function bindAdminGridDelegation(){
         const { regularSlots, otherSlots } = buildAdminSlots();
         const slots = adminExtendedView ? otherSlots : regularSlots;
         slots.forEach(slot => {
-          if (isAdminSlotBlocked(date, slot.hour, slot.minute)) blockedCount++;
+          if (isAdminSlotExplicitlyBlocked(date, slot.hour, slot.minute)) blockedCount++;
         });
 
         const allBlocked = blockedCount === slots.length;
@@ -299,7 +348,7 @@ function bindAdminGridDelegation(){
             dateStr: dateStr,
             isBlocked: nextState
           });
-          await adminRefreshVisibleWindow();
+          await adminRefreshAllData();
         }, '時間帯一括更新中...');
       }
     }catch(err){
