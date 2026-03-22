@@ -36,6 +36,49 @@ async function withLoading(fn, text){
   }
 }
 
+
+function _appendCacheBust(url){
+  const sep = String(url || '').includes('?') ? '&' : '?';
+  return String(url || '') + sep + '_ts=' + Date.now() + '_' + Math.floor(Math.random() * 1000000);
+}
+
+async function _fetchJsonGet(url, timeoutMs = 20000){
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timer = setTimeout(()=>{
+    try{
+      if (controller) controller.abort();
+    }catch(_){ }
+  }, timeoutMs);
+
+  try{
+    const res = await fetch(_appendCacheBust(url), {
+      method: 'GET',
+      cache: 'no-store',
+      redirect: 'follow',
+      signal: controller ? controller.signal : undefined,
+      credentials: 'omit'
+    });
+
+    if (!res.ok) {
+      throw new Error('GET ' + res.status);
+    }
+
+    const text = await res.text();
+    try{
+      return JSON.parse(text);
+    }catch(_){
+      throw new Error('GET応答の解析に失敗しました');
+    }
+  }catch(err){
+    if (String(err && err.name || '') === 'AbortError') {
+      throw new Error('GET timeout');
+    }
+    throw err;
+  }finally{
+    clearTimeout(timer);
+  }
+}
+
 function _jsonpCall(url, timeoutMs = 20000){
   return new Promise((resolve, reject)=>{
     const cbName = '__jsonp_cb_' + Date.now() + '_' + Math.floor(Math.random() * 1000000);
@@ -72,13 +115,15 @@ function _jsonpCall(url, timeoutMs = 20000){
       reject(new Error('JSONP load error'));
     };
 
-    const sep = url.includes('?') ? '&' : '?';
-    script.src = url + sep + 'callback=' + encodeURIComponent(cbName);
-    document.body.appendChild(script);
+    const baseUrl = _appendCacheBust(url);
+    const sep = baseUrl.includes('?') ? '&' : '?';
+    script.src = baseUrl + sep + 'callback=' + encodeURIComponent(cbName);
+    script.async = true;
+    (document.head || document.body || document.documentElement).appendChild(script);
   });
 }
 
-async function _jsonpCallWithRetry(url, retryCount = 1, timeoutMs = 20000){
+async function _getJsonWithRetry(url, retryCount = 2, timeoutMs = 25000){
   let lastError = null;
   for (let i = 0; i <= retryCount; i++){
     try{
@@ -86,12 +131,41 @@ async function _jsonpCallWithRetry(url, retryCount = 1, timeoutMs = 20000){
     }catch(err){
       lastError = err;
       if (i < retryCount){
-        await sleep(500);
+        await sleep(600 + (i * 500));
       }
     }
   }
   throw lastError || new Error('JSONP error');
 }
+
+async function _getJsonWithRetry(url, retryCount = 2, timeoutMs = 25000){
+  let lastError = null;
+
+  for (let i = 0; i <= retryCount; i++){
+    try{
+      return await _fetchJsonGet(url, timeoutMs);
+    }catch(err){
+      lastError = err;
+      if (i < retryCount){
+        await sleep(600 + (i * 500));
+      }
+    }
+  }
+
+  for (let i = 0; i <= retryCount; i++){
+    try{
+      return await _jsonpCall(url, timeoutMs);
+    }catch(err){
+      lastError = err;
+      if (i < retryCount){
+        await sleep(800 + (i * 700));
+      }
+    }
+  }
+
+  throw lastError || new Error('通信エラー');
+}
+
 
 async function _postJson(action, payload){
   const res = await fetch(GAS_URL, {
@@ -122,29 +196,29 @@ const gsRun = async (func, ...args) => {
     let data;
 
     if (func === 'api_getConfig') {
-      data = await _jsonpCallWithRetry(`${GAS_URL}?action=getConfig`, 1, 20000);
+      data = await _getJsonWithRetry(`${GAS_URL}?action=getConfig`, 1, 20000);
     } else if (func === 'api_getConfigPublic') {
-      data = await _jsonpCallWithRetry(`${GAS_URL}?action=getConfigPublic`, 1, 20000);
+      data = await _getJsonWithRetry(`${GAS_URL}?action=getConfigPublic`, 1, 20000);
     } else if (func === 'api_getPublicBootstrap') {
-      data = await _jsonpCallWithRetry(`${GAS_URL}?action=getPublicBootstrap`, 1, 20000);
+      data = await _getJsonWithRetry(`${GAS_URL}?action=getPublicBootstrap`, 1, 20000);
     } else if (func === 'api_getBlockedSlotKeys') {
       const range = args[0] || {};
       const start = encodeURIComponent(String(range.start || ''));
       const end = encodeURIComponent(String(range.end || ''));
-      data = await _jsonpCallWithRetry(`${GAS_URL}?action=getBlockedSlotKeys&start=${start}&end=${end}`, 1, 20000);
+      data = await _getJsonWithRetry(`${GAS_URL}?action=getBlockedSlotKeys&start=${start}&end=${end}`, 1, 20000);
     } else if (func === 'api_getInitData') {
-      data = await _jsonpCallWithRetry(`${GAS_URL}?action=getInitData`, 1, 25000);
+      data = await _getJsonWithRetry(`${GAS_URL}?action=getInitData`, 1, 25000);
     } else if (func === 'api_getMenuMaster') {
-      data = await _jsonpCallWithRetry(`${GAS_URL}?action=getMenuMaster`, 1, 20000);
+      data = await _getJsonWithRetry(`${GAS_URL}?action=getMenuMaster`, 1, 20000);
     } else if (func === 'api_getMenuKeyCatalog') {
-      data = await _jsonpCallWithRetry(`${GAS_URL}?action=getMenuKeyCatalog`, 1, 20000);
+      data = await _getJsonWithRetry(`${GAS_URL}?action=getMenuKeyCatalog`, 1, 20000);
     } else if (func === 'api_getMenuGroupCatalog') {
-      data = await _jsonpCallWithRetry(`${GAS_URL}?action=getMenuGroupCatalog`, 1, 20000);
+      data = await _getJsonWithRetry(`${GAS_URL}?action=getMenuGroupCatalog`, 1, 20000);
     } else if (func === 'api_getAutoRuleCatalog') {
-      data = await _jsonpCallWithRetry(`${GAS_URL}?action=getAutoRuleCatalog`, 1, 20000);
+      data = await _getJsonWithRetry(`${GAS_URL}?action=getAutoRuleCatalog`, 1, 20000);
     } else if (func === 'api_getDriveImageDataUrl') {
       const fileId = args[0];
-      data = await _jsonpCallWithRetry(`${GAS_URL}?action=getDriveImageDataUrl&fileId=${encodeURIComponent(fileId)}`, 1, 20000);
+      data = await _getJsonWithRetry(`${GAS_URL}?action=getDriveImageDataUrl&fileId=${encodeURIComponent(fileId)}`, 1, 20000);
     } else if (func === 'api_createReservation') {
       data = await _postJson('createReservation', args[0]);
     } else if (func === 'api_verifyAdminPassword') {
@@ -632,6 +706,10 @@ async function refreshBlockedSlotKeys(showToastOnFail=false){
     blockedRangeCacheKey = cacheKey;
     _saveBlockedKeysCache_(range, keys || []);
   }catch(e){
+    const range = getPublicCalendarRange();
+    if (_loadBlockedKeysCache_(range)) {
+      return;
+    }
     if (showToastOnFail) toast(e?.message || '通信エラー（空き枠取得）');
     throw e;
   }
@@ -670,6 +748,13 @@ async function refreshData(showToastOnFail=false){
 
     await refreshBlockedSlotKeys(showToastOnFail);
   }catch(e){
+    const bootRecovered = _loadBootstrapCache_();
+    if (bootRecovered) {
+      try{
+        await refreshBlockedSlotKeys(false);
+      }catch(_){ }
+      return;
+    }
     if (showToastOnFail) toast(e?.message || '通信エラー（データ取得）');
     throw e;
   }
