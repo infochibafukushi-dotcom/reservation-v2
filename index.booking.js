@@ -202,37 +202,47 @@ function hasBookingSelectOptionsReady(){
   const moveTypeReady = !!(moveTypeEl && moveTypeEl.options && moveTypeEl.options.length > 1);
   const assistanceReady = !!(assistanceEl && assistanceEl.options && assistanceEl.options.length > 1);
   const stairReady = !!(stairEl && stairEl.options && stairEl.options.length > 0);
-  const equipmentReady = !!(equipmentEl && equipmentEl.options && equipmentEl.options.length >= 1);
+  const equipmentReady = !!(equipmentEl && equipmentEl.options && equipmentEl.options.length > 0);
   const roundTripReady = !!(roundTripEl && roundTripEl.options && roundTripEl.options.length > 0);
 
   return moveTypeReady && assistanceReady && stairReady && equipmentReady && roundTripReady;
 }
 
+function softRenderBookingFormOptions(){
+  try {
+    renderServiceSelectors();
+  } catch (_) {}
+}
 
 async function ensureBookingFormOptionsReady(){
   if (hasBookingSelectOptionsReady()) return true;
 
-  try{
-    await refreshAllData(true);
-  }catch(_){ }
-
-  try{
-    renderServiceSelectors();
-  }catch(_){ }
-
+  softRenderBookingFormOptions();
   if (hasBookingSelectOptionsReady()) return true;
 
-  try{
-    await sleep(250);
-    renderServiceSelectors();
-  }catch(_){ }
+  try {
+    await refreshAllData(true);
+  } catch (_) {}
 
+  softRenderBookingFormOptions();
+  if (hasBookingSelectOptionsReady()) return true;
+
+  try {
+    await sleep(150);
+  } catch (_) {}
+
+  softRenderBookingFormOptions();
   return hasBookingSelectOptionsReady();
 }
 
 async function openBookingForm(date, hour, minute=0){
-  const ready = await ensureBookingFormOptionsReady();
+  let ready = await ensureBookingFormOptionsReady();
   if (!ready){
+    softRenderBookingFormOptions();
+    ready = hasBookingSelectOptionsReady();
+  }
+
+  if (!ready && (!Array.isArray(menuMaster) || menuMaster.length === 0)){
     toast('フォーム読込中です。少し待ってからもう一度お試しください');
     return;
   }
