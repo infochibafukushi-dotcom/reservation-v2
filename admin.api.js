@@ -258,11 +258,50 @@ const ADMIN_MENU_GROUPS = [
   { key: 'stair', label: '階段介助' },
   { key: 'equipment', label: '機材レンタル' },
   { key: 'round_trip', label: '往復送迎' },
+  { key: 'move_type', label: '移動方法' },
   { key: 'custom', label: 'その他（表示先なし）' }
 ];
 
+function safeJsonParse(text, fallback){
+  try{
+    const parsed = JSON.parse(String(text || ''));
+    return parsed === undefined || parsed === null ? fallback : parsed;
+  }catch(_){
+    return fallback;
+  }
+}
+
+function getAdminResolvedGroupCatalog(){
+  const baseCatalog = Array.isArray(adminMenuGroupCatalog) && adminMenuGroupCatalog.length
+    ? adminMenuGroupCatalog
+    : ADMIN_MENU_GROUPS;
+
+  const savedCatalog = safeJsonParse(adminConfig && adminConfig.menu_group_catalog_json, []);
+  const map = {};
+
+  (baseCatalog || []).forEach(group => {
+    const key = String(group && group.key || '').trim();
+    if (!key) return;
+    map[key] = {
+      key: key,
+      label: String(group && group.label || key).trim()
+    };
+  });
+
+  (savedCatalog || []).forEach(group => {
+    const key = String(group && group.key || '').trim();
+    if (!key) return;
+    map[key] = {
+      key: key,
+      label: String(group && group.label || map[key]?.label || key).trim()
+    };
+  });
+
+  return Object.keys(map).map(key => map[key]);
+}
+
 function getAdminGroupLabel(key){
-  const found = (adminMenuGroupCatalog || ADMIN_MENU_GROUPS).find(g => String(g.key) === String(key));
+  const found = getAdminResolvedGroupCatalog().find(g => String(g.key) === String(key));
   return found ? found.label : key;
 }
 

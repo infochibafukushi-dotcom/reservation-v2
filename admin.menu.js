@@ -12,7 +12,7 @@ function safeJsonParseMenu(text, fallback){
 }
 
 function getBaseMenuGroupCatalog(){
-  return Array.isArray(getAdminResolvedGroupCatalog()) && getAdminResolvedGroupCatalog().length
+  return (typeof getAdminResolvedGroupCatalog === 'function') && Array.isArray(getAdminResolvedGroupCatalog()) && getAdminResolvedGroupCatalog().length
     ? getAdminResolvedGroupCatalog()
     : [
         { key: 'price', label: '料金概算（基本料金）' },
@@ -94,23 +94,13 @@ function getEffectiveMenuGroupOrder(){
   };
 
   pushUnique(MENU_GROUP_FIXED_FIRST);
+  MENU_GROUP_FALLBACK_ORDER.forEach(pushUnique);
+  savedOrder.forEach(pushUnique);
+  allKeys.forEach(pushUnique);
 
-  savedOrder.forEach(key => {
-    if (String(key || '').trim() === MENU_GROUP_FIXED_FIRST) return;
-    pushUnique(key);
-  });
-
-  MENU_GROUP_FALLBACK_ORDER.forEach(key => {
-    if (String(key || '').trim() === MENU_GROUP_FIXED_FIRST) return;
-    pushUnique(key);
-  });
-
-  allKeys.forEach(key => {
-    if (String(key || '').trim() === MENU_GROUP_FIXED_FIRST) return;
-    pushUnique(key);
-  });
-
-  return merged;
+  const fixed = [MENU_GROUP_FIXED_FIRST];
+  const others = merged.filter(key => key !== MENU_GROUP_FIXED_FIRST);
+  return fixed.concat(others);
 }
 
 function getGroupLabelByKey(groupKey){
@@ -566,7 +556,7 @@ function promptAddMenuGroup(){
   visibility[key] = true;
   adminConfig.menu_group_visibility_json = JSON.stringify(visibility);
 
-  adminMenuGroupCatalog = getAdminResolvedGroupCatalog();
+  adminMenuGroupCatalog = (typeof getAdminResolvedGroupCatalog === 'function') ? getAdminResolvedGroupCatalog() : getBaseMenuGroupCatalog();
   setMenuGroupOpenState(key, true);
   renderMenuAdminList();
 }
