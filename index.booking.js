@@ -243,6 +243,7 @@ async function openBookingForm(date, hour, minute=0){
   document.getElementById('bookingModal').classList.remove('hidden');
   resetBookingForm();
   calculatePrice();
+  scheduleBookingFieldSync();
 }
 
 function resetBookingForm(){
@@ -726,6 +727,12 @@ async function init(){
 
   document.getElementById('bookingForm').addEventListener('submit', submitBooking);
 
+  ['usageType','customerName','phoneNumber','pickupLocation','pickupDestination','remarks','assistanceType','stairAssistance','equipmentRental','roundTrip','moveType','privacyAgreement'].forEach(id=>{
+    const el = document.getElementById(id);
+    if (!el) return;
+    ['focus','blur','keyup','click'].forEach(evt=> el.addEventListener(evt, syncAutofilledBookingFields));
+  });
+
   window.addEventListener('resize', debounce(()=>{
     try{
       renderCalendar();
@@ -912,7 +919,26 @@ resetBookingForm = function(){
   if (moveTypeEl) moveTypeEl.selectedIndex = 0;
   const noteEl = document.getElementById('moveTypeNote');
   if (noteEl) noteEl.textContent = config.form_move_type_help_text || defaultConfig.form_move_type_help_text || '最初に移動方法をお選びください';
+  scheduleBookingFieldSync();
 };
+
+
+
+function syncAutofilledBookingFields(){
+  try{
+    calculatePrice();
+  }catch(_){ }
+  try{
+    updateSubmitButton();
+  }catch(_){ }
+}
+
+function scheduleBookingFieldSync(){
+  const delays = [0, 80, 250, 600, 1200];
+  delays.forEach((ms)=>{
+    setTimeout(syncAutofilledBookingFields, ms);
+  });
+}
 
 document.addEventListener('DOMContentLoaded', function(){
   const moveTypeEl = document.getElementById('moveType');
