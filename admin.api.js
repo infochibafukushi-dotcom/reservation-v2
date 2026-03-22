@@ -197,6 +197,8 @@ const gsRun = async (func, ...args) => {
     data = await _getJsonWithRetry(`${GAS_URL}?action=getMenuKeyCatalog`, 1, 20000);
   } else if (func === 'api_getMenuGroupCatalog') {
     data = await _getJsonWithRetry(`${GAS_URL}?action=getMenuGroupCatalog`, 1, 20000);
+  } else if (func === 'api_getAdminBootstrap') {
+    data = await _getJsonWithRetry(`${GAS_URL}?action=getAdminBootstrap`, 1, 25000);
   } else if (func === 'api_toggleBlock') {
     data = await _postJson('toggleBlock', args[0]);
   } else if (func === 'api_setRegularDayBlocked') {
