@@ -1545,14 +1545,9 @@ function _normalizeMenuItem_(item, defaultSort) {
   }
 
   if (key === 'EQUIP_STRETCHER') {
-    const primaryBodyAssist = autoApplyGroup === 'assistance' && autoApplyKey === 'BODY_ASSIST';
-    const secondaryStaff2 = autoApplyGroup2 === 'equipment' && autoApplyKey2 === 'EQUIP_STRETCHER_STAFF2';
-    if (primaryBodyAssist && secondaryStaff2) {
-      autoApplyGroup = 'equipment';
-      autoApplyKey = 'EQUIP_STRETCHER_STAFF2';
-      autoApplyGroup2 = '';
-      autoApplyKey2 = '';
-    } else if (primaryBodyAssist && !autoApplyGroup2 && !autoApplyKey2) {
+    const hasAnyPrimary = !!autoApplyGroup || !!autoApplyKey;
+    const hasAnySecondary = !!autoApplyGroup2 || !!autoApplyKey2;
+    if (!hasAnyPrimary && !hasAnySecondary) {
       autoApplyGroup = 'equipment';
       autoApplyKey = 'EQUIP_STRETCHER_STAFF2';
     }
