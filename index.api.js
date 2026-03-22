@@ -1,5 +1,5 @@
 const ADMIN_ICON_FILE_ID = '1a0QB8ei00w_lSfL4PnF_xuEFUC2JP6FW';
-const GAS_URL = "https://script.google.com/macros/s/AKfycbxTxHEOWC9_OoOeHvprt1QyWBOgRF553FpSIjhkuXzBV4QJUdkkqLbaMuPRJ_UApEUD/exec";
+const GAS_URL = "https://script.google.com/macros/s/AKfycbz8TCph4t_9Kjc505Gbw_duXgArBpFSfMiOoooxL8jJs0JyBbpH99ei4Ta45982EL6n/exec";
 const ADMIN_PAGE_URL = "admin.html";
 
 function toast(msg='通信エラー', ms=2200){
@@ -239,8 +239,8 @@ const gsRun = async (func, ...args) => {
 };
 
 
-const PUBLIC_BOOTSTRAP_CACHE_KEY = 'chiba_care_taxi_public_bootstrap_cache_v4';
-const PUBLIC_BLOCKED_CACHE_PREFIX = 'chiba_care_taxi_public_blocked_keys_v4__';
+const PUBLIC_BOOTSTRAP_CACHE_KEY = 'chiba_care_taxi_public_bootstrap_cache_v2';
+const PUBLIC_BLOCKED_CACHE_PREFIX = 'chiba_care_taxi_public_blocked_keys_v2__';
 const PUBLIC_BOOTSTRAP_CACHE_TTL_MS = 5 * 60 * 1000;
 const PUBLIC_BLOCKED_CACHE_TTL_MS = 2 * 60 * 1000;
 
@@ -283,45 +283,10 @@ function _saveBootstrapCache_(data){
   });
 }
 
-function _hasRequiredPublicMenuBootstrap_(data){
-  const list = Array.isArray(data?.menu_master) ? data.menu_master : [];
-  if (!list.length) return false;
-
-  const groups = new Set(
-    list
-      .map(item => String(item?.group_key || item?.group || '').trim())
-      .filter(Boolean)
-  );
-
-  return groups.has('move_type')
-    && groups.has('assistance')
-    && groups.has('stair')
-    && groups.has('equipment')
-    && groups.has('round_trip');
-}
-
-function _isCurrentPublicMenuReady_(){
-  const list = Array.isArray(menuMaster) ? menuMaster : [];
-  if (!list.length) return false;
-
-  const groups = new Set(
-    list
-      .map(item => String(item?.group_key || item?.group || '').trim())
-      .filter(Boolean)
-  );
-
-  return groups.has('move_type')
-    && groups.has('assistance')
-    && groups.has('stair')
-    && groups.has('equipment')
-    && groups.has('round_trip');
-}
-
 function _loadBootstrapCache_(){
   const entry = _readLocalJson_(PUBLIC_BOOTSTRAP_CACHE_KEY);
   if (!_isFreshCache_(entry, PUBLIC_BOOTSTRAP_CACHE_TTL_MS)) return false;
   if (!entry.data) return false;
-  if (!_hasRequiredPublicMenuBootstrap_(entry.data)) return false;
   _applyBootstrapData_(entry.data);
   publicBootstrapLoaded = true;
   return true;
@@ -356,7 +321,7 @@ function hydratePublicCacheForFastPaint(){
   return bootLoaded || blockedLoaded;
 }
 
-const TRIGGER_URL = 'https://script.google.com/macros/s/AKfycbxTxHEOWC9_OoOeHvprt1QyWBOgRF553FpSIjhkuXzBV4QJUdkkqLbaMuPRJ_UApEUD/exec?secret=secret1';
+const TRIGGER_URL = 'https://script.google.com/macros/s/AKfycbwZDPOM5zmbV8Q0WMwBE_ZetMSFN0pi_tBhk6k11C6v-p30aDHU5OXBKPu-SIX7v2qn/exec?secret=secret1';
 
 function fireTrigger(){
   try{
@@ -771,32 +736,14 @@ async function refreshData(showToastOnFail=false){
       _loadBootstrapCache_();
     }
 
-    if (!publicBootstrapLoaded || !_isCurrentPublicMenuReady_()){
-      let data = null;
-
+    if (!publicBootstrapLoaded){
       const bootRes = await gsRun('api_getPublicBootstrap');
-      if (bootRes && bootRes.isOk) {
-        data = bootRes.data || {};
-      }
+      if (!bootRes || !bootRes.isOk) throw new Error('bootstrap failed');
 
-      if (!_hasRequiredPublicMenuBootstrap_(data || {})){
-        const initRes = await gsRun('api_getInitData');
-        if (initRes && initRes.isOk && initRes.data) {
-          data = initRes.data || data || {};
-        }
-      }
-
-      if (data && typeof data === 'object') {
-        _applyBootstrapData_(data);
-        publicBootstrapLoaded = true;
-        if (_hasRequiredPublicMenuBootstrap_(data)) {
-          _saveBootstrapCache_(data);
-        }
-      }
-
-      if (!_isCurrentPublicMenuReady_()){
-        await refreshConfigPublic();
-      }
+      const data = bootRes.data || {};
+      _applyBootstrapData_(data);
+      _saveBootstrapCache_(data);
+      publicBootstrapLoaded = true;
     }
 
     await refreshBlockedSlotKeys(showToastOnFail);
@@ -808,11 +755,6 @@ async function refreshData(showToastOnFail=false){
       }catch(_){ }
       return;
     }
-    try{
-      await refreshConfigPublic();
-      await refreshBlockedSlotKeys(false);
-      return;
-    }catch(_){ }
     if (showToastOnFail) toast(e?.message || '通信エラー（データ取得）');
     throw e;
   }
