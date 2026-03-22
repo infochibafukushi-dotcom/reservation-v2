@@ -494,8 +494,8 @@ const defaultConfig = {
   warning_wheelchair_damage_text: '警告: 車いす固定による傷、すり傷などは保証対象外になります',
   warning_stretcher_bodyassist_text: '警告: ストレッチャー利用時に2名体制介助料5,000円と身体介助が必須となります',
   rule_force_body_assist_on_stair: '1',
-  rule_force_body_assist_on_stretcher: '1',
-  rule_force_stretcher_staff2_on_stretcher: '1'
+  rule_force_body_assist_on_stretcher: '0',
+  rule_force_stretcher_staff2_on_stretcher: '0'
 };
 
 const defaultMenuGroupCatalog = [

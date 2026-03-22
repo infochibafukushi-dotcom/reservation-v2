@@ -178,16 +178,10 @@ function applyAutoSelections(){
       if (setSelectValueByKey('assistanceType', 'BODY_ASSIST')){
         appliedBodyAssist = true;
       }
-    } else if (String(config.rule_force_body_assist_on_stretcher || '1') === '1'){
-      if (setSelectValueByKey('assistanceType', 'BODY_ASSIST')){
-        appliedBodyAssist = true;
-      }
     }
 
     const equipHasStaff2 = equipAutoEntries.some(entry => entry.apply_group === 'equipment' && entry.apply_key === 'EQUIP_STRETCHER_STAFF2');
     if (equipHasStaff2){
-      appliedStaff2 = true;
-    } else if (String(config.rule_force_stretcher_staff2_on_stretcher || '1') === '1'){
       appliedStaff2 = true;
     }
   }
@@ -826,19 +820,36 @@ applyAutoSelections = function(){
   const syncedEquipmentKey = syncEquipmentFromMoveTypePatched();
   const state = _applyAutoSelectionsOriginal();
   const equipmentKey = syncedEquipmentKey || getSelectedOptionKey('equipmentRental');
+  const moveTypeEntries = findAutoApplyEntriesFromMenu('move_type', moveTypeKey);
 
   const moveTypeNoteEl = document.getElementById('moveTypeNote');
   if (moveTypeNoteEl){
     moveTypeNoteEl.textContent = getMoveTypeNoteTextPatched(moveTypeKey);
   }
 
-  if ((moveTypeKey === 'MOVE_STRETCHER' || equipmentKey === 'EQUIP_STRETCHER') && state && !state.appliedStaff2){
+  const moveTypeHasBodyAssist = moveTypeEntries.some(entry => entry.apply_group === 'assistance' && entry.apply_key === 'BODY_ASSIST');
+  if (moveTypeHasBodyAssist && state && !state.appliedBodyAssist){
+    if (setSelectValueByKey('assistanceType', 'BODY_ASSIST')){
+      state.appliedBodyAssist = true;
+    }
+  }
+
+  const moveTypeHasStaff2 = moveTypeEntries.some(entry => entry.apply_group === 'equipment' && entry.apply_key === 'EQUIP_STRETCHER_STAFF2');
+  if (moveTypeHasStaff2 && state && !state.appliedStaff2){
     state.appliedStaff2 = true;
+  }
+
+  if ((moveTypeKey === 'MOVE_STRETCHER' || equipmentKey === 'EQUIP_STRETCHER') && state && (state.appliedBodyAssist || state.appliedStaff2)){
     const sw = document.getElementById('stretcherWarning');
     if (sw){
-      sw.textContent = (config.warning_stretcher_bodyassist_text || defaultConfig.warning_stretcher_bodyassist_text || 'ストレッチャー利用時は身体介助が必要です')
-        + ' / '
-        + (config.warning_staff_add_text || defaultConfig.warning_staff_add_text || '表示価格は1名体制での目安です。状況により安全確保のため2名体制となる場合があります（＋5,000円）');
+      const messageParts = [];
+      if (state.appliedBodyAssist){
+        messageParts.push(config.warning_stretcher_bodyassist_text || defaultConfig.warning_stretcher_bodyassist_text || 'ストレッチャー利用時は身体介助が必要です');
+      }
+      if (state.appliedStaff2){
+        messageParts.push(config.warning_staff_add_text || defaultConfig.warning_staff_add_text || '表示価格は1名体制での目安です。状況により安全確保のため2名体制となる場合があります（＋5,000円）');
+      }
+      sw.textContent = messageParts.join(' / ');
       sw.classList.remove('hidden');
     }
   }

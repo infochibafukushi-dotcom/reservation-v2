@@ -68,8 +68,8 @@ const DEFAULT_CONFIG = {
 
   // ===== 自動ルール設定 =====
   rule_force_body_assist_on_stair: '1',
-  rule_force_body_assist_on_stretcher: '1',
-  rule_force_stretcher_staff2_on_stretcher: '1',
+  rule_force_body_assist_on_stretcher: '0',
+  rule_force_stretcher_staff2_on_stretcher: '0',
   rule_force_staff_add_on_stair: '1',
   rule_force_staff_add_on_stretcher: '1',
 
@@ -193,7 +193,7 @@ const DEFAULT_PRICE_MASTER = [
 
   { key: 'EQUIP_WHEELCHAIR',        key_jp: '車いすレンタル',           label: '車いすレンタル',                 price: 0,     note: '',                                 is_visible: true, sort_order: 300, menu_group: 'equipment',  required_flag: true,  auto_apply_group: '',           auto_apply_key: '',           auto_apply_group_2: '',           auto_apply_key_2: '' },
   { key: 'EQUIP_RECLINING',         key_jp: 'リクライニング車いす',     label: 'リクライニング車いすレンタル',   price: 2500,  note: '',                                 is_visible: true, sort_order: 310, menu_group: 'equipment',  required_flag: true,  auto_apply_group: '',           auto_apply_key: '',           auto_apply_group_2: '',           auto_apply_key_2: '' },
-  { key: 'EQUIP_STRETCHER',         key_jp: 'ストレッチャー',           label: 'ストレッチャーレンタル',         price: 5000,  note: '',                                 is_visible: true, sort_order: 320, menu_group: 'equipment',  required_flag: true,  auto_apply_group: 'assistance', auto_apply_key: 'BODY_ASSIST', auto_apply_group_2: 'equipment',  auto_apply_key_2: 'EQUIP_STRETCHER_STAFF2' },
+  { key: 'EQUIP_STRETCHER',         key_jp: 'ストレッチャー',           label: 'ストレッチャーレンタル',         price: 5000,  note: '',                                 is_visible: true, sort_order: 320, menu_group: 'equipment',  required_flag: true,  auto_apply_group: 'equipment',  auto_apply_key: 'EQUIP_STRETCHER_STAFF2', auto_apply_group_2: '',           auto_apply_key_2: '' },
   { key: 'EQUIP_OWN_WHEELCHAIR',    key_jp: '持込車いす',               label: 'ご自身車いす',                   price: 0,     note: '',                                 is_visible: true, sort_order: 330, menu_group: 'equipment',  required_flag: true,  auto_apply_group: '',           auto_apply_key: '',           auto_apply_group_2: '',           auto_apply_key_2: '' },
   { key: 'EQUIP_STRETCHER_STAFF2',  key_jp: 'ストレッチャー2名体制',    label: 'ストレッチャー2名体制介助料',    price: 5000,  note: '',                                 is_visible: true, sort_order: 340, menu_group: 'equipment',  required_flag: false, auto_apply_group: '',           auto_apply_key: '',           auto_apply_group_2: '',           auto_apply_key_2: '' },
 
@@ -231,7 +231,7 @@ const MENU_KEY_CATALOG = [
 
   { key: 'EQUIP_WHEELCHAIR',        key_jp: '車いすレンタル',           menu_group: 'equipment',  default_label: '車いすレンタル',               default_price: 0,     required_flag: true,  auto_apply_group: '',           auto_apply_key: '',           auto_apply_group_2: '',           auto_apply_key_2: '' },
   { key: 'EQUIP_RECLINING',         key_jp: 'リクライニング車いす',     menu_group: 'equipment',  default_label: 'リクライニング車いすレンタル', default_price: 2500,  required_flag: true,  auto_apply_group: '',           auto_apply_key: '',           auto_apply_group_2: '',           auto_apply_key_2: '' },
-  { key: 'EQUIP_STRETCHER',         key_jp: 'ストレッチャー',           menu_group: 'equipment',  default_label: 'ストレッチャーレンタル',       default_price: 5000,  required_flag: true,  auto_apply_group: 'assistance', auto_apply_key: 'BODY_ASSIST', auto_apply_group_2: 'equipment',  auto_apply_key_2: 'EQUIP_STRETCHER_STAFF2' },
+  { key: 'EQUIP_STRETCHER',         key_jp: 'ストレッチャー',           menu_group: 'equipment',  default_label: 'ストレッチャーレンタル',       default_price: 5000,  required_flag: true,  auto_apply_group: 'equipment',  auto_apply_key: 'EQUIP_STRETCHER_STAFF2', auto_apply_group_2: '',           auto_apply_key_2: '' },
   { key: 'EQUIP_OWN_WHEELCHAIR',    key_jp: '持込車いす',               menu_group: 'equipment',  default_label: 'ご自身車いす',                 default_price: 0,     required_flag: true,  auto_apply_group: '',           auto_apply_key: '',           auto_apply_group_2: '',           auto_apply_key_2: '' },
   { key: 'EQUIP_STRETCHER_STAFF2',  key_jp: 'ストレッチャー2名体制',    menu_group: 'equipment',  default_label: 'ストレッチャー2名体制介助料',  default_price: 5000,  required_flag: false, auto_apply_group: '',           auto_apply_key: '',           auto_apply_group_2: '',           auto_apply_key_2: '' },
 

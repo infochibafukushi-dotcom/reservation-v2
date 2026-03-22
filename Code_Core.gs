@@ -1529,6 +1529,35 @@ function _normalizeMenuItem_(item, defaultSort) {
     autoApplyKey2 = String(catalog.auto_apply_key_2 || '').trim();
   }
 
+  if (key === 'MOVE_STRETCHER') {
+    const hasEquipStretcher = autoApplyGroup === 'equipment' && autoApplyKey === 'EQUIP_STRETCHER';
+    const hasBodyAssistPrimary = autoApplyGroup === 'assistance' && autoApplyKey === 'BODY_ASSIST';
+    const hasBodyAssistSecondary = autoApplyGroup2 === 'assistance' && autoApplyKey2 === 'BODY_ASSIST';
+    if (hasEquipStretcher && !hasBodyAssistSecondary) {
+      autoApplyGroup2 = 'assistance';
+      autoApplyKey2 = 'BODY_ASSIST';
+    } else if (hasBodyAssistPrimary && !hasEquipStretcher && !autoApplyGroup2 && !autoApplyKey2) {
+      autoApplyGroup2 = 'assistance';
+      autoApplyKey2 = 'BODY_ASSIST';
+      autoApplyGroup = 'equipment';
+      autoApplyKey = 'EQUIP_STRETCHER';
+    }
+  }
+
+  if (key === 'EQUIP_STRETCHER') {
+    const primaryBodyAssist = autoApplyGroup === 'assistance' && autoApplyKey === 'BODY_ASSIST';
+    const secondaryStaff2 = autoApplyGroup2 === 'equipment' && autoApplyKey2 === 'EQUIP_STRETCHER_STAFF2';
+    if (primaryBodyAssist && secondaryStaff2) {
+      autoApplyGroup = 'equipment';
+      autoApplyKey = 'EQUIP_STRETCHER_STAFF2';
+      autoApplyGroup2 = '';
+      autoApplyKey2 = '';
+    } else if (primaryBodyAssist && !autoApplyGroup2 && !autoApplyKey2) {
+      autoApplyGroup = 'equipment';
+      autoApplyKey = 'EQUIP_STRETCHER_STAFF2';
+    }
+  }
+
   obj.key = key;
   obj.key_jp = keyJp;
   obj.label = label;
