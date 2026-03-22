@@ -94,13 +94,23 @@ function getEffectiveMenuGroupOrder(){
   };
 
   pushUnique(MENU_GROUP_FIXED_FIRST);
-  MENU_GROUP_FALLBACK_ORDER.forEach(pushUnique);
-  savedOrder.forEach(pushUnique);
-  allKeys.forEach(pushUnique);
 
-  const fixed = [MENU_GROUP_FIXED_FIRST];
-  const others = merged.filter(key => key !== MENU_GROUP_FIXED_FIRST);
-  return fixed.concat(others);
+  savedOrder.forEach(key => {
+    if (String(key || '').trim() === MENU_GROUP_FIXED_FIRST) return;
+    pushUnique(key);
+  });
+
+  MENU_GROUP_FALLBACK_ORDER.forEach(key => {
+    if (String(key || '').trim() === MENU_GROUP_FIXED_FIRST) return;
+    pushUnique(key);
+  });
+
+  allKeys.forEach(key => {
+    if (String(key || '').trim() === MENU_GROUP_FIXED_FIRST) return;
+    pushUnique(key);
+  });
+
+  return [MENU_GROUP_FIXED_FIRST].concat(merged.filter(key => key !== MENU_GROUP_FIXED_FIRST));
 }
 
 function getGroupLabelByKey(groupKey){
