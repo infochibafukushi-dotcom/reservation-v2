@@ -192,7 +192,50 @@ function applyAutoSelections(){
   };
 }
 
-function openBookingForm(date, hour, minute=0){
+function hasBookingSelectOptionsReady(){
+  const moveTypeEl = document.getElementById('moveType');
+  const assistanceEl = document.getElementById('assistanceType');
+  const stairEl = document.getElementById('stairAssistance');
+  const equipmentEl = document.getElementById('equipmentRental');
+  const roundTripEl = document.getElementById('roundTrip');
+
+  const moveTypeReady = !!(moveTypeEl && moveTypeEl.options && moveTypeEl.options.length > 1);
+  const assistanceReady = !!(assistanceEl && assistanceEl.options && assistanceEl.options.length > 1);
+  const stairReady = !!(stairEl && stairEl.options && stairEl.options.length > 0);
+  const equipmentReady = !!(equipmentEl && equipmentEl.options && equipmentEl.options.length > 1);
+  const roundTripReady = !!(roundTripEl && roundTripEl.options && roundTripEl.options.length > 0);
+
+  return moveTypeReady && assistanceReady && stairReady && equipmentReady && roundTripReady;
+}
+
+async function ensureBookingFormOptionsReady(){
+  if (hasBookingSelectOptionsReady()) return true;
+
+  try{
+    await refreshAllData(true);
+  }catch(_){ }
+
+  try{
+    renderServiceSelectors();
+  }catch(_){ }
+
+  if (hasBookingSelectOptionsReady()) return true;
+
+  try{
+    await sleep(250);
+    renderServiceSelectors();
+  }catch(_){ }
+
+  return hasBookingSelectOptionsReady();
+}
+
+async function openBookingForm(date, hour, minute=0){
+  const ready = await ensureBookingFormOptionsReady();
+  if (!ready){
+    toast('フォーム読込中です。少し待ってからもう一度お試しください');
+    return;
+  }
+
   selectedSlot = { date, hour, minute };
   document.getElementById('selectedSlotInfo').textContent =
     `${formatDate(date)} ${String(hour).padStart(2,'0')}:${String(minute).padStart(2,'0')} から`;
@@ -536,6 +579,7 @@ async function init(){
 
     await withLoading(async ()=>{
       await refreshAllData(true);
+      renderServiceSelectors();
       renderCalendar();
     }, '読み込み中...');
   }catch(e){
@@ -807,6 +851,9 @@ calculatePrice = function(){
 
 const _resetBookingFormOriginal = resetBookingForm;
 resetBookingForm = function(){
+  if (!hasBookingSelectOptionsReady()){
+    try{ renderServiceSelectors(); }catch(_){ }
+  }
   _resetBookingFormOriginal();
   const moveTypeEl = document.getElementById('moveType');
   if (moveTypeEl) moveTypeEl.selectedIndex = 0;

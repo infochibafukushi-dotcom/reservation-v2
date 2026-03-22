@@ -283,10 +283,45 @@ function _saveBootstrapCache_(data){
   });
 }
 
+function _hasRequiredPublicMenuBootstrap_(data){
+  const list = Array.isArray(data?.menu_master) ? data.menu_master : [];
+  if (!list.length) return false;
+
+  const groups = new Set(
+    list
+      .map(item => String(item?.group_key || item?.group || '').trim())
+      .filter(Boolean)
+  );
+
+  return groups.has('move_type')
+    && groups.has('assistance')
+    && groups.has('stair')
+    && groups.has('equipment')
+    && groups.has('round_trip');
+}
+
+function _isCurrentPublicMenuReady_(){
+  const list = Array.isArray(menuMaster) ? menuMaster : [];
+  if (!list.length) return false;
+
+  const groups = new Set(
+    list
+      .map(item => String(item?.group_key || item?.group || '').trim())
+      .filter(Boolean)
+  );
+
+  return groups.has('move_type')
+    && groups.has('assistance')
+    && groups.has('stair')
+    && groups.has('equipment')
+    && groups.has('round_trip');
+}
+
 function _loadBootstrapCache_(){
   const entry = _readLocalJson_(PUBLIC_BOOTSTRAP_CACHE_KEY);
   if (!_isFreshCache_(entry, PUBLIC_BOOTSTRAP_CACHE_TTL_MS)) return false;
   if (!entry.data) return false;
+  if (!_hasRequiredPublicMenuBootstrap_(entry.data)) return false;
   _applyBootstrapData_(entry.data);
   publicBootstrapLoaded = true;
   return true;
@@ -321,7 +356,7 @@ function hydratePublicCacheForFastPaint(){
   return bootLoaded || blockedLoaded;
 }
 
-const TRIGGER_URL = 'https://script.google.com/macros/s/AKfycbxTxHEOWC9_OoOeHvprt1QyWBOgRF553FpSIjhkuXzBV4QJUdkkqLbaMuPRJ_UApEUD/exec?secret=secret1';
+const TRIGGER_URL = 'https://script.google.com/macros/s/AKfycbwZDPOM5zmbV8Q0WMwBE_ZetMSFN0pi_tBhk6k11C6v-p30aDHU5OXBKPu-SIX7v2qn/exec?secret=secret1';
 
 function fireTrigger(){
   try{
@@ -736,11 +771,12 @@ async function refreshData(showToastOnFail=false){
       _loadBootstrapCache_();
     }
 
-    if (!publicBootstrapLoaded){
+    if (!publicBootstrapLoaded || !_isCurrentPublicMenuReady_()){
       const bootRes = await gsRun('api_getPublicBootstrap');
       if (!bootRes || !bootRes.isOk) throw new Error('bootstrap failed');
 
       const data = bootRes.data || {};
+      if (!_hasRequiredPublicMenuBootstrap_(data)) throw new Error('bootstrap incomplete');
       _applyBootstrapData_(data);
       _saveBootstrapCache_(data);
       publicBootstrapLoaded = true;
