@@ -210,7 +210,8 @@ const MENU_GROUP_CATALOG = [
   { key: 'equipment',  label: '機材レンタル',            description: '予約フォームの「機材レンタル」プルダウンに表示' },
   { key: 'round_trip', label: '往復送迎',                description: '予約フォームの「往復送迎」プルダウンに表示' },
   { key: 'move_type',  label: '移動方法',                description: '予約フォームの「移動方法」プルダウンに表示' },
-  { key: 'custom',     label: 'その他（表示先なし）',    description: '保存のみ。どのプルダウンにも出さない' }
+  { key: 'custom',     label: 'その他（表示先なし）',    description: '保存のみ。どのプルダウンにも出さない' },
+  { key: 'auto_set',   label: '自動セット',              description: '予約フォームには出さず、内部加算だけに使う' }
 ];
 
 // ===== 日本語キー候補（管理画面プルダウン用） =====
