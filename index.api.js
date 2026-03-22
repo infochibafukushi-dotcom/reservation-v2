@@ -557,6 +557,22 @@ function getMenuAutoApplyKey(key){
   return '';
 }
 
+function getMenuAutoApplyGroup2(key){
+  const map = getMenuMap();
+  if (map[key] && map[key].auto_apply_group_2 !== undefined) return String(map[key].auto_apply_group_2 || '');
+  const catalog = findCatalogByKey(key);
+  if (catalog && catalog.auto_apply_group_2 !== undefined) return String(catalog.auto_apply_group_2 || '');
+  return '';
+}
+
+function getMenuAutoApplyKey2(key){
+  const map = getMenuMap();
+  if (map[key] && map[key].auto_apply_key_2 !== undefined) return String(map[key].auto_apply_key_2 || '');
+  const catalog = findCatalogByKey(key);
+  if (catalog && catalog.auto_apply_key_2 !== undefined) return String(catalog.auto_apply_key_2 || '');
+  return '';
+}
+
 function getItemsByGroup(group){
   return (menuMaster || []).filter(item => {
     if (String(item.menu_group || '') !== String(group || '')) return false;

@@ -387,7 +387,7 @@ function _isConfigSheetHeaderValid_(sheet) {
 
 function _isPriceMasterHeaderValid_(sheet) {
   if (!sheet) return false;
-  const required = ['key', 'key_jp', 'label', 'price', 'note', 'is_visible', 'sort_order', 'menu_group', 'required_flag', 'auto_apply_group', 'auto_apply_key'];
+  const required = ['key', 'key_jp', 'label', 'price', 'note', 'is_visible', 'sort_order', 'menu_group', 'required_flag', 'auto_apply_group', 'auto_apply_key', 'auto_apply_group_2', 'auto_apply_key_2'];
   if (sheet.getLastRow() < 1 || sheet.getLastColumn() < required.length) return false;
   const headers = sheet.getRange(1, 1, 1, required.length).getValues()[0].map(function(v) {
     return String(v || '').trim();
@@ -457,6 +457,8 @@ function _readMenuMasterFast_() {
     const reqIdx = map['required_flag'] ? (map['required_flag'] - 1) : -1;
     const autoGroupIdx = map['auto_apply_group'] ? (map['auto_apply_group'] - 1) : -1;
     const autoKeyIdx = map['auto_apply_key'] ? (map['auto_apply_key'] - 1) : -1;
+    const autoGroup2Idx = map['auto_apply_group_2'] ? (map['auto_apply_group_2'] - 1) : -1;
+    const autoKey2Idx = map['auto_apply_key_2'] ? (map['auto_apply_key_2'] - 1) : -1;
 
     return {
       key: keyIdx >= 0 ? String(row[keyIdx] || '').trim() : '',
@@ -469,7 +471,9 @@ function _readMenuMasterFast_() {
       menu_group: _normalizeMenuGroup_(groupIdx >= 0 ? row[groupIdx] : ''),
       required_flag: reqIdx < 0 || row[reqIdx] === '' || row[reqIdx] === undefined ? false : _toBool(row[reqIdx]),
       auto_apply_group: _normalizeAutoApplyGroup_(autoGroupIdx >= 0 ? row[autoGroupIdx] : ''),
-      auto_apply_key: autoKeyIdx >= 0 ? String(row[autoKeyIdx] || '').trim() : ''
+      auto_apply_key: autoKeyIdx >= 0 ? String(row[autoKeyIdx] || '').trim() : '',
+      auto_apply_group_2: _normalizeAutoApplyGroup_(autoGroup2Idx >= 0 ? row[autoGroup2Idx] : ''),
+      auto_apply_key_2: autoKey2Idx >= 0 ? String(row[autoKey2Idx] || '').trim() : ''
     };
   }).filter(function(r) {
     return !!r.key;
@@ -1241,7 +1245,7 @@ function _ensurePriceMasterDefaults_() {
 }
 
 function _ensurePriceMasterHeader_(sheet) {
-  const required = ['key', 'key_jp', 'label', 'price', 'note', 'is_visible', 'sort_order', 'menu_group', 'required_flag', 'auto_apply_group', 'auto_apply_key'];
+  const required = ['key', 'key_jp', 'label', 'price', 'note', 'is_visible', 'sort_order', 'menu_group', 'required_flag', 'auto_apply_group', 'auto_apply_key', 'auto_apply_group_2', 'auto_apply_key_2'];
 
   if (sheet.getLastRow() < 1 || sheet.getLastColumn() < required.length) {
     const oldData = (sheet.getLastRow() >= 1 && sheet.getLastColumn() >= 1)
@@ -1270,6 +1274,8 @@ function _ensurePriceMasterHeader_(sheet) {
           if (h === 'required_flag') return obj.required_flag !== undefined ? obj.required_flag : (catalog ? catalog.required_flag : false);
           if (h === 'auto_apply_group') return _normalizeAutoApplyGroup_(obj.auto_apply_group !== undefined ? obj.auto_apply_group : (catalog ? catalog.auto_apply_group : ''));
           if (h === 'auto_apply_key') return obj.auto_apply_key !== undefined ? obj.auto_apply_key : (catalog ? catalog.auto_apply_key : '');
+          if (h === 'auto_apply_group_2') return _normalizeAutoApplyGroup_(obj.auto_apply_group_2 !== undefined ? obj.auto_apply_group_2 : (catalog ? catalog.auto_apply_group_2 : ''));
+          if (h === 'auto_apply_key_2') return obj.auto_apply_key_2 !== undefined ? obj.auto_apply_key_2 : (catalog ? catalog.auto_apply_key_2 : '');
           return obj[h] !== undefined ? obj[h] : '';
         });
         mapped.push(newRow);
@@ -1316,7 +1322,7 @@ function _ensurePriceMasterHeader_(sheet) {
         return required.map(function(h) {
           if (hm[h] !== undefined) {
             if (h === 'menu_group') return _normalizeMenuGroup_(row[hm[h]]);
-            if (h === 'auto_apply_group') return _normalizeAutoApplyGroup_(row[hm[h]]);
+            if (h === 'auto_apply_group' || h === 'auto_apply_group_2') return _normalizeAutoApplyGroup_(row[hm[h]]);
             return row[hm[h]];
           }
 
@@ -1355,6 +1361,20 @@ function _ensurePriceMasterHeader_(sheet) {
             return catalog ? String(catalog.auto_apply_key || '') : '';
           }
 
+          if (h === 'auto_apply_group_2') {
+            const keyIdx = hm['key'];
+            const key = (keyIdx !== undefined) ? String(row[keyIdx] || '').trim() : '';
+            const catalog = _findMenuCatalogByKey_(key);
+            return _normalizeAutoApplyGroup_(catalog ? catalog.auto_apply_group_2 : '');
+          }
+
+          if (h === 'auto_apply_key_2') {
+            const keyIdx = hm['key'];
+            const key = (keyIdx !== undefined) ? String(row[keyIdx] || '').trim() : '';
+            const catalog = _findMenuCatalogByKey_(key);
+            return catalog ? String(catalog.auto_apply_key_2 || '') : '';
+          }
+
           return '';
         });
       });
@@ -1380,6 +1400,8 @@ function _repairExistingPriceMasterRows_(sheet) {
   const labelCol = map['label'] ?? null;
   const autoApplyGroupCol = map['auto_apply_group'] ?? null;
   const autoApplyKeyCol = map['auto_apply_key'] ?? null;
+  const autoApplyGroup2Col = map['auto_apply_group_2'] ?? null;
+  const autoApplyKey2Col = map['auto_apply_key_2'] ?? null;
 
   if (!keyCol) return;
 
@@ -1436,6 +1458,21 @@ function _repairExistingPriceMasterRows_(sheet) {
         sheet.getRange(rowNo, autoApplyKeyCol).setValue(String(catalog.auto_apply_key || ''));
       }
     }
+
+    if (autoApplyGroup2Col) {
+      const curAutoGroup2 = String(values[i][autoApplyGroup2Col - 1] || '').trim();
+      const nextAutoGroup2 = _normalizeAutoApplyGroup_(curAutoGroup2 || (catalog ? catalog.auto_apply_group_2 : ''));
+      if (curAutoGroup2 !== nextAutoGroup2) {
+        sheet.getRange(rowNo, autoApplyGroup2Col).setValue(nextAutoGroup2);
+      }
+    }
+
+    if (autoApplyKey2Col) {
+      const curAutoKey2 = String(values[i][autoApplyKey2Col - 1] || '').trim();
+      if (!curAutoKey2 && catalog && catalog.auto_apply_key_2) {
+        sheet.getRange(rowNo, autoApplyKey2Col).setValue(String(catalog.auto_apply_key_2 || ''));
+      }
+    }
   }
 }
 
@@ -1479,6 +1516,20 @@ function _normalizeMenuItem_(item, defaultSort) {
     autoApplyKey = String(catalog.auto_apply_key || '').trim();
   }
 
+  let autoApplyGroup2 = '';
+  if (item && item.auto_apply_group_2 !== undefined) {
+    autoApplyGroup2 = _normalizeAutoApplyGroup_(item.auto_apply_group_2);
+  } else if (catalog) {
+    autoApplyGroup2 = _normalizeAutoApplyGroup_(catalog.auto_apply_group_2 || '');
+  }
+
+  let autoApplyKey2 = '';
+  if (item && item.auto_apply_key_2 !== undefined) {
+    autoApplyKey2 = String(item.auto_apply_key_2 || '').trim();
+  } else if (catalog) {
+    autoApplyKey2 = String(catalog.auto_apply_key_2 || '').trim();
+  }
+
   obj.key = key;
   obj.key_jp = keyJp;
   obj.label = label;
@@ -1490,6 +1541,8 @@ function _normalizeMenuItem_(item, defaultSort) {
   obj.required_flag = requiredFlag;
   obj.auto_apply_group = autoApplyGroup;
   obj.auto_apply_key = autoApplyKey;
+  obj.auto_apply_group_2 = autoApplyGroup2;
+  obj.auto_apply_key_2 = autoApplyKey2;
 
   return obj;
 }
