@@ -193,6 +193,18 @@ const gsRun = async (func, ...args) => {
     data = await _getJsonWithRetry(`${GAS_URL}?action=getConfig`, 1, 20000);
   } else if (func === 'api_getInitData') {
     data = await _getJsonWithRetry(`${GAS_URL}?action=getInitData`, 1, 25000);
+  } else if (func === 'api_getAdminBootstrap') {
+    data = await _getJsonWithRetry(`${GAS_URL}?action=getAdminBootstrap`, 1, 20000);
+  } else if (func === 'api_getReservationsRange') {
+    const range = args[0] || {};
+    const start = encodeURIComponent(String(range.start || ''));
+    const end = encodeURIComponent(String(range.end || range.start || ''));
+    data = await _getJsonWithRetry(`${GAS_URL}?action=getReservationsRange&start=${start}&end=${end}`, 1, 20000);
+  } else if (func === 'api_getBlocksRange') {
+    const range = args[0] || {};
+    const start = encodeURIComponent(String(range.start || ''));
+    const end = encodeURIComponent(String(range.end || range.start || ''));
+    data = await _getJsonWithRetry(`${GAS_URL}?action=getBlocksRange&start=${start}&end=${end}`, 1, 20000);
   } else if (func === 'api_getMenuKeyCatalog') {
     data = await _getJsonWithRetry(`${GAS_URL}?action=getMenuKeyCatalog`, 1, 20000);
   } else if (func === 'api_getMenuGroupCatalog') {

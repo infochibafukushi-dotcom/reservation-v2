@@ -33,6 +33,133 @@ async function adminRefreshAllData(){
   renderReservationTable();
 }
 
+
+function adminGetVisibleRange(){
+  try{
+    if (typeof adminGetPageInfo === 'function'){
+      const info = adminGetPageInfo();
+      if (info && info.visibleDates && info.visibleDates.length){
+        return {
+          start: ymdLocal(info.visibleDates[0]),
+          end: ymdLocal(info.visibleDates[info.visibleDates.length - 1])
+        };
+      }
+    }
+  }catch(_){ }
+
+  const today = new Date();
+  const daysPerPage = Math.max(1, Number((adminConfig && adminConfig.days_per_page) || 7));
+  const start = new Date(today);
+  const end = new Date(today);
+  end.setDate(end.getDate() + daysPerPage - 1);
+  return {
+    start: ymdLocal(start),
+    end: ymdLocal(end)
+  };
+}
+
+function adminMergeReservationsInRange(range, reservations){
+  const start = String(range && range.start || '');
+  const end = String(range && range.end || '');
+  const nextList = Array.isArray(reservations) ? reservations : [];
+  const keep = (adminReservations || []).filter(item => {
+    const ymd = normalizeDateToYMD(item && (item.date || item.reservation_date || item.pickup_date || item.day || ''));
+    return !(ymd && start && end && ymd >= start && ymd <= end);
+  });
+  adminReservations = keep.concat(nextList).sort((a, b)=>{
+    const ad = String((a && (a.reservation_datetime || a.date || a.reservation_date || '')) || '');
+    const bd = String((b && (b.reservation_datetime || b.date || b.reservation_date || '')) || '');
+    return ad.localeCompare(bd, 'ja');
+  });
+}
+
+function adminMergeBlocksInRange(range, blocks){
+  const start = String(range && range.start || '');
+  const end = String(range && range.end || '');
+  const nextList = Array.isArray(blocks) ? blocks : [];
+  const keep = (adminBlocks || []).filter(item => {
+    const ymd = normalizeDateToYMD(item && (item.block_date || item.date || item.slot_date || ''));
+    return !(ymd && start && end && ymd >= start && ymd <= end);
+  });
+  adminBlocks = keep.concat(nextList);
+}
+
+function adminApplyDerivedState(options = {}){
+  const shouldRenderConfig = options.renderConfig === true;
+  if (shouldRenderConfig){
+    applyAdminConfigToForm();
+    renderMenuAdminList();
+  }
+  buildAdminBlockedSlots(adminBlocks);
+  buildAdminReservedSlots(adminReservations);
+  renderAdminStats();
+  renderAdminCalendar();
+  renderReservationTable();
+}
+
+async function adminRefreshBootstrapData(renderConfig = true){
+  const res = await gsRun('api_getAdminBootstrap');
+  const data = res && res.data ? res.data : {};
+  adminConfig = { ...ADMIN_DEFAULT_CONFIG, ...(data.config || {}) };
+  adminMenuMaster = Array.isArray(data.menu_master) ? data.menu_master : [];
+  adminMenuKeyCatalog = Array.isArray(data.menu_key_catalog) ? data.menu_key_catalog : [];
+  adminMenuGroupCatalog = Array.isArray(data.menu_group_catalog) && data.menu_group_catalog.length ? data.menu_group_catalog : getAdminResolvedGroupCatalog();
+  adminAutoRuleCatalog = Array.isArray(data.auto_rule_catalog) ? data.auto_rule_catalog : [];
+  adminApplyDerivedState({ renderConfig });
+}
+
+async function adminRefreshVisibleWindow(){
+  const range = adminGetVisibleRange();
+  const [resRes, blockRes] = await Promise.all([
+    gsRun('api_getReservationsRange', range),
+    gsRun('api_getBlocksRange', range)
+  ]);
+
+  adminMergeReservationsInRange(range, resRes && resRes.data ? resRes.data.reservations : []);
+  adminMergeBlocksInRange(range, blockRes && blockRes.data ? blockRes.data.blocks : []);
+  adminApplyDerivedState({ renderConfig: false });
+}
+
+function adminClearPublicClientCache(){
+  try{
+    localStorage.removeItem('chiba_care_taxi_public_bootstrap_cache_v2');
+  }catch(_){ }
+  try{
+    const keys = [];
+    for (let i = 0; i < localStorage.length; i++){
+      const key = localStorage.key(i);
+      if (String(key || '').indexOf('chiba_care_taxi_public_blocked_keys_v2__') === 0){
+        keys.push(key);
+      }
+    }
+    keys.forEach(key => {
+      try{ localStorage.removeItem(key); }catch(_){ }
+    });
+  }catch(_){ }
+}
+
+function adminUpdateReservationLocal(payload){
+  const rid = String(payload && payload.reservation_id || '').trim();
+  if (!rid) return;
+  const next = [];
+  let updated = false;
+
+  (adminReservations || []).forEach(item => {
+    if (String(item && item.reservation_id || '').trim() === rid){
+      next.push({ ...item, ...payload });
+      updated = true;
+    } else {
+      next.push(item);
+    }
+  });
+
+  if (!updated){
+    next.push({ ...payload });
+  }
+
+  adminReservations = next;
+}
+
 function renderAdminStats(){
   document.getElementById('totalReservations').textContent = String(adminReservations.length || 0);
   document.getElementById('pendingCount').textContent = String(adminReservations.filter(r => String(r.status || '未対応') === '未対応').length);
@@ -317,7 +444,8 @@ async function saveStatusUpdate(hideOnly = false){
 
   await withLoading(async ()=>{
     await gsRun('api_updateReservation', payload);
-    await adminRefreshAllData();
+    adminUpdateReservationLocal(payload);
+    await adminRefreshVisibleWindow();
   }, '予約を更新中...');
 
   document.getElementById('detailModal').classList.add('hidden');
@@ -376,8 +504,12 @@ function bindUI(){
   document.getElementById('saveLogoConfigBtn').addEventListener('click', async ()=>{
     try{
       await withLoading(async ()=>{
-        await gsRun('api_saveConfig', collectLogoConfigPayload());
-        await adminRefreshAllData();
+        const res = await gsRun('api_saveConfig', collectLogoConfigPayload());
+        if (res && res.data && res.data.config){
+          adminConfig = { ...adminConfig, ...(res.data.config || {}) };
+        }
+        adminClearPublicClientCache();
+        adminApplyDerivedState({ renderConfig: true });
       }, '設定保存中...');
       toast('保存しました');
     }catch(err){
@@ -388,8 +520,12 @@ function bindUI(){
   document.getElementById('saveWarningConfigBtn').addEventListener('click', async ()=>{
     try{
       await withLoading(async ()=>{
-        await gsRun('api_saveConfig', collectWarningConfigPayload());
-        await adminRefreshAllData();
+        const res = await gsRun('api_saveConfig', collectWarningConfigPayload());
+        if (res && res.data && res.data.config){
+          adminConfig = { ...adminConfig, ...(res.data.config || {}) };
+        }
+        adminClearPublicClientCache();
+        adminApplyDerivedState({ renderConfig: true });
       }, '警告文・予約表示文言保存中...');
       toast('保存しました');
     }catch(err){
@@ -400,8 +536,12 @@ function bindUI(){
   document.getElementById('saveSameDayConfigBtn').addEventListener('click', async ()=>{
     try{
       await withLoading(async ()=>{
-        await gsRun('api_saveConfig', collectSameDayPayload());
-        await adminRefreshAllData();
+        const res = await gsRun('api_saveConfig', collectSameDayPayload());
+        if (res && res.data && res.data.config){
+          adminConfig = { ...adminConfig, ...(res.data.config || {}) };
+        }
+        adminClearPublicClientCache();
+        adminApplyDerivedState({ renderConfig: true });
       }, '当日予約設定保存中...');
       toast('保存しました');
     }catch(err){
@@ -450,8 +590,12 @@ function bindUI(){
       const menuConfigPayload = buildMenuGroupConfigPayload();
       await withLoading(async ()=>{
         await gsRun('api_saveMenuMaster', { items });
-        await gsRun('api_saveConfig', menuConfigPayload);
-        await adminRefreshAllData();
+        const configRes = await gsRun('api_saveConfig', menuConfigPayload);
+        if (configRes && configRes.data && configRes.data.config){
+          adminConfig = { ...adminConfig, ...(configRes.data.config || {}) };
+        }
+        await adminRefreshBootstrapData(true);
+        adminClearPublicClientCache();
       }, 'メニュー保存中...');
       toast('保存しました');
     }catch(err){
