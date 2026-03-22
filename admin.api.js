@@ -1,4 +1,4 @@
-const GAS_URL = "https://script.google.com/macros/s/AKfycbwZDPOM5zmbV8Q0WMwBE_ZetMSFN0pi_tBhk6k11C6v-p30aDHU5OXBKPu-SIX7v2qn/exec";
+const GAS_URL = "https://script.google.com/macros/s/AKfycbxTxHEOWC9_OoOeHvprt1QyWBOgRF553FpSIjhkuXzBV4QJUdkkqLbaMuPRJ_UApEUD/exec";
 const PUBLIC_PAGE_URL = "index.html";
 
 function toast(msg='通信エラー', ms=2200){
@@ -193,18 +193,6 @@ const gsRun = async (func, ...args) => {
     data = await _getJsonWithRetry(`${GAS_URL}?action=getConfig`, 1, 20000);
   } else if (func === 'api_getInitData') {
     data = await _getJsonWithRetry(`${GAS_URL}?action=getInitData`, 1, 25000);
-  } else if (func === 'api_getAdminBootstrap') {
-    data = await _getJsonWithRetry(`${GAS_URL}?action=getAdminBootstrap`, 1, 20000);
-  } else if (func === 'api_getReservationsRange') {
-    const range = args[0] || {};
-    const start = encodeURIComponent(String(range.start || ''));
-    const end = encodeURIComponent(String(range.end || range.start || ''));
-    data = await _getJsonWithRetry(`${GAS_URL}?action=getReservationsRange&start=${start}&end=${end}`, 1, 20000);
-  } else if (func === 'api_getBlocksRange') {
-    const range = args[0] || {};
-    const start = encodeURIComponent(String(range.start || ''));
-    const end = encodeURIComponent(String(range.end || range.start || ''));
-    data = await _getJsonWithRetry(`${GAS_URL}?action=getBlocksRange&start=${start}&end=${end}`, 1, 20000);
   } else if (func === 'api_getMenuKeyCatalog') {
     data = await _getJsonWithRetry(`${GAS_URL}?action=getMenuKeyCatalog`, 1, 20000);
   } else if (func === 'api_getMenuGroupCatalog') {
