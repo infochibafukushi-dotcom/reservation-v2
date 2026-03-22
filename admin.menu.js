@@ -289,6 +289,11 @@ function renderMenuItemCard(item, groupItems){
   const autoOptions1 = buildMenuAutoApplyOptions(item.auto_apply_group || '', item.auto_apply_key || '');
   const autoOptions2 = buildMenuAutoApplyOptions(item.auto_apply_group_2 || '', item.auto_apply_key_2 || '');
   const groupIndex = groupItems.findIndex(x => String(x.key || '') === String(item.key || ''));
+  const hasAutoApply1 = !!(String(item.auto_apply_group || '').trim() || String(item.auto_apply_key || '').trim());
+  const hasAutoApply2 = !!(String(item.auto_apply_group_2 || '').trim() || String(item.auto_apply_key_2 || '').trim());
+  const autoApplyCount = (hasAutoApply1 ? 1 : 0) + (hasAutoApply2 ? 1 : 0);
+  const autoAccordionOpen = hasAutoApply1 || hasAutoApply2;
+  const autoSummaryText = autoApplyCount > 0 ? `自動セット設定（${autoApplyCount}件設定中）` : '自動セット設定（未設定）';
 
   return `
     <div class="menu-item-card" data-menu-key="${escapeHtml(item.key || '')}">
@@ -334,36 +339,46 @@ function renderMenuItemCard(item, groupItems){
             </div>
 
             <div class="form-group">
-              <label class="form-label">自動セット先1</label>
-              <select data-field="auto_apply_group" data-key="${escapeHtml(item.key || '')}">
-                ${autoOptions1.groupOptions}
-              </select>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label">自動セット項目1</label>
-              <select data-field="auto_apply_key" data-key="${escapeHtml(item.key || '')}">
-                ${autoOptions1.keyOptions}
-              </select>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label">自動セット先2</label>
-              <select data-field="auto_apply_group_2" data-key="${escapeHtml(item.key || '')}">
-                ${autoOptions2.groupOptions}
-              </select>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label">自動セット項目2</label>
-              <select data-field="auto_apply_key_2" data-key="${escapeHtml(item.key || '')}">
-                ${autoOptions2.keyOptions}
-              </select>
-            </div>
-
-            <div class="form-group">
               <label class="form-label">現在グループ</label>
               <input type="text" value="${escapeHtml(getGroupLabelByKey(item.menu_group || 'custom'))}" disabled>
+            </div>
+
+            <div class="form-group" style="grid-column: 1 / -1;">
+              <details class="menu-auto-accordion" ${autoAccordionOpen ? 'open' : ''}>
+                <summary style="cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border:1px solid #d8dbe6;border-radius:16px;background:#f8fafc;font-weight:700;">
+                  <span>⚙ ${escapeHtml(autoSummaryText)}</span>
+                  <span style="font-size:12px;color:#64748b;">クリックで開閉</span>
+                </summary>
+                <div style="margin-top:12px;padding:14px;border:1px dashed #d8dbe6;border-radius:16px;background:#fcfdff;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;">
+                  <div class="form-group" style="margin:0;">
+                    <label class="form-label">自動セット先1</label>
+                    <select data-field="auto_apply_group" data-key="${escapeHtml(item.key || '')}">
+                      ${autoOptions1.groupOptions}
+                    </select>
+                  </div>
+
+                  <div class="form-group" style="margin:0;">
+                    <label class="form-label">自動セット項目1</label>
+                    <select data-field="auto_apply_key" data-key="${escapeHtml(item.key || '')}">
+                      ${autoOptions1.keyOptions}
+                    </select>
+                  </div>
+
+                  <div class="form-group" style="margin:0;">
+                    <label class="form-label">自動セット先2</label>
+                    <select data-field="auto_apply_group_2" data-key="${escapeHtml(item.key || '')}">
+                      ${autoOptions2.groupOptions}
+                    </select>
+                  </div>
+
+                  <div class="form-group" style="margin:0;">
+                    <label class="form-label">自動セット項目2</label>
+                    <select data-field="auto_apply_key_2" data-key="${escapeHtml(item.key || '')}">
+                      ${autoOptions2.keyOptions}
+                    </select>
+                  </div>
+                </div>
+              </details>
             </div>
           </div>
 
