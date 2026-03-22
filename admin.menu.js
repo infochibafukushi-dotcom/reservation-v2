@@ -1,6 +1,6 @@
 
 const MENU_GROUP_FIXED_FIRST = 'price';
-const MENU_GROUP_FALLBACK_ORDER = ['price', 'assistance', 'stair', 'equipment', 'round_trip', 'move_type', 'custom', 'auto_set'];
+const MENU_GROUP_FALLBACK_ORDER = ['price', 'assistance', 'stair', 'equipment', 'round_trip', 'move_type', 'custom'];
 
 function safeJsonParseMenu(text, fallback){
   try{
@@ -21,8 +21,7 @@ function getBaseMenuGroupCatalog(){
         { key: 'equipment', label: '機材レンタル' },
         { key: 'round_trip', label: '往復送迎' },
         { key: 'move_type', label: '移動方法' },
-        { key: 'custom', label: 'その他（表示先なし）' },
-        { key: 'auto_set', label: '自動セット' }
+        { key: 'custom', label: 'その他（表示先なし）' }
       ];
 }
 
@@ -133,7 +132,7 @@ function isFixedMenuGroup(group){
 }
 
 function isPublicMenuGroup(group){
-  return !['price', 'custom', 'auto_set'].includes(String(group || '').trim());
+  return !['price', 'custom'].includes(String(group || '').trim());
 }
 
 function isMenuGroupVisible(group){
@@ -163,12 +162,11 @@ function getMenuGroupDescription(group){
   if (key === 'round_trip') return `予約フォームの「${getGroupLabelByKey(key)}」プルダウンに表示`;
   if (key === 'move_type') return `予約フォームの「${getGroupLabelByKey(key)}」プルダウンに表示`;
   if (key === 'custom') return '保存のみ。どのプルダウンにも出せない';
-  if (key === 'auto_set') return '予約フォームには出さず、内部加算だけに使う';
   return `予約フォームの「${getGroupLabelByKey(key)}」プルダウンに表示`;
 }
 
 function buildMenuAutoApplyOptions(selectedGroup, selectedKey){
-  const groupCatalog = getEffectiveMenuGroupOrder().filter(group => !['price', 'custom'].includes(String(group || '').trim()));
+  const groupCatalog = getEffectiveMenuGroupOrder().filter(group => isPublicMenuGroup(group));
   const groupOptions = [
     `<option value="">自動セットなし</option>`
   ].concat(
@@ -221,8 +219,6 @@ function adminNormalizeMenuRows(){
     clone.required_flag = normalizeRequiredFlag(clone.required_flag);
     clone.auto_apply_group = String(clone.auto_apply_group || '');
     clone.auto_apply_key = String(clone.auto_apply_key || '');
-    clone.auto_apply_group_2 = String(clone.auto_apply_group_2 || '');
-    clone.auto_apply_key_2 = String(clone.auto_apply_key_2 || '');
     return clone;
   });
 }
@@ -244,6 +240,42 @@ function resequenceMenuSortOrderByGroup(){
 
 function getMenuGroupIndex(group){
   return getEffectiveMenuGroupOrder().findIndex(key => String(key) === String(group || ''));
+}
+
+
+function isMenuGroupDeletable(group){
+  const key = String(group || '').trim();
+  if (!key || isFixedMenuGroup(key)) return false;
+  const items = getMenuItemsByGroup(key);
+  if (items.length > 0) return false;
+  return true;
+}
+
+function deleteMenuGroup(group){
+  const key = String(group || '').trim();
+  if (!isMenuGroupDeletable(key)) return false;
+
+  const label = getGroupLabelByKey(key) || key;
+  const ok = window.confirm(`「${label}」を削除します。よろしいですか？`);
+  if (!ok) return false;
+
+  const catalog = getStoredMenuGroupCatalog().filter(item => String(item && item.key || '').trim() !== key);
+  adminConfig.menu_group_catalog_json = JSON.stringify(catalog);
+
+  const order = getEffectiveMenuGroupOrder().filter(groupKey => String(groupKey || '').trim() !== key);
+  adminConfig.menu_group_order_json = JSON.stringify(order);
+
+  const visibility = cloneMenuObject(getStoredMenuGroupVisibility());
+  delete visibility[key];
+  adminConfig.menu_group_visibility_json = JSON.stringify(visibility);
+
+  const state = ensureMenuOpenStateStore();
+  delete state[key];
+
+  adminMenuGroupCatalog = getAdminResolvedGroupCatalog();
+  renderMenuAdminList();
+  toast('空のグループを削除しました');
+  return true;
 }
 
 function moveMenuGroup(group, direction){
@@ -286,14 +318,8 @@ function getMenuGroupOpenState(group){
 }
 
 function renderMenuItemCard(item, groupItems){
-  const autoOptions1 = buildMenuAutoApplyOptions(item.auto_apply_group || '', item.auto_apply_key || '');
-  const autoOptions2 = buildMenuAutoApplyOptions(item.auto_apply_group_2 || '', item.auto_apply_key_2 || '');
+  const autoOptions = buildMenuAutoApplyOptions(item.auto_apply_group || '', item.auto_apply_key || '');
   const groupIndex = groupItems.findIndex(x => String(x.key || '') === String(item.key || ''));
-  const hasAutoApply1 = !!(String(item.auto_apply_group || '').trim() || String(item.auto_apply_key || '').trim());
-  const hasAutoApply2 = !!(String(item.auto_apply_group_2 || '').trim() || String(item.auto_apply_key_2 || '').trim());
-  const autoApplyCount = (hasAutoApply1 ? 1 : 0) + (hasAutoApply2 ? 1 : 0);
-  const autoAccordionOpen = hasAutoApply1 || hasAutoApply2;
-  const autoSummaryText = autoApplyCount > 0 ? `自動セット設定（${autoApplyCount}件設定中）` : '自動セット設定（未設定）';
 
   return `
     <div class="menu-item-card" data-menu-key="${escapeHtml(item.key || '')}">
@@ -339,46 +365,22 @@ function renderMenuItemCard(item, groupItems){
             </div>
 
             <div class="form-group">
-              <label class="form-label">現在グループ</label>
-              <input type="text" value="${escapeHtml(getGroupLabelByKey(item.menu_group || 'custom'))}" disabled>
+              <label class="form-label">自動セット先</label>
+              <select data-field="auto_apply_group" data-key="${escapeHtml(item.key || '')}">
+                ${autoOptions.groupOptions}
+              </select>
             </div>
 
-            <div class="form-group" style="grid-column: 1 / -1;">
-              <details class="menu-auto-accordion" ${autoAccordionOpen ? 'open' : ''}>
-                <summary style="cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border:1px solid #d8dbe6;border-radius:16px;background:#f8fafc;font-weight:700;">
-                  <span>⚙ ${escapeHtml(autoSummaryText)}</span>
-                  <span style="font-size:12px;color:#64748b;">クリックで開閉</span>
-                </summary>
-                <div style="margin-top:12px;padding:14px;border:1px dashed #d8dbe6;border-radius:16px;background:#fcfdff;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;">
-                  <div class="form-group" style="margin:0;">
-                    <label class="form-label">自動セット先1</label>
-                    <select data-field="auto_apply_group" data-key="${escapeHtml(item.key || '')}">
-                      ${autoOptions1.groupOptions}
-                    </select>
-                  </div>
+            <div class="form-group">
+              <label class="form-label">自動セット項目</label>
+              <select data-field="auto_apply_key" data-key="${escapeHtml(item.key || '')}">
+                ${autoOptions.keyOptions}
+              </select>
+            </div>
 
-                  <div class="form-group" style="margin:0;">
-                    <label class="form-label">自動セット項目1</label>
-                    <select data-field="auto_apply_key" data-key="${escapeHtml(item.key || '')}">
-                      ${autoOptions1.keyOptions}
-                    </select>
-                  </div>
-
-                  <div class="form-group" style="margin:0;">
-                    <label class="form-label">自動セット先2</label>
-                    <select data-field="auto_apply_group_2" data-key="${escapeHtml(item.key || '')}">
-                      ${autoOptions2.groupOptions}
-                    </select>
-                  </div>
-
-                  <div class="form-group" style="margin:0;">
-                    <label class="form-label">自動セット項目2</label>
-                    <select data-field="auto_apply_key_2" data-key="${escapeHtml(item.key || '')}">
-                      ${autoOptions2.keyOptions}
-                    </select>
-                  </div>
-                </div>
-              </details>
+            <div class="form-group">
+              <label class="form-label">現在グループ</label>
+              <input type="text" value="${escapeHtml(getGroupLabelByKey(item.menu_group || 'custom'))}" disabled>
             </div>
           </div>
 
@@ -419,6 +421,7 @@ function renderMenuGroupCard(group){
           <button class="move-btn" data-action="groupUp" data-group="${escapeHtml(group)}" type="button" ${isFixedMenuGroup(group) || groupIndex <= 1 ? 'disabled' : ''}>↑</button>
           <button class="move-btn" data-action="groupDown" data-group="${escapeHtml(group)}" type="button" ${isFixedMenuGroup(group) || groupIndex < 1 || groupIndex >= order.length - 1 ? 'disabled' : ''}>↓</button>
           <button class="move-btn" data-action="menuAddInGroup" data-group="${escapeHtml(group)}" type="button">＋</button>
+          ${isMenuGroupDeletable(group) ? `<button class="move-btn" data-action="groupDelete" data-group="${escapeHtml(group)}" type="button" title="空のグループを削除">🗑</button>` : ''}
           <div class="menu-group-card-toggle" data-menu-group-toggle="${escapeHtml(group)}">${open ? '−' : '＋'}</div>
         </div>
       </div>
@@ -488,9 +491,7 @@ function addMenuItemToGroup(group){
     menu_group: normalizeGroupKey(group),
     required_flag: false,
     auto_apply_group: '',
-    auto_apply_key: '',
-    auto_apply_group_2: '',
-    auto_apply_key_2: ''
+    auto_apply_key: ''
   });
 
   adminMenuMaster = adminNormalizeMenuRows();
@@ -650,6 +651,11 @@ function bindMenuEvents(){
       return;
     }
 
+    if (action === 'groupDelete'){
+      deleteMenuGroup(group);
+      return;
+    }
+
     if (action === 'menuUp'){
       moveMenuItemWithinGroup(key, 'up');
       return;
@@ -711,13 +717,6 @@ function bindMenuEvents(){
     if (field === 'auto_apply_group'){
       adminMenuMaster[idx].auto_apply_key = '';
       renderMenuAdminList();
-      return;
-    }
-
-    if (field === 'auto_apply_group_2'){
-      adminMenuMaster[idx].auto_apply_key_2 = '';
-      renderMenuAdminList();
-      return;
     }
   });
 }
@@ -747,9 +746,7 @@ function buildSaveMenuPayload(){
       menu_group: group,
       required_flag: !!item.required_flag,
       auto_apply_group: String(item.auto_apply_group || '').trim(),
-      auto_apply_key: String(item.auto_apply_key || '').trim(),
-      auto_apply_group_2: String(item.auto_apply_group_2 || '').trim(),
-      auto_apply_key_2: String(item.auto_apply_key_2 || '').trim()
+      auto_apply_key: String(item.auto_apply_key || '').trim()
     };
   }).filter(item => String(item.label || '').trim());
 }
