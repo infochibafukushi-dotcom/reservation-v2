@@ -84,42 +84,27 @@ function getSelectedOptionKey(selectId){
   return String(option.dataset.key || '').trim();
 }
 
-function findAutoApplyEntriesFromMenu(targetGroup, triggerKey){
-  if (!targetGroup || !triggerKey) return [];
-
-  const entries = [];
-  const pushUnique = (group, key) => {
-    const applyGroup = String(group || '').trim();
-    const applyKey = String(key || '').trim();
-    if (!applyGroup || !applyKey) return;
-
-    const exists = entries.some(entry => String(entry.apply_group || '') === applyGroup && String(entry.apply_key || '') === applyKey);
-    if (exists) return;
-
-    entries.push({
-      apply_group: applyGroup,
-      apply_key: applyKey
-    });
-  };
-
-  const menuMap = getMenuMap();
-  const menuItem = menuMap[String(triggerKey || '')] || {};
-  pushUnique(menuItem.auto_apply_group, menuItem.auto_apply_key);
-  pushUnique(menuItem.auto_apply_group_2, menuItem.auto_apply_key_2);
-
-  const rules = typeof getAllAutoRulesByTrigger === 'function'
-    ? getAllAutoRulesByTrigger(targetGroup, triggerKey)
-    : [];
-  rules.forEach(rule => {
-    pushUnique(rule && rule.apply_group, rule && rule.apply_key);
-  });
-
-  return entries;
-}
-
 function findAutoApplyFromMenu(targetGroup, triggerKey){
-  const entries = findAutoApplyEntriesFromMenu(targetGroup, triggerKey);
-  return entries.length ? entries[0] : null;
+  if (!targetGroup || !triggerKey) return null;
+
+  const menuGroup = getMenuAutoApplyGroup(triggerKey);
+  const menuKey = getMenuAutoApplyKey(triggerKey);
+  if (menuGroup && menuKey) {
+    return {
+      apply_group: menuGroup,
+      apply_key: menuKey
+    };
+  }
+
+  const rule = getAutoRuleByTrigger(targetGroup, triggerKey);
+  if (rule && rule.apply_group && rule.apply_key){
+    return {
+      apply_group: String(rule.apply_group || ''),
+      apply_key: String(rule.apply_key || '')
+    };
+  }
+
+  return null;
 }
 
 function setSelectValueByKey(selectId, key){
@@ -132,6 +117,95 @@ function setSelectValueByKey(selectId, key){
 
   select.value = found.value;
   return true;
+}
+
+function getMenuItemByKey(key){
+  const map = getMenuMap();
+  return map[String(key || '').trim()] || null;
+}
+
+function getVisibleFormGroupKeys(){
+  return ['move_type', 'assistance', 'stair', 'equipment', 'round_trip'];
+}
+
+function isVisibleFormGroup(groupKey){
+  return getVisibleFormGroupKeys().includes(String(groupKey || '').trim());
+}
+
+function collectSelectedMenuKeysForAutoApply(){
+  const keys = [];
+  const moveTypeKey = getSelectedOptionKey('moveType');
+  const assistanceKey = getSelectedOptionKey('assistanceType');
+  const stairKey = getSelectedOptionKey('stairAssistance');
+  const equipmentKey = getSelectedOptionKey('equipmentRental');
+  const roundTripKey = getSelectedOptionKey('roundTrip');
+
+  [moveTypeKey, assistanceKey, stairKey, equipmentKey, roundTripKey].forEach(function(key){
+    const value = String(key || '').trim();
+    if (!value) return;
+    if (keys.includes(value)) return;
+    keys.push(value);
+  });
+
+  return keys;
+}
+
+function resolveHiddenAutoAppliedItems(baseKeys){
+  const queue = Array.isArray(baseKeys) ? baseKeys.slice() : [];
+  const seen = new Set();
+  const hiddenItems = [];
+  const hiddenKeys = new Set();
+  const ruleSeen = new Set();
+  let guard = 0;
+
+  while (queue.length && guard < 50){
+    guard += 1;
+    const triggerKey = String(queue.shift() || '').trim();
+    if (!triggerKey || seen.has(triggerKey)) continue;
+    seen.add(triggerKey);
+
+    const item = getMenuItemByKey(triggerKey);
+    const targetGroup = String(item && item.menu_group || '').trim();
+
+    const candidates = [];
+    const menuAutoGroup = getMenuAutoApplyGroup(triggerKey);
+    const menuAutoKey = getMenuAutoApplyKey(triggerKey);
+    if (menuAutoGroup && menuAutoKey){
+      candidates.push({ apply_group: String(menuAutoGroup || '').trim(), apply_key: String(menuAutoKey || '').trim() });
+    }
+
+    if (targetGroup){
+      const rule = getAutoRuleByTrigger(targetGroup, triggerKey);
+      if (rule && rule.apply_group && rule.apply_key){
+        const ruleMark = [String(rule.target || ''), String(rule.trigger_key || ''), String(rule.apply_group || ''), String(rule.apply_key || '')].join('::');
+        if (!ruleSeen.has(ruleMark)){
+          ruleSeen.add(ruleMark);
+          candidates.push({ apply_group: String(rule.apply_group || '').trim(), apply_key: String(rule.apply_key || '').trim() });
+        }
+      }
+    }
+
+    candidates.forEach(function(candidate){
+      const applyGroup = String(candidate && candidate.apply_group || '').trim();
+      const applyKey = String(candidate && candidate.apply_key || '').trim();
+      if (!applyGroup || !applyKey) return;
+      if (isVisibleFormGroup(applyGroup)) return;
+
+      const appliedItem = getMenuItemByKey(applyKey);
+      if (!appliedItem) return;
+      if (!hiddenKeys.has(applyKey)){
+        hiddenKeys.add(applyKey);
+        hiddenItems.push(appliedItem);
+      }
+      queue.push(applyKey);
+    });
+  }
+
+  return hiddenItems;
+}
+
+function getCurrentAutoAppliedHiddenItems(){
+  return resolveHiddenAutoAppliedItems(collectSelectedMenuKeysForAutoApply());
 }
 
 function applyAutoSelections(){
@@ -149,9 +223,8 @@ function applyAutoSelections(){
   let appliedBodyAssist = false;
   let appliedStaff2 = false;
 
-  const stairAutoEntries = findAutoApplyEntriesFromMenu('stair', stairKey);
-  const stairHasBodyAssist = stairAutoEntries.some(entry => entry.apply_group === 'assistance' && entry.apply_key === 'BODY_ASSIST');
-  if (stairHasBodyAssist){
+  const stairAuto = findAutoApplyFromMenu('stair', stairKey);
+  if (stairAuto && stairAuto.apply_group === 'assistance' && stairAuto.apply_key === 'BODY_ASSIST'){
     if (setSelectValueByKey('assistanceType', 'BODY_ASSIST')){
       appliedBodyAssist = true;
       stairWarning.textContent = config.warning_stair_bodyassist_text || defaultConfig.warning_stair_bodyassist_text;
@@ -168,21 +241,32 @@ function applyAutoSelections(){
     }
   }
 
-  const equipAutoEntries = findAutoApplyEntriesFromMenu('equipment', equipmentKey);
+  const equipAuto = findAutoApplyFromMenu('equipment', equipmentKey);
   if (equipmentKey === 'EQUIP_STRETCHER'){
     stretcherWarning.textContent = config.warning_stretcher_bodyassist_text || defaultConfig.warning_stretcher_bodyassist_text;
     stretcherWarning.classList.remove('hidden');
 
-    const equipHasBodyAssist = equipAutoEntries.some(entry => entry.apply_group === 'assistance' && entry.apply_key === 'BODY_ASSIST');
-    if (equipHasBodyAssist){
+    if (equipAuto && equipAuto.apply_group === 'assistance' && equipAuto.apply_key === 'BODY_ASSIST'){
+      if (setSelectValueByKey('assistanceType', 'BODY_ASSIST')){
+        appliedBodyAssist = true;
+      }
+    } else if (String(config.rule_force_body_assist_on_stretcher || '1') === '1'){
       if (setSelectValueByKey('assistanceType', 'BODY_ASSIST')){
         appliedBodyAssist = true;
       }
     }
 
-    const equipHasStaff2 = equipAutoEntries.some(entry => entry.apply_group === 'equipment' && entry.apply_key === 'EQUIP_STRETCHER_STAFF2');
-    if (equipHasStaff2){
+    const equipmentMap = getMenuMap();
+    const stretcherMenu = equipmentMap['EQUIP_STRETCHER'];
+    if (stretcherMenu && String(stretcherMenu.auto_apply_group || '') === 'equipment' && String(stretcherMenu.auto_apply_key || '') === 'EQUIP_STRETCHER_STAFF2'){
       appliedStaff2 = true;
+    } else {
+      const staffRule = getAutoRuleByTrigger('equipment', 'EQUIP_STRETCHER');
+      if (staffRule && String(staffRule.apply_group || '') === 'equipment' && String(staffRule.apply_key || '') === 'EQUIP_STRETCHER_STAFF2'){
+        appliedStaff2 = true;
+      } else if (String(config.rule_force_stretcher_staff2_on_stretcher || '1') === '1'){
+        appliedStaff2 = true;
+      }
     }
   }
 
@@ -348,6 +432,18 @@ function calculatePrice(){
     breakdown.push({ name:getMenuLabel('ROUND_HOSPITAL', '病院付き添い'), price:hospitalEscortPrice, suffix:' から/30分毎' });
   }
 
+  const hiddenAutoItems = getCurrentAutoAppliedHiddenItems();
+  hiddenAutoItems.forEach(function(item){
+    const price = Number(item && item.price || 0);
+    total += price;
+    breakdown.push({
+      name: String(item && item.label || item && item.key || '自動セット'),
+      price: price,
+      suffix: '',
+      is_internal_auto: true
+    });
+  });
+
   const breakdownEl = document.getElementById('priceBreakdown');
   breakdownEl.innerHTML = breakdown.map(item => `
     <div class="price-item">
@@ -357,6 +453,15 @@ function calculatePrice(){
   `).join('');
 
   document.getElementById('totalPrice').textContent = `${total.toLocaleString()}円`;
+  window.__currentBookingPriceBreakdown = breakdown.slice();
+  window.__currentBookingHiddenAutoItems = hiddenAutoItems.map(function(item){
+    return {
+      key: String(item && item.key || ''),
+      label: String(item && item.label || ''),
+      price: Number(item && item.price || 0),
+      menu_group: String(item && item.menu_group || '')
+    };
+  });
   return total;
 }
 
@@ -409,6 +514,23 @@ async function submitBooking(e){
 
   const slotDateStr = ymdLocal(selectedSlot.date);
 
+  const hiddenAutoItems = Array.isArray(window.__currentBookingHiddenAutoItems) ? window.__currentBookingHiddenAutoItems.slice() : getCurrentAutoAppliedHiddenItems().map(function(item){
+    return {
+      key: String(item && item.key || ''),
+      label: String(item && item.label || ''),
+      price: Number(item && item.price || 0),
+      menu_group: String(item && item.menu_group || '')
+    };
+  });
+  const hiddenAutoSummary = hiddenAutoItems.map(function(item){
+    return `${String(item.label || item.key || '自動セット')}(${Number(item.price || 0).toLocaleString()}円)`;
+  }).join(' / ');
+  const notesRaw = document.getElementById('notes').value.trim() || '';
+  const notes = hiddenAutoSummary
+    ? (notesRaw ? `${notesRaw}
+[自動セット] ${hiddenAutoSummary}` : `[自動セット] ${hiddenAutoSummary}`)
+    : notesRaw;
+
   const reservation = {
     reservation_id: reservationId,
     reservation_datetime: `${slotDateStr} ${String(selectedSlot.hour).padStart(2,'0')}:${String(selectedSlot.minute).padStart(2,'0')}`,
@@ -422,7 +544,7 @@ async function submitBooking(e){
     equipment_rental: equipmentRental,
     stretcher_two_staff: stretcherTwoStaff,
     round_trip: document.getElementById('roundTrip').value,
-    notes: document.getElementById('notes').value.trim() || '',
+    notes: notes,
     total_price: total,
     status: '未対応',
     slot_date: slotDateStr,
@@ -702,14 +824,11 @@ function getMoveTypeNoteTextPatched(key){
 function syncEquipmentFromMoveTypePatched(){
   const moveTypeKey = getSelectedOptionKey('moveType');
   if (!moveTypeKey) return '';
-
-  const moveTypeEntries = findAutoApplyEntriesFromMenu('move_type', moveTypeKey);
-  const equipmentEntry = moveTypeEntries.find(entry => entry.apply_group === 'equipment' && entry.apply_key);
-  if (equipmentEntry){
-    setSelectValueByKey('equipmentRental', equipmentEntry.apply_key);
-    return String(equipmentEntry.apply_key || '');
+  const moveTypeAuto = findAutoApplyFromMenu('move_type', moveTypeKey);
+  if (moveTypeAuto && moveTypeAuto.apply_group === 'equipment' && moveTypeAuto.apply_key){
+    setSelectValueByKey('equipmentRental', moveTypeAuto.apply_key);
+    return String(moveTypeAuto.apply_key || '');
   }
-
   return '';
 }
 
@@ -820,36 +939,19 @@ applyAutoSelections = function(){
   const syncedEquipmentKey = syncEquipmentFromMoveTypePatched();
   const state = _applyAutoSelectionsOriginal();
   const equipmentKey = syncedEquipmentKey || getSelectedOptionKey('equipmentRental');
-  const moveTypeEntries = findAutoApplyEntriesFromMenu('move_type', moveTypeKey);
 
   const moveTypeNoteEl = document.getElementById('moveTypeNote');
   if (moveTypeNoteEl){
     moveTypeNoteEl.textContent = getMoveTypeNoteTextPatched(moveTypeKey);
   }
 
-  const moveTypeHasBodyAssist = moveTypeEntries.some(entry => entry.apply_group === 'assistance' && entry.apply_key === 'BODY_ASSIST');
-  if (moveTypeHasBodyAssist && state && !state.appliedBodyAssist){
-    if (setSelectValueByKey('assistanceType', 'BODY_ASSIST')){
-      state.appliedBodyAssist = true;
-    }
-  }
-
-  const moveTypeHasStaff2 = moveTypeEntries.some(entry => entry.apply_group === 'equipment' && entry.apply_key === 'EQUIP_STRETCHER_STAFF2');
-  if (moveTypeHasStaff2 && state && !state.appliedStaff2){
+  if ((moveTypeKey === 'MOVE_STRETCHER' || equipmentKey === 'EQUIP_STRETCHER') && state && !state.appliedStaff2){
     state.appliedStaff2 = true;
-  }
-
-  if ((moveTypeKey === 'MOVE_STRETCHER' || equipmentKey === 'EQUIP_STRETCHER') && state && (state.appliedBodyAssist || state.appliedStaff2)){
     const sw = document.getElementById('stretcherWarning');
     if (sw){
-      const messageParts = [];
-      if (state.appliedBodyAssist){
-        messageParts.push(config.warning_stretcher_bodyassist_text || defaultConfig.warning_stretcher_bodyassist_text || 'ストレッチャー利用時は身体介助が必要です');
-      }
-      if (state.appliedStaff2){
-        messageParts.push(config.warning_staff_add_text || defaultConfig.warning_staff_add_text || '表示価格は1名体制での目安です。状況により安全確保のため2名体制となる場合があります（＋5,000円）');
-      }
-      sw.textContent = messageParts.join(' / ');
+      sw.textContent = (config.warning_stretcher_bodyassist_text || defaultConfig.warning_stretcher_bodyassist_text || 'ストレッチャー利用時は身体介助が必要です')
+        + ' / '
+        + (config.warning_staff_add_text || defaultConfig.warning_staff_add_text || '表示価格は1名体制での目安です。状況により安全確保のため2名体制となる場合があります（＋5,000円）');
       sw.classList.remove('hidden');
     }
   }

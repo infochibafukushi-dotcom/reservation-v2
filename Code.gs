@@ -68,8 +68,8 @@ const DEFAULT_CONFIG = {
 
   // ===== 自動ルール設定 =====
   rule_force_body_assist_on_stair: '1',
-  rule_force_body_assist_on_stretcher: '0',
-  rule_force_stretcher_staff2_on_stretcher: '0',
+  rule_force_body_assist_on_stretcher: '1',
+  rule_force_stretcher_staff2_on_stretcher: '1',
   rule_force_staff_add_on_stair: '1',
   rule_force_staff_add_on_stretcher: '1',
 
@@ -177,29 +177,29 @@ const DEFAULT_CONFIG = {
 
 // ===== Default Price Master =====
 const DEFAULT_PRICE_MASTER = [
-  { key: 'BASE_FARE',               key_jp: '基本運賃',                 label: '運賃(初乗り)',                   price: 730,   note: '「から」表記',                     is_visible: true, sort_order: 10,  menu_group: 'price',      required_flag: false, auto_apply_group: '',           auto_apply_key: '',           auto_apply_group_2: '',           auto_apply_key_2: '' },
-  { key: 'DISPATCH',                key_jp: '配車予約',                 label: '配車予約',                       price: 800,   note: '',                                 is_visible: true, sort_order: 20,  menu_group: 'price',      required_flag: false, auto_apply_group: '',           auto_apply_key: '',           auto_apply_group_2: '',           auto_apply_key_2: '' },
-  { key: 'SPECIAL_VEHICLE',         key_jp: '特殊車両使用料',           label: '特殊車両使用料',                 price: 1000,  note: '',                                 is_visible: true, sort_order: 30,  menu_group: 'price',      required_flag: false, auto_apply_group: '',           auto_apply_key: '',           auto_apply_group_2: '',           auto_apply_key_2: '' },
+  { key: 'BASE_FARE',               key_jp: '基本運賃',                 label: '運賃(初乗り)',                   price: 730,   note: '「から」表記',                     is_visible: true, sort_order: 10,  menu_group: 'price',      required_flag: false, auto_apply_group: '',           auto_apply_key: '' },
+  { key: 'DISPATCH',                key_jp: '配車予約',                 label: '配車予約',                       price: 800,   note: '',                                 is_visible: true, sort_order: 20,  menu_group: 'price',      required_flag: false, auto_apply_group: '',           auto_apply_key: '' },
+  { key: 'SPECIAL_VEHICLE',         key_jp: '特殊車両使用料',           label: '特殊車両使用料',                 price: 1000,  note: '',                                 is_visible: true, sort_order: 30,  menu_group: 'price',      required_flag: false, auto_apply_group: '',           auto_apply_key: '' },
 
-  { key: 'BOARDING_ASSIST',         key_jp: '乗降介助',                 label: '乗降介助',                       price: 1400,  note: '玄関から車両への車いす等固定まで',    is_visible: true, sort_order: 100, menu_group: 'assistance', required_flag: true,  auto_apply_group: '',           auto_apply_key: '',           auto_apply_group_2: '',           auto_apply_key_2: '' },
-  { key: 'BODY_ASSIST',             key_jp: '身体介助',                 label: '身体介助',                       price: 3000,  note: 'お部屋から車両への車いす等固定まで',  is_visible: true, sort_order: 110, menu_group: 'assistance', required_flag: true,  auto_apply_group: '',           auto_apply_key: '',           auto_apply_group_2: '',           auto_apply_key_2: '' },
+  { key: 'BOARDING_ASSIST',         key_jp: '乗降介助',                 label: '乗降介助',                       price: 1400,  note: '玄関から車両への車いす等固定まで',    is_visible: true, sort_order: 100, menu_group: 'assistance', required_flag: true,  auto_apply_group: '',           auto_apply_key: '' },
+  { key: 'BODY_ASSIST',             key_jp: '身体介助',                 label: '身体介助',                       price: 3000,  note: 'お部屋から車両への車いす等固定まで',  is_visible: true, sort_order: 110, menu_group: 'assistance', required_flag: true,  auto_apply_group: '',           auto_apply_key: '' },
 
-  { key: 'STAIR_NONE',              key_jp: '階段介助不要',             label: '不要',                           price: 0,     note: '',                                 is_visible: true, sort_order: 200, menu_group: 'stair',      required_flag: true,  auto_apply_group: '',           auto_apply_key: '',           auto_apply_group_2: '',           auto_apply_key_2: '' },
-  { key: 'STAIR_WATCH',             key_jp: '階段見守り介助',           label: '見守り介助',                     price: 0,     note: '自力歩行可能で手を握る介助',          is_visible: true, sort_order: 210, menu_group: 'stair',      required_flag: true,  auto_apply_group: '',           auto_apply_key: '',           auto_apply_group_2: '',           auto_apply_key_2: '' },
-  { key: 'STAIR_2F',                key_jp: '階段2階移動',              label: '2階移動',                        price: 6000,  note: '',                                 is_visible: true, sort_order: 220, menu_group: 'stair',      required_flag: true,  auto_apply_group: 'assistance', auto_apply_key: 'BODY_ASSIST', auto_apply_group_2: '',           auto_apply_key_2: '' },
-  { key: 'STAIR_3F',                key_jp: '階段3階移動',              label: '3階移動',                        price: 9000,  note: '',                                 is_visible: true, sort_order: 230, menu_group: 'stair',      required_flag: true,  auto_apply_group: 'assistance', auto_apply_key: 'BODY_ASSIST', auto_apply_group_2: '',           auto_apply_key_2: '' },
-  { key: 'STAIR_4F',                key_jp: '階段4階移動',              label: '4階移動',                        price: 12000, note: '',                                 is_visible: true, sort_order: 240, menu_group: 'stair',      required_flag: true,  auto_apply_group: 'assistance', auto_apply_key: 'BODY_ASSIST', auto_apply_group_2: '',           auto_apply_key_2: '' },
-  { key: 'STAIR_5F',                key_jp: '階段5階移動',              label: '5階移動',                        price: 15000, note: '',                                 is_visible: true, sort_order: 250, menu_group: 'stair',      required_flag: true,  auto_apply_group: 'assistance', auto_apply_key: 'BODY_ASSIST', auto_apply_group_2: '',           auto_apply_key_2: '' },
+  { key: 'STAIR_NONE',              key_jp: '階段介助不要',             label: '不要',                           price: 0,     note: '',                                 is_visible: true, sort_order: 200, menu_group: 'stair',      required_flag: true,  auto_apply_group: '',           auto_apply_key: '' },
+  { key: 'STAIR_WATCH',             key_jp: '階段見守り介助',           label: '見守り介助',                     price: 0,     note: '自力歩行可能で手を握る介助',          is_visible: true, sort_order: 210, menu_group: 'stair',      required_flag: true,  auto_apply_group: '',           auto_apply_key: '' },
+  { key: 'STAIR_2F',                key_jp: '階段2階移動',              label: '2階移動',                        price: 6000,  note: '',                                 is_visible: true, sort_order: 220, menu_group: 'stair',      required_flag: true,  auto_apply_group: 'assistance', auto_apply_key: 'BODY_ASSIST' },
+  { key: 'STAIR_3F',                key_jp: '階段3階移動',              label: '3階移動',                        price: 9000,  note: '',                                 is_visible: true, sort_order: 230, menu_group: 'stair',      required_flag: true,  auto_apply_group: 'assistance', auto_apply_key: 'BODY_ASSIST' },
+  { key: 'STAIR_4F',                key_jp: '階段4階移動',              label: '4階移動',                        price: 12000, note: '',                                 is_visible: true, sort_order: 240, menu_group: 'stair',      required_flag: true,  auto_apply_group: 'assistance', auto_apply_key: 'BODY_ASSIST' },
+  { key: 'STAIR_5F',                key_jp: '階段5階移動',              label: '5階移動',                        price: 15000, note: '',                                 is_visible: true, sort_order: 250, menu_group: 'stair',      required_flag: true,  auto_apply_group: 'assistance', auto_apply_key: 'BODY_ASSIST' },
 
-  { key: 'EQUIP_WHEELCHAIR',        key_jp: '車いすレンタル',           label: '車いすレンタル',                 price: 0,     note: '',                                 is_visible: true, sort_order: 300, menu_group: 'equipment',  required_flag: true,  auto_apply_group: '',           auto_apply_key: '',           auto_apply_group_2: '',           auto_apply_key_2: '' },
-  { key: 'EQUIP_RECLINING',         key_jp: 'リクライニング車いす',     label: 'リクライニング車いすレンタル',   price: 2500,  note: '',                                 is_visible: true, sort_order: 310, menu_group: 'equipment',  required_flag: true,  auto_apply_group: '',           auto_apply_key: '',           auto_apply_group_2: '',           auto_apply_key_2: '' },
-  { key: 'EQUIP_STRETCHER',         key_jp: 'ストレッチャー',           label: 'ストレッチャーレンタル',         price: 5000,  note: '',                                 is_visible: true, sort_order: 320, menu_group: 'equipment',  required_flag: true,  auto_apply_group: 'equipment',  auto_apply_key: 'EQUIP_STRETCHER_STAFF2', auto_apply_group_2: '',           auto_apply_key_2: '' },
-  { key: 'EQUIP_OWN_WHEELCHAIR',    key_jp: '持込車いす',               label: 'ご自身車いす',                   price: 0,     note: '',                                 is_visible: true, sort_order: 330, menu_group: 'equipment',  required_flag: true,  auto_apply_group: '',           auto_apply_key: '',           auto_apply_group_2: '',           auto_apply_key_2: '' },
-  { key: 'EQUIP_STRETCHER_STAFF2',  key_jp: 'ストレッチャー2名体制',    label: 'ストレッチャー2名体制介助料',    price: 5000,  note: '',                                 is_visible: true, sort_order: 340, menu_group: 'equipment',  required_flag: false, auto_apply_group: '',           auto_apply_key: '',           auto_apply_group_2: '',           auto_apply_key_2: '' },
+  { key: 'EQUIP_WHEELCHAIR',        key_jp: '車いすレンタル',           label: '車いすレンタル',                 price: 0,     note: '',                                 is_visible: true, sort_order: 300, menu_group: 'equipment',  required_flag: true,  auto_apply_group: '',           auto_apply_key: '' },
+  { key: 'EQUIP_RECLINING',         key_jp: 'リクライニング車いす',     label: 'リクライニング車いすレンタル',   price: 2500,  note: '',                                 is_visible: true, sort_order: 310, menu_group: 'equipment',  required_flag: true,  auto_apply_group: '',           auto_apply_key: '' },
+  { key: 'EQUIP_STRETCHER',         key_jp: 'ストレッチャー',           label: 'ストレッチャーレンタル',         price: 5000,  note: '',                                 is_visible: true, sort_order: 320, menu_group: 'equipment',  required_flag: true,  auto_apply_group: 'assistance', auto_apply_key: 'BODY_ASSIST' },
+  { key: 'EQUIP_OWN_WHEELCHAIR',    key_jp: '持込車いす',               label: 'ご自身車いす',                   price: 0,     note: '',                                 is_visible: true, sort_order: 330, menu_group: 'equipment',  required_flag: true,  auto_apply_group: '',           auto_apply_key: '' },
+  { key: 'EQUIP_STRETCHER_STAFF2',  key_jp: 'ストレッチャー2名体制',    label: 'ストレッチャー2名体制介助料',    price: 5000,  note: '',                                 is_visible: true, sort_order: 340, menu_group: 'equipment',  required_flag: false, auto_apply_group: '',           auto_apply_key: '' },
 
-  { key: 'ROUND_NONE',              key_jp: '往復不要',                 label: '不要',                           price: 0,     note: '',                                 is_visible: true, sort_order: 400, menu_group: 'round_trip', required_flag: true,  auto_apply_group: '',           auto_apply_key: '',           auto_apply_group_2: '',           auto_apply_key_2: '' },
-  { key: 'ROUND_STANDBY',           key_jp: '待機',                     label: '待機',                           price: 800,   note: '「から/30分毎」',                  is_visible: true, sort_order: 410, menu_group: 'round_trip', required_flag: true,  auto_apply_group: '',           auto_apply_key: '',           auto_apply_group_2: '',           auto_apply_key_2: '' },
-  { key: 'ROUND_HOSPITAL',          key_jp: '病院付き添い',             label: '病院付き添い',                   price: 1600,  note: '「から/30分毎」',                  is_visible: true, sort_order: 420, menu_group: 'round_trip', required_flag: true,  auto_apply_group: '',           auto_apply_key: '',           auto_apply_group_2: '',           auto_apply_key_2: '' }
+  { key: 'ROUND_NONE',              key_jp: '往復不要',                 label: '不要',                           price: 0,     note: '',                                 is_visible: true, sort_order: 400, menu_group: 'round_trip', required_flag: true,  auto_apply_group: '',           auto_apply_key: '' },
+  { key: 'ROUND_STANDBY',           key_jp: '待機',                     label: '待機',                           price: 800,   note: '「から/30分毎」',                  is_visible: true, sort_order: 410, menu_group: 'round_trip', required_flag: true,  auto_apply_group: '',           auto_apply_key: '' },
+  { key: 'ROUND_HOSPITAL',          key_jp: '病院付き添い',             label: '病院付き添い',                   price: 1600,  note: '「から/30分毎」',                  is_visible: true, sort_order: 420, menu_group: 'round_trip', required_flag: true,  auto_apply_group: '',           auto_apply_key: '' }
 ];
 
 // ===== 管理画面で選べるプルダウングループ =====
@@ -215,29 +215,29 @@ const MENU_GROUP_CATALOG = [
 
 // ===== 日本語キー候補（管理画面プルダウン用） =====
 const MENU_KEY_CATALOG = [
-  { key: 'BASE_FARE',               key_jp: '基本運賃',                 menu_group: 'price',      default_label: '運賃(初乗り)',                 default_price: 730,   required_flag: false, auto_apply_group: '',           auto_apply_key: '',           auto_apply_group_2: '',           auto_apply_key_2: '' },
-  { key: 'DISPATCH',                key_jp: '配車予約',                 menu_group: 'price',      default_label: '配車予約',                     default_price: 800,   required_flag: false, auto_apply_group: '',           auto_apply_key: '',           auto_apply_group_2: '',           auto_apply_key_2: '' },
-  { key: 'SPECIAL_VEHICLE',         key_jp: '特殊車両使用料',           menu_group: 'price',      default_label: '特殊車両使用料',               default_price: 1000,  required_flag: false, auto_apply_group: '',           auto_apply_key: '',           auto_apply_group_2: '',           auto_apply_key_2: '' },
+  { key: 'BASE_FARE',               key_jp: '基本運賃',                 menu_group: 'price',      default_label: '運賃(初乗り)',                 default_price: 730,   required_flag: false, auto_apply_group: '',           auto_apply_key: '' },
+  { key: 'DISPATCH',                key_jp: '配車予約',                 menu_group: 'price',      default_label: '配車予約',                     default_price: 800,   required_flag: false, auto_apply_group: '',           auto_apply_key: '' },
+  { key: 'SPECIAL_VEHICLE',         key_jp: '特殊車両使用料',           menu_group: 'price',      default_label: '特殊車両使用料',               default_price: 1000,  required_flag: false, auto_apply_group: '',           auto_apply_key: '' },
 
-  { key: 'BOARDING_ASSIST',         key_jp: '乗降介助',                 menu_group: 'assistance', default_label: '乗降介助',                     default_price: 1400,  required_flag: true,  auto_apply_group: '',           auto_apply_key: '',           auto_apply_group_2: '',           auto_apply_key_2: '' },
-  { key: 'BODY_ASSIST',             key_jp: '身体介助',                 menu_group: 'assistance', default_label: '身体介助',                     default_price: 3000,  required_flag: true,  auto_apply_group: '',           auto_apply_key: '',           auto_apply_group_2: '',           auto_apply_key_2: '' },
+  { key: 'BOARDING_ASSIST',         key_jp: '乗降介助',                 menu_group: 'assistance', default_label: '乗降介助',                     default_price: 1400,  required_flag: true,  auto_apply_group: '',           auto_apply_key: '' },
+  { key: 'BODY_ASSIST',             key_jp: '身体介助',                 menu_group: 'assistance', default_label: '身体介助',                     default_price: 3000,  required_flag: true,  auto_apply_group: '',           auto_apply_key: '' },
 
-  { key: 'STAIR_NONE',              key_jp: '階段介助不要',             menu_group: 'stair',      default_label: '不要',                         default_price: 0,     required_flag: true,  auto_apply_group: '',           auto_apply_key: '',           auto_apply_group_2: '',           auto_apply_key_2: '' },
-  { key: 'STAIR_WATCH',             key_jp: '階段見守り介助',           menu_group: 'stair',      default_label: '見守り介助',                   default_price: 0,     required_flag: true,  auto_apply_group: '',           auto_apply_key: '',           auto_apply_group_2: '',           auto_apply_key_2: '' },
-  { key: 'STAIR_2F',                key_jp: '階段2階移動',              menu_group: 'stair',      default_label: '2階移動',                      default_price: 6000,  required_flag: true,  auto_apply_group: 'assistance', auto_apply_key: 'BODY_ASSIST', auto_apply_group_2: '',           auto_apply_key_2: '' },
-  { key: 'STAIR_3F',                key_jp: '階段3階移動',              menu_group: 'stair',      default_label: '3階移動',                      default_price: 9000,  required_flag: true,  auto_apply_group: 'assistance', auto_apply_key: 'BODY_ASSIST', auto_apply_group_2: '',           auto_apply_key_2: '' },
-  { key: 'STAIR_4F',                key_jp: '階段4階移動',              menu_group: 'stair',      default_label: '4階移動',                      default_price: 12000, required_flag: true,  auto_apply_group: 'assistance', auto_apply_key: 'BODY_ASSIST', auto_apply_group_2: '',           auto_apply_key_2: '' },
-  { key: 'STAIR_5F',                key_jp: '階段5階移動',              menu_group: 'stair',      default_label: '5階移動',                      default_price: 15000, required_flag: true,  auto_apply_group: 'assistance', auto_apply_key: 'BODY_ASSIST', auto_apply_group_2: '',           auto_apply_key_2: '' },
+  { key: 'STAIR_NONE',              key_jp: '階段介助不要',             menu_group: 'stair',      default_label: '不要',                         default_price: 0,     required_flag: true,  auto_apply_group: '',           auto_apply_key: '' },
+  { key: 'STAIR_WATCH',             key_jp: '階段見守り介助',           menu_group: 'stair',      default_label: '見守り介助',                   default_price: 0,     required_flag: true,  auto_apply_group: '',           auto_apply_key: '' },
+  { key: 'STAIR_2F',                key_jp: '階段2階移動',              menu_group: 'stair',      default_label: '2階移動',                      default_price: 6000,  required_flag: true,  auto_apply_group: 'assistance', auto_apply_key: 'BODY_ASSIST' },
+  { key: 'STAIR_3F',                key_jp: '階段3階移動',              menu_group: 'stair',      default_label: '3階移動',                      default_price: 9000,  required_flag: true,  auto_apply_group: 'assistance', auto_apply_key: 'BODY_ASSIST' },
+  { key: 'STAIR_4F',                key_jp: '階段4階移動',              menu_group: 'stair',      default_label: '4階移動',                      default_price: 12000, required_flag: true,  auto_apply_group: 'assistance', auto_apply_key: 'BODY_ASSIST' },
+  { key: 'STAIR_5F',                key_jp: '階段5階移動',              menu_group: 'stair',      default_label: '5階移動',                      default_price: 15000, required_flag: true,  auto_apply_group: 'assistance', auto_apply_key: 'BODY_ASSIST' },
 
-  { key: 'EQUIP_WHEELCHAIR',        key_jp: '車いすレンタル',           menu_group: 'equipment',  default_label: '車いすレンタル',               default_price: 0,     required_flag: true,  auto_apply_group: '',           auto_apply_key: '',           auto_apply_group_2: '',           auto_apply_key_2: '' },
-  { key: 'EQUIP_RECLINING',         key_jp: 'リクライニング車いす',     menu_group: 'equipment',  default_label: 'リクライニング車いすレンタル', default_price: 2500,  required_flag: true,  auto_apply_group: '',           auto_apply_key: '',           auto_apply_group_2: '',           auto_apply_key_2: '' },
-  { key: 'EQUIP_STRETCHER',         key_jp: 'ストレッチャー',           menu_group: 'equipment',  default_label: 'ストレッチャーレンタル',       default_price: 5000,  required_flag: true,  auto_apply_group: 'equipment',  auto_apply_key: 'EQUIP_STRETCHER_STAFF2', auto_apply_group_2: '',           auto_apply_key_2: '' },
-  { key: 'EQUIP_OWN_WHEELCHAIR',    key_jp: '持込車いす',               menu_group: 'equipment',  default_label: 'ご自身車いす',                 default_price: 0,     required_flag: true,  auto_apply_group: '',           auto_apply_key: '',           auto_apply_group_2: '',           auto_apply_key_2: '' },
-  { key: 'EQUIP_STRETCHER_STAFF2',  key_jp: 'ストレッチャー2名体制',    menu_group: 'equipment',  default_label: 'ストレッチャー2名体制介助料',  default_price: 5000,  required_flag: false, auto_apply_group: '',           auto_apply_key: '',           auto_apply_group_2: '',           auto_apply_key_2: '' },
+  { key: 'EQUIP_WHEELCHAIR',        key_jp: '車いすレンタル',           menu_group: 'equipment',  default_label: '車いすレンタル',               default_price: 0,     required_flag: true,  auto_apply_group: '',           auto_apply_key: '' },
+  { key: 'EQUIP_RECLINING',         key_jp: 'リクライニング車いす',     menu_group: 'equipment',  default_label: 'リクライニング車いすレンタル', default_price: 2500,  required_flag: true,  auto_apply_group: '',           auto_apply_key: '' },
+  { key: 'EQUIP_STRETCHER',         key_jp: 'ストレッチャー',           menu_group: 'equipment',  default_label: 'ストレッチャーレンタル',       default_price: 5000,  required_flag: true,  auto_apply_group: 'assistance', auto_apply_key: 'BODY_ASSIST' },
+  { key: 'EQUIP_OWN_WHEELCHAIR',    key_jp: '持込車いす',               menu_group: 'equipment',  default_label: 'ご自身車いす',                 default_price: 0,     required_flag: true,  auto_apply_group: '',           auto_apply_key: '' },
+  { key: 'EQUIP_STRETCHER_STAFF2',  key_jp: 'ストレッチャー2名体制',    menu_group: 'equipment',  default_label: 'ストレッチャー2名体制介助料',  default_price: 5000,  required_flag: false, auto_apply_group: '',           auto_apply_key: '' },
 
-  { key: 'ROUND_NONE',              key_jp: '往復不要',                 menu_group: 'round_trip', default_label: '不要',                         default_price: 0,     required_flag: true,  auto_apply_group: '',           auto_apply_key: '',           auto_apply_group_2: '',           auto_apply_key_2: '' },
-  { key: 'ROUND_STANDBY',           key_jp: '待機',                     menu_group: 'round_trip', default_label: '待機',                         default_price: 800,   required_flag: true,  auto_apply_group: '',           auto_apply_key: '',           auto_apply_group_2: '',           auto_apply_key_2: '' },
-  { key: 'ROUND_HOSPITAL',          key_jp: '病院付き添い',             menu_group: 'round_trip', default_label: '病院付き添い',                 default_price: 1600,  required_flag: true,  auto_apply_group: '',           auto_apply_key: '',           auto_apply_group_2: '',           auto_apply_key_2: '' }
+  { key: 'ROUND_NONE',              key_jp: '往復不要',                 menu_group: 'round_trip', default_label: '不要',                         default_price: 0,     required_flag: true,  auto_apply_group: '',           auto_apply_key: '' },
+  { key: 'ROUND_STANDBY',           key_jp: '待機',                     menu_group: 'round_trip', default_label: '待機',                         default_price: 800,   required_flag: true,  auto_apply_group: '',           auto_apply_key: '' },
+  { key: 'ROUND_HOSPITAL',          key_jp: '病院付き添い',             menu_group: 'round_trip', default_label: '病院付き添い',                 default_price: 1600,  required_flag: true,  auto_apply_group: '',           auto_apply_key: '' }
 ];
 
 // ===== Web API / JSONP =====
@@ -550,7 +550,7 @@ function api_getPublicBootstrap() {
       config: configResult.data || {},
       menu_master: menuResult.data || [],
       menu_key_catalog: MENU_KEY_CATALOG,
-      menu_group_catalog: MENU_GROUP_CATALOG,
+      menu_group_catalog: _getResolvedMenuGroupCatalog_(),
       auto_rule_catalog: _buildAutoRuleCatalog_()
     };
 
@@ -596,7 +596,7 @@ function api_getInitData() {
       config: configResult.data || {},
       menu_master: menuResult.data || [],
       menu_key_catalog: MENU_KEY_CATALOG,
-      menu_group_catalog: MENU_GROUP_CATALOG,
+      menu_group_catalog: _getResolvedMenuGroupCatalog_(),
       auto_rule_catalog: _buildAutoRuleCatalog_(),
       reservations: reservations,
       blocks: blocks
@@ -625,7 +625,7 @@ function api_getAdminBootstrap() {
       config: configResult.data || {},
       menu_master: menuResult.data || [],
       menu_key_catalog: MENU_KEY_CATALOG,
-      menu_group_catalog: MENU_GROUP_CATALOG,
+      menu_group_catalog: _getResolvedMenuGroupCatalog_(),
       auto_rule_catalog: _buildAutoRuleCatalog_()
     };
 
@@ -692,7 +692,7 @@ function api_getMenuKeyCatalog() {
 
 function api_getMenuGroupCatalog() {
   try {
-    return _ok(MENU_GROUP_CATALOG);
+    return _ok(_getResolvedMenuGroupCatalog_());
   } catch (e) {
     return _ng(e);
   }
