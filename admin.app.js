@@ -179,10 +179,8 @@ function applyAdminConfigToForm(){
   document.getElementById('cfgLogoGithubPath').value = adminConfig.logo_github_path || '';
   document.getElementById('cfgGithubToken').value = adminConfig.github_token || '';
   document.getElementById('cfgPhoneNotifyText').value = adminConfig.phone_notify_text || '';
-  const gasNotifyUrlEl = document.getElementById('cfgGasNotifyUrl');
-  if (gasNotifyUrlEl) gasNotifyUrlEl.value = adminConfig.gas_notify_url || '';
-  const gasNotifySecretEl = document.getElementById('cfgGasNotifySecret');
-  if (gasNotifySecretEl) gasNotifySecretEl.value = adminConfig.gas_notify_secret && adminConfig.gas_notify_secret !== '***' ? adminConfig.gas_notify_secret : '';
+  document.getElementById('cfgGasNotifyUrl').value = adminConfig.gas_notify_url || '';
+  document.getElementById('cfgGasNotifySecret').value = adminConfig.gas_notify_secret || '';
 
   document.getElementById('cfgWarningStairBodyAssistText').value = adminConfig.warning_stair_bodyassist_text || '';
   document.getElementById('cfgWarningWheelchairDamageText').value = adminConfig.warning_wheelchair_damage_text || '';
@@ -285,7 +283,6 @@ function openReservationDetail(index){
       <div><strong>電話番号:</strong> ${escapeHtml(r.phone_number || '')}</div>
       <div><strong>お伺い場所:</strong> ${escapeHtml(r.pickup_location || '')}</div>
       <div><strong>送迎先:</strong> ${escapeHtml(r.destination || '')}</div>
-      <div><strong>移動方法:</strong> ${escapeHtml(r.move_type || '')}</div>
       <div><strong>介助内容:</strong> ${escapeHtml(r.assistance_type || '')}</div>
       <div><strong>階段介助:</strong> ${escapeHtml(r.stair_assistance || '')}</div>
       <div><strong>機材:</strong> ${escapeHtml(r.equipment_rental || '')}</div>
@@ -313,8 +310,8 @@ function collectLogoConfigPayload(){
     logo_github_path: document.getElementById('cfgLogoGithubPath').value.trim(),
     github_token: document.getElementById('cfgGithubToken').value.trim(),
     phone_notify_text: document.getElementById('cfgPhoneNotifyText').value.trim(),
-    gas_notify_url: (document.getElementById('cfgGasNotifyUrl') || { value: '' }).value.trim(),
-    gas_notify_secret: (document.getElementById('cfgGasNotifySecret') || { value: '' }).value.trim()
+    gas_notify_url: document.getElementById('cfgGasNotifyUrl').value.trim(),
+    gas_notify_secret: document.getElementById('cfgGasNotifySecret').value.trim()
   };
 }
 

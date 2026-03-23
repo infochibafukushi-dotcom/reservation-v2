@@ -302,6 +302,8 @@ const ADMIN_DEFAULT_CONFIG = {
   logo_image_url: '',
   logo_use_github_image: '1',
   phone_notify_text: '090-6331-4289',
+  gas_notify_url: 'https://script.google.com/macros/s/AKfycbxzM8EPlE-1hwHx6qwh4Q1jXgYa0nyc3_WtK0NYbYbcm5JExMJOi1zzjQocUhsoCuUQ/exec?secret=secret1',
+  gas_notify_secret: 'secret1',
   same_day_enabled: '0',
   same_day_min_hours: '3',
   admin_panels_collapsed_default: '1',

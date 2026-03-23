@@ -36,8 +36,8 @@ const DEFAULT_CONFIG = {
   extended_start_h: '21',
   extended_end_h: '5',
   phone_notify_text: '090-6331-4289',
-  gas_notify_url: '',
-  gas_notify_secret: '',
+  gas_notify_url: 'https://script.google.com/macros/s/AKfycbxzM8EPlE-1hwHx6qwh4Q1jXgYa0nyc3_WtK0NYbYbcm5JExMJOi1zzjQocUhsoCuUQ/exec?secret=secret1',
+  gas_notify_secret: 'secret1',
   sheet_reservations: '予約内容',
   sheet_blocks: 'ブロック',
   lock_minutes: '5',
@@ -890,21 +890,31 @@ function api_verifyAdminPassword(payload) {
  * - round_trip === '待機'/'病院付き添い' → 4枠（120分）
  */
 
-function _buildReservationNotifyUrl_(baseUrl, payload) {
+function _buildReservationNotifyUrl_(baseUrl, payload, secret) {
+  var cleanUrl = String(baseUrl || '').trim();
   var pairs = [];
+  var hasSecretInUrl = /(?:\?|&)secret=/.test(cleanUrl);
+  var secretValue = String(secret || '').trim();
+
+  if (secretValue && !hasSecretInUrl) {
+    pairs.push('secret=' + encodeURIComponent(secretValue));
+  }
+
   Object.keys(payload || {}).forEach(function(key){
     var value = payload[key];
     if (value === undefined || value === null) value = '';
     pairs.push(encodeURIComponent(String(key)) + '=' + encodeURIComponent(String(value)));
   });
-  if (!pairs.length) return String(baseUrl || '').trim();
-  return String(baseUrl || '').trim() + (String(baseUrl || '').indexOf('?') >= 0 ? '&' : '?') + pairs.join('&');
+
+  if (!pairs.length) return cleanUrl;
+  return cleanUrl + (cleanUrl.indexOf('?') >= 0 ? '&' : '?') + pairs.join('&');
 }
 
 function _fireReservationNotify_(reservationObj) {
   try {
     var cfg = _getConfigMap_();
     var notifyUrl = String(cfg.gas_notify_url || '').trim();
+    var notifySecret = String(cfg.gas_notify_secret || '').trim();
     if (!notifyUrl) return;
 
     var payload = {
@@ -926,7 +936,7 @@ function _fireReservationNotify_(reservationObj) {
       status: String((reservationObj && reservationObj.status) || '')
     };
 
-    var url = _buildReservationNotifyUrl_(notifyUrl, payload);
+    var url = _buildReservationNotifyUrl_(notifyUrl, payload, notifySecret);
     UrlFetchApp.fetch(url, {
       method: 'get',
       muteHttpExceptions: true,

@@ -459,7 +459,7 @@ function renderMenuGroupCard(group){
           <button class="move-btn" data-action="groupDown" data-group="${escapeHtml(group)}" type="button" ${isFixedMenuGroup(group) || groupIndex < 1 || groupIndex >= order.length - 1 ? 'disabled' : ''}>↓</button>
           <button class="move-btn" data-action="menuAddInGroup" data-group="${escapeHtml(group)}" type="button">＋</button>
           ${canDeleteGroup ? `<button class="move-btn" data-action="groupDelete" data-group="${escapeHtml(group)}" type="button">🗑</button>` : ''}
-          <button class="menu-group-card-toggle" data-action="toggleMenuGroup" data-menu-group-toggle="${escapeHtml(group)}" data-group="${escapeHtml(group)}" type="button">${open ? '−' : '＋'}</button>
+          <button class="menu-group-card-toggle" data-action="toggleMenuGroup" data-group="${escapeHtml(group)}" type="button">${open ? '−' : '＋'}</button>
         </div>
       </div>
 
@@ -575,14 +575,13 @@ function moveMenuItemWithinGroup(key, direction){
 }
 
 function toggleMenuGroup(group){
-  const safeGroup = String(group || '');
-  const body = document.getElementById(`menuGroupBody_${safeGroup}`);
-  const toggle = document.querySelector(`[data-menu-group-toggle="${safeGroup}"]`) || document.querySelector(`[data-action="toggleMenuGroup"][data-group="${safeGroup}"]`);
-  if (!body) return;
+  const body = document.getElementById(`menuGroupBody_${group}`);
+  const toggle = document.querySelector(`[data-menu-group-toggle="${group}"]`);
+  if (!body || !toggle) return;
 
   const collapsed = body.classList.toggle('collapsed');
-  setMenuGroupOpenState(safeGroup, !collapsed);
-  if (toggle) toggle.textContent = collapsed ? '＋' : '−';
+  setMenuGroupOpenState(group, !collapsed);
+  toggle.textContent = collapsed ? '＋' : '−';
 }
 
 function slugifyMenuGroupLabel(label){

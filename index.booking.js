@@ -265,7 +265,6 @@ function calculatePrice(){
   let total = 0;
   const breakdown = [];
 
-  const moveType = document.getElementById('moveType').value;
   const assistanceType = document.getElementById('assistanceType').value;
   const stairAssistance = document.getElementById('stairAssistance').value;
   const equipmentRental = document.getElementById('equipmentRental').value;
@@ -292,14 +291,6 @@ function calculatePrice(){
   breakdown.push({ name:getMenuLabel('BASE_FARE', '運賃'), price:baseFare, suffix:' から' });
   breakdown.push({ name:getMenuLabel('DISPATCH', '配車予約'), price:dispatch });
   breakdown.push({ name:getMenuLabel('SPECIAL_VEHICLE', '特殊車両使用料'), price:specialVehicle });
-
-  const moveTypeItem = getSelectedMenuItemByGroupPatched('move_type', 'moveType');
-  if (moveTypeItem && Number(moveTypeItem.price || 0) !== 0){
-    total += Number(moveTypeItem.price || 0);
-    breakdown.push({ name:String(moveTypeItem.label || moveType || '移動方法'), price:Number(moveTypeItem.price || 0) });
-  } else if (moveTypeItem){
-    breakdown.push({ name:String(moveTypeItem.label || moveType || '移動方法'), price:0 });
-  }
 
   if (autoState.appliedBodyAssist){
     total += bodyAssistPrice;
@@ -421,7 +412,6 @@ async function submitBooking(e){
     phone_number: document.getElementById('phoneNumber').value.trim(),
     pickup_location: document.getElementById('pickupLocation').value.trim(),
     destination: document.getElementById('destination').value.trim() || '',
-    move_type: document.getElementById('moveType').value,
     assistance_type: document.getElementById('assistanceType').value,
     stair_assistance: document.getElementById('stairAssistance').value,
     equipment_rental: equipmentRental,
@@ -479,11 +469,7 @@ function applyConfigToUI(){
 
   if (titleEl) titleEl.textContent = config.logo_text || config.main_title || defaultConfig.main_title;
   if (subEl) subEl.textContent = config.logo_subtext || defaultConfig.logo_subtext;
-  if (notifyEl) {
-    const phoneText = String(config.phone_notify_text || defaultConfig.phone_notify_text || '').trim();
-    notifyEl.textContent = `[${phoneText}]`;
-    if (notifyEl.tagName === 'A') notifyEl.href = `tel:${phoneText.replace(/[^\d+]/g, '')}`;
-  }
+  if (notifyEl) notifyEl.textContent = `[${config.phone_notify_text || defaultConfig.phone_notify_text}]`;
 
   const toggleBtn = document.getElementById('toggleTimeView');
   if (toggleBtn) {
@@ -739,37 +725,6 @@ function getPublicMenuGroupVisibilityConfig(){
   }
 }
 
-function getPublicMenuGroupRequiredConfig(){
-  try{
-    const parsed = JSON.parse(String(config.menu_group_required_json || '{}'));
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
-  }catch(_){
-    return {};
-  }
-}
-
-function isPublicGroupRequiredPatched(groupKey){
-  const key = String(groupKey || '').trim();
-  if (!key) return false;
-  const required = getPublicMenuGroupRequiredConfig();
-  if (required[key] === undefined || required[key] === null || required[key] === '') {
-    return ['move_type','assistance'].includes(key);
-  }
-  return required[key] === true || String(required[key]) === '1' || String(required[key]).toUpperCase() === 'TRUE';
-}
-
-function getSelectedMenuItemByGroupPatched(groupKey, selectId){
-  const selectedKey = getSelectedOptionKey(selectId);
-  if (selectedKey){
-    const byKey = (menuMaster || []).find(item => String(item.key || '') === String(selectedKey));
-    if (byKey) return byKey;
-  }
-  const select = document.getElementById(selectId);
-  const selectedLabel = select ? String(select.value || '').trim() : '';
-  if (!selectedLabel) return null;
-  return (getItemsByGroup(groupKey) || []).find(item => String(item.label || '').trim() === selectedLabel) || null;
-}
-
 function getPublicServiceGroupCardMap(){
   const moveTypeEl = document.getElementById('moveType');
   const assistanceEl = document.getElementById('assistanceType');
@@ -971,24 +926,26 @@ function _bookingUpdateSubmitButtonPatched(){
     !!(pickupEl && _bookingHasValue(pickupEl))
   ];
 
-  // グループ別 必須/任意 設定を反映
-  if (moveTypeEl && _bookingFieldVisible(moveTypeEl) && isPublicGroupRequiredPatched('move_type')){
+  // 表示されているグループだけ必須判定
+  if (moveTypeEl && _bookingFieldVisible(moveTypeEl)){
     requiredChecks.push(_bookingHasValue(moveTypeEl));
   }
 
-  if (assistanceEl && _bookingFieldVisible(assistanceEl) && isPublicGroupRequiredPatched('assistance')){
+  if (assistanceEl && _bookingFieldVisible(assistanceEl)){
     requiredChecks.push(_bookingHasValue(assistanceEl));
   }
 
-  if (stairEl && _bookingFieldVisible(stairEl) && isPublicGroupRequiredPatched('stair')){
+  // stair / roundTrip は非表示なら必須にしない
+  if (stairEl && _bookingFieldVisible(stairEl)){
     requiredChecks.push(_bookingHasValue(stairEl));
   }
 
-  if (roundTripEl && _bookingFieldVisible(roundTripEl) && isPublicGroupRequiredPatched('round_trip')){
+  if (roundTripEl && _bookingFieldVisible(roundTripEl)){
     requiredChecks.push(_bookingHasValue(roundTripEl));
   }
 
-  if (equipmentEl && _bookingFieldVisible(equipmentEl) && isPublicGroupRequiredPatched('equipment')){
+  // equipment は visible かつ moveType から同期されていない場合のみ厳密必須
+  if (equipmentEl && _bookingFieldVisible(equipmentEl)){
     const equipmentHasValue = _bookingHasValue(equipmentEl);
     const moveTypeHasValue = !!(moveTypeEl && _bookingHasValue(moveTypeEl));
     requiredChecks.push(equipmentHasValue || moveTypeHasValue);

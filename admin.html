@@ -476,17 +476,17 @@
               <input type="text" id="cfgPhoneNotifyText" placeholder="090-6331-4289">
             </div>
             <div class="form-group">
-              <label class="form-label">通知送信用GAS URL</label>
-              <input type="text" id="cfgGasNotifyUrl" placeholder="https://script.google.com/macros/s/.../exec">
-              <div class="field-note">予約確定時にGETで通知を飛ばすURL</div>
+              <label class="form-label">通知送信先GAS URL</label>
+              <input type="text" id="cfgGasNotifyUrl" placeholder="https://script.google.com/macros/s/.../exec?secret=secret1">
+              <div class="field-note">予約作成後にGET送信します。今回のURLを初期設定済みにしています。</div>
             </div>
           </div>
 
           <div class="config-grid mt-4">
             <div class="form-group">
               <label class="form-label">通知用シークレット</label>
-              <input type="password" id="cfgGasNotifySecret" placeholder="未設定でも保存可">
-              <div class="field-note">通知先GAS側で照合する場合のみ使用</div>
+              <input type="text" id="cfgGasNotifySecret" placeholder="secret1">
+              <div class="field-note">URL内に secret= が含まれる場合は省略可です。</div>
             </div>
             <div class="form-group">
               <label class="form-label">ロゴ画像アップロード</label>
