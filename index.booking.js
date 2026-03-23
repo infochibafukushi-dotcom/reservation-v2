@@ -394,10 +394,7 @@ async function submitBooking(e){
   const reservationId = formatDateForId(selectedSlot.date, selectedSlot.hour, selectedSlot.minute);
   const total = calculatePrice();
 
-  const moveTypeEl = document.getElementById('moveType');
   const equipmentRental = document.getElementById('equipmentRental').value;
-  const moveType = moveTypeEl ? moveTypeEl.value : '';
-  const moveTypeKey = getSelectedOptionKey('moveType');
   const autoState = applyAutoSelections();
 
   const stretcherTwoStaff = (
@@ -415,8 +412,8 @@ async function submitBooking(e){
     phone_number: document.getElementById('phoneNumber').value.trim(),
     pickup_location: document.getElementById('pickupLocation').value.trim(),
     destination: document.getElementById('destination').value.trim() || '',
-    move_type: moveType,
-    move_type_key: moveTypeKey,
+    move_type: document.getElementById('moveType').value,
+    move_type_key: getSelectedOptionKey('moveType') || '',
     assistance_type: document.getElementById('assistanceType').value,
     stair_assistance: document.getElementById('stairAssistance').value,
     equipment_rental: equipmentRental,
@@ -702,48 +699,12 @@ function getMoveTypeNoteTextPatched(key){
 function syncEquipmentFromMoveTypePatched(){
   const moveTypeKey = getSelectedOptionKey('moveType');
   if (!moveTypeKey) return '';
-
-  const moveTypeAutoPairs = getMenuAutoApplyPairs(moveTypeKey);
-  let syncedEquipmentKey = '';
-
-  moveTypeAutoPairs.forEach(function(pair){
-    const applyGroup = String(pair && pair.apply_group || '').trim();
-    const applyKey = String(pair && pair.apply_key || '').trim();
-    if (!applyGroup || !applyKey) return;
-
-    if (applyGroup === 'equipment') {
-      if (setSelectValueByKey('equipmentRental', applyKey)) syncedEquipmentKey = applyKey;
-      return;
-    }
-    if (applyGroup === 'assistance') {
-      setSelectValueByKey('assistanceType', applyKey);
-      return;
-    }
-    if (applyGroup === 'stair') {
-      setSelectValueByKey('stairAssistance', applyKey);
-      return;
-    }
-    if (applyGroup === 'round_trip') {
-      setSelectValueByKey('roundTrip', applyKey);
-      return;
-    }
-    if (applyGroup === 'move_type') {
-      setSelectValueByKey('moveType', applyKey);
-    }
-  });
-
   const moveTypeAuto = findAutoApplyFromMenu('move_type', moveTypeKey);
   if (moveTypeAuto && moveTypeAuto.apply_group === 'equipment' && moveTypeAuto.apply_key){
-    if (setSelectValueByKey('equipmentRental', moveTypeAuto.apply_key)) syncedEquipmentKey = String(moveTypeAuto.apply_key || '');
-  } else if (moveTypeAuto && moveTypeAuto.apply_group === 'assistance' && moveTypeAuto.apply_key){
-    setSelectValueByKey('assistanceType', moveTypeAuto.apply_key);
-  } else if (moveTypeAuto && moveTypeAuto.apply_group === 'stair' && moveTypeAuto.apply_key){
-    setSelectValueByKey('stairAssistance', moveTypeAuto.apply_key);
-  } else if (moveTypeAuto && moveTypeAuto.apply_group === 'round_trip' && moveTypeAuto.apply_key){
-    setSelectValueByKey('roundTrip', moveTypeAuto.apply_key);
+    setSelectValueByKey('equipmentRental', moveTypeAuto.apply_key);
+    return String(moveTypeAuto.apply_key || '');
   }
-
-  return syncedEquipmentKey;
+  return '';
 }
 
 

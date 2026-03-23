@@ -1,21 +1,16 @@
-修正対象
-- admin.menu.js
-- admin.app.js
-- admin.html
-- index.booking.js
-- Code_Core.gs
+今回の修正
+1. admin.menu.js
+- すべてのメニューカードが開かない不具合を修正
+- toggleMenuGroup() の参照先を data-action="toggleMenuGroup" data-group="..." に統一
 
-修正内容
-1. 管理画面の「移動方法」グループで、custom + MOVE_* の旧データも表示対象に修正
-2. 予約作成時に move_type / move_type_key を保存
-3. 予約一覧・詳細に「移動方法」を表示
-4. 予約シートのスキーマに move_type / move_type_key を追加
+2. admin.app.js
+- 予約一覧テーブルに「移動方法」列を反映
+- 予約詳細にも「移動方法」を反映
 
-手順
-1. GitHub: admin.menu.js / admin.app.js / admin.html / index.booking.js を中身ごと上書き
-2. GAS: Code_Core.gs を中身ごと上書きして保存
-3. ブラウザを Ctrl + F5
+3. index.booking.js
+- 新規予約保存時に move_type / move_type_key を保存
+- これ以降の新規予約から予約一覧に移動方法が出ます
 
 注意
-- 既に保存済みの古い予約データは、当時 move_type を保存していなければ空のままです
-- これ以降の新規予約から「移動方法」が保存・表示されます
+- 既存の古い予約は、保存時点で move_type が無ければ空のままです
+- 反映確認は新規予約を1件作成して確認してください
