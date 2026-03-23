@@ -1,6 +1,6 @@
 
 const MENU_GROUP_FIXED_FIRST = 'price';
-const MENU_GROUP_FALLBACK_ORDER = ['price', 'assistance', 'stair', 'equipment', 'round_trip', 'move_type', 'custom'];
+const MENU_GROUP_FALLBACK_ORDER = ['price', 'assistance', 'stair', 'equipment', 'round_trip', 'move_type', 'auto_set', 'custom'];
 
 function safeJsonParseMenu(text, fallback){
   try{
@@ -21,6 +21,7 @@ function getBaseMenuGroupCatalog(){
         { key: 'equipment', label: '機材レンタル' },
         { key: 'round_trip', label: '往復送迎' },
         { key: 'move_type', label: '移動方法' },
+        { key: 'auto_set', label: '自動セット' },
         { key: 'custom', label: 'その他（表示先なし）' }
       ];
 }
@@ -38,6 +39,29 @@ function getStoredMenuGroupOrder(){
 function getStoredMenuGroupVisibility(){
   const saved = safeJsonParseMenu(adminConfig && adminConfig.menu_group_visibility_json, {});
   return saved && typeof saved === 'object' && !Array.isArray(saved) ? saved : {};
+}
+
+function getStoredMenuGroupRequired(){
+  const saved = safeJsonParseMenu(adminConfig && adminConfig.menu_group_required_json, {});
+  return saved && typeof saved === 'object' && !Array.isArray(saved) ? saved : {};
+}
+
+function isMenuGroupRequired(group){
+  const required = getStoredMenuGroupRequired();
+  const key = String(group || '').trim();
+  if (!key) return false;
+  if (['price','custom','auto_set'].includes(key)) return false;
+  const raw = required[key];
+  if (raw === undefined || raw === null || raw === '') return true;
+  return raw === true || String(raw) === '1' || String(raw).toUpperCase() === 'TRUE';
+}
+
+function setMenuGroupRequired(group, required){
+  const key = String(group || '').trim();
+  if (!key || ['price','custom','auto_set'].includes(key)) return;
+  const map = cloneMenuObject(getStoredMenuGroupRequired());
+  map[key] = !!required;
+  adminConfig.menu_group_required_json = JSON.stringify(map);
 }
 
 function cloneMenuObject(value){
@@ -161,12 +185,13 @@ function getMenuGroupDescription(group){
   if (key === 'equipment') return `予約フォームの「${getGroupLabelByKey(key)}」プルダウンに表示`;
   if (key === 'round_trip') return `予約フォームの「${getGroupLabelByKey(key)}」プルダウンに表示`;
   if (key === 'move_type') return `予約フォームの「${getGroupLabelByKey(key)}」プルダウンに表示`;
+  if (key === 'auto_set') return '予約フォームには出さず、内部加算だけに使う';
   if (key === 'custom') return '保存のみ。どのプルダウンにも出せない';
   return `予約フォームの「${getGroupLabelByKey(key)}」プルダウンに表示`;
 }
 
 function buildMenuAutoApplyOptions(selectedGroup, selectedKey){
-  const groupCatalog = getEffectiveMenuGroupOrder().filter(group => isPublicMenuGroup(group));
+  const groupCatalog = getEffectiveMenuGroupOrder().filter(group => !['price','custom'].includes(String(group || '')));
   const groupOptions = [
     `<option value="">自動セットなし</option>`
   ].concat(
@@ -175,7 +200,13 @@ function buildMenuAutoApplyOptions(selectedGroup, selectedKey){
 
   let keyCandidates = [];
   if (selectedGroup) {
-    keyCandidates = (adminMenuMaster || []).filter(item => isMenuItemInGroup(item, selectedGroup));
+    keyCandidates = (adminMenuMaster || []).filter(item => {
+      const itemGroup = String(item.menu_group || '');
+      const itemKey = String(item.key || '');
+      if (itemGroup === String(selectedGroup || '')) return true;
+      if (String(selectedGroup || '') === 'move_type' && itemGroup === 'custom' && /^MOVE_/i.test(itemKey)) return true;
+      return false;
+    });
   }
 
   const keyOptions = [`<option value="">選択してください</option>`].concat(
@@ -208,8 +239,12 @@ function normalizeRequiredFlag(value){
 function adminNormalizeMenuRows(){
   return (adminMenuMaster || []).map((item, idx) => {
     const clone = cloneMenuObject(item || {});
-    clone.menu_group = normalizeGroupKey(clone.menu_group);
     clone.key = makeMenuInternalKey(clone, idx);
+    let normalizedGroup = normalizeGroupKey(clone.menu_group);
+    if ((!normalizedGroup || normalizedGroup === 'custom') && /^MOVE_/i.test(String(clone.key || ''))){
+      normalizedGroup = 'move_type';
+    }
+    clone.menu_group = normalizedGroup;
     clone.key_jp = String(clone.key_jp || '');
     clone.label = String(clone.label || '');
     clone.price = Number(clone.price || 0);
@@ -219,23 +254,15 @@ function adminNormalizeMenuRows(){
     clone.required_flag = normalizeRequiredFlag(clone.required_flag);
     clone.auto_apply_group = String(clone.auto_apply_group || '');
     clone.auto_apply_key = String(clone.auto_apply_key || '');
+    clone.auto_apply_group_2 = String(clone.auto_apply_group_2 || '');
+    clone.auto_apply_key_2 = String(clone.auto_apply_key_2 || '');
     return clone;
   });
 }
 
-
-function isMenuItemInGroup(item, group){
-  const targetGroup = String(group || '').trim();
-  const itemGroup = String(item && item.menu_group || '').trim();
-  const itemKey = String(item && item.key || '').trim();
-  if (itemGroup === targetGroup) return true;
-  if (targetGroup === 'move_type' && itemGroup === 'custom' && itemKey.indexOf('MOVE_') === 0) return true;
-  return false;
-}
-
 function getMenuItemsByGroup(group){
   return (adminMenuMaster || [])
-    .filter(item => isMenuItemInGroup(item, group))
+    .filter(item => String(item.menu_group || '') === String(group || ''))
     .sort((a, b) => Number(a.sort_order || 9999) - Number(b.sort_order || 9999));
 }
 
@@ -291,9 +318,12 @@ function getMenuGroupOpenState(group){
   return !!state[String(group || '')];
 }
 
+
 function renderMenuItemCard(item, groupItems){
-  const autoOptions = buildMenuAutoApplyOptions(item.auto_apply_group || '', item.auto_apply_key || '');
+  const autoOptions1 = buildMenuAutoApplyOptions(item.auto_apply_group || '', item.auto_apply_key || '');
+  const autoOptions2 = buildMenuAutoApplyOptions(item.auto_apply_group_2 || '', item.auto_apply_key_2 || '');
   const groupIndex = groupItems.findIndex(x => String(x.key || '') === String(item.key || ''));
+  const hasAuto2 = !!(String(item.auto_apply_group || '').trim() || String(item.auto_apply_key || '').trim() || String(item.auto_apply_group_2 || '').trim() || String(item.auto_apply_key_2 || '').trim());
 
   return `
     <div class="menu-item-card" data-menu-key="${escapeHtml(item.key || '')}">
@@ -324,11 +354,8 @@ function renderMenuItemCard(item, groupItems){
             </div>
 
             <div class="form-group">
-              <label class="form-label">必須 / 任意</label>
-              <select data-field="required_flag" data-key="${escapeHtml(item.key || '')}">
-                <option value="1" ${item.required_flag ? 'selected' : ''}>必須</option>
-                <option value="0" ${!item.required_flag ? 'selected' : ''}>任意</option>
-              </select>
+              <label class="form-label">現在グループ</label>
+              <input type="text" value="${escapeHtml(getGroupLabelByKey(item.menu_group || 'custom'))}" disabled>
             </div>
           </div>
 
@@ -337,24 +364,40 @@ function renderMenuItemCard(item, groupItems){
               <label class="form-label">説明</label>
               <input type="text" value="${escapeHtml(item.note || '')}" data-field="note" data-key="${escapeHtml(item.key || '')}" placeholder="補足説明">
             </div>
+          </div>
 
-            <div class="form-group">
-              <label class="form-label">自動セット先</label>
-              <select data-field="auto_apply_group" data-key="${escapeHtml(item.key || '')}">
-                ${autoOptions.groupOptions}
-              </select>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label">自動セット項目</label>
-              <select data-field="auto_apply_key" data-key="${escapeHtml(item.key || '')}">
-                ${autoOptions.keyOptions}
-              </select>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label">現在グループ</label>
-              <input type="text" value="${escapeHtml(getGroupLabelByKey(item.menu_group || 'custom'))}" disabled>
+          <div class="mt-4 border border-sky-200 rounded-2xl overflow-hidden bg-slate-50/70">
+            <button class="w-full text-left px-4 py-3 font-bold flex items-center justify-between" type="button" data-action="toggleAutoSetBox" data-key="${escapeHtml(item.key || '')}">
+              <span>⚙ 自動セット設定 ${hasAuto2 ? '(2件設定中)' : '（未設定）'}</span>
+              <span data-autoset-toggle-label="${escapeHtml(item.key || '')}">${hasAuto2 ? 'クリックで閉閉' : 'クリックで開閉'}</span>
+            </button>
+            <div class="p-4 border-t border-sky-100 ${hasAuto2 ? '' : 'hidden'}" id="autoSetBox_${escapeHtml(item.key || '')}">
+              <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                <div class="form-group">
+                  <label class="form-label">自動セット先1</label>
+                  <select data-field="auto_apply_group" data-key="${escapeHtml(item.key || '')}">
+                    ${autoOptions1.groupOptions}
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">自動セット項目1</label>
+                  <select data-field="auto_apply_key" data-key="${escapeHtml(item.key || '')}">
+                    ${autoOptions1.keyOptions}
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">自動セット先2</label>
+                  <select data-field="auto_apply_group_2" data-key="${escapeHtml(item.key || '')}">
+                    ${autoOptions2.groupOptions}
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">自動セット項目2</label>
+                  <select data-field="auto_apply_key_2" data-key="${escapeHtml(item.key || '')}">
+                    ${autoOptions2.keyOptions}
+                  </select>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -373,12 +416,16 @@ function renderMenuItemCard(item, groupItems){
   `;
 }
 
+
+
 function renderMenuGroupCard(group){
   const items = getMenuItemsByGroup(group);
   const open = getMenuGroupOpenState(group);
   const visible = isFixedMenuGroup(group) ? true : isMenuGroupVisible(group);
+  const required = isMenuGroupRequired(group);
   const groupIndex = getMenuGroupIndex(group);
   const order = getEffectiveMenuGroupOrder();
+  const canDeleteGroup = !isFixedMenuGroup(group) && items.length === 0;
 
   return `
     <div class="menu-group-card" data-menu-group="${escapeHtml(group)}">
@@ -389,12 +436,19 @@ function renderMenuGroupCard(group){
         </div>
 
         <div class="flex items-center gap-2">
-          <button class="cute-btn px-3 py-2 ${visible ? 'text-emerald-600' : 'text-slate-500'}" data-action="toggleGroupVisibility" data-group="${escapeHtml(group)}" type="button" ${isFixedMenuGroup(group) ? 'disabled' : ''}>
+          ${['price','custom','auto_set'].includes(String(group || '')) ? '' : `
+            <select data-action="setGroupRequired" data-group="${escapeHtml(group)}" class="rounded-xl border border-slate-200 px-3 py-2 font-bold" onclick="event.stopPropagation()">
+              <option value="1" ${required ? 'selected' : ''}>必須</option>
+              <option value="0" ${!required ? 'selected' : ''}>任意</option>
+            </select>
+          `}
+          <button class="cute-btn px-3 py-2 ${visible ? 'text-emerald-600' : 'text-slate-500'}" data-action="toggleGroupVisibility" data-group="${escapeHtml(group)}" type="button" ${isFixedMenuGroup(group) ? 'disabled' : ''} onclick="event.stopPropagation()">
             ${isFixedMenuGroup(group) ? '固定表示' : (visible ? '公開表示' : '非表示')}
           </button>
-          <button class="move-btn" data-action="groupUp" data-group="${escapeHtml(group)}" type="button" ${isFixedMenuGroup(group) || groupIndex <= 1 ? 'disabled' : ''}>↑</button>
-          <button class="move-btn" data-action="groupDown" data-group="${escapeHtml(group)}" type="button" ${isFixedMenuGroup(group) || groupIndex < 1 || groupIndex >= order.length - 1 ? 'disabled' : ''}>↓</button>
-          <button class="move-btn" data-action="menuAddInGroup" data-group="${escapeHtml(group)}" type="button">＋</button>
+          <button class="move-btn" data-action="groupUp" data-group="${escapeHtml(group)}" type="button" ${isFixedMenuGroup(group) || groupIndex <= 1 ? 'disabled' : ''} onclick="event.stopPropagation()">↑</button>
+          <button class="move-btn" data-action="groupDown" data-group="${escapeHtml(group)}" type="button" ${isFixedMenuGroup(group) || groupIndex < 1 || groupIndex >= order.length - 1 ? 'disabled' : ''} onclick="event.stopPropagation()">↓</button>
+          <button class="move-btn" data-action="menuAddInGroup" data-group="${escapeHtml(group)}" type="button" onclick="event.stopPropagation()">＋</button>
+          ${canDeleteGroup ? `<button class="move-btn" data-action="groupDelete" data-group="${escapeHtml(group)}" type="button" onclick="event.stopPropagation()">🗑</button>` : ''}
           <div class="menu-group-card-toggle" data-menu-group-toggle="${escapeHtml(group)}">${open ? '−' : '＋'}</div>
         </div>
       </div>
@@ -415,6 +469,7 @@ function renderMenuGroupCard(group){
     </div>
   `;
 }
+
 
 function ensureMenuToolbar(){
   const list = document.getElementById('menuAdminList');
@@ -464,7 +519,9 @@ function addMenuItemToGroup(group){
     menu_group: normalizeGroupKey(group),
     required_flag: false,
     auto_apply_group: '',
-    auto_apply_key: ''
+    auto_apply_key: '',
+    auto_apply_group_2: '',
+    auto_apply_key_2: ''
   });
 
   adminMenuMaster = adminNormalizeMenuRows();
@@ -604,6 +661,34 @@ function bindMenuEvents(){
       return;
     }
 
+    if (action === 'groupDelete'){
+      if (!group) return;
+      if (getMenuItemsByGroup(group).length > 0){
+        toast('項目があるグループは削除できません');
+        return;
+      }
+      if (!window.confirm('空のグループを削除します。よろしいですか？')) return;
+      const catalog = getStoredMenuGroupCatalog().filter(row => String(row.key || '') !== String(group));
+      adminConfig.menu_group_catalog_json = JSON.stringify(catalog);
+      const order = getEffectiveMenuGroupOrder().filter(key => String(key) !== String(group));
+      adminConfig.menu_group_order_json = JSON.stringify(order);
+      const visibility = cloneMenuObject(getStoredMenuGroupVisibility());
+      delete visibility[group];
+      adminConfig.menu_group_visibility_json = JSON.stringify(visibility);
+      const required = cloneMenuObject(getStoredMenuGroupRequired());
+      delete required[group];
+      adminConfig.menu_group_required_json = JSON.stringify(required);
+      renderMenuAdminList();
+      return;
+    }
+
+    if (action === 'toggleAutoSetBox'){
+      const box = document.getElementById(`autoSetBox_${key}`);
+      if (!box) return;
+      box.classList.toggle('hidden');
+      return;
+    }
+
     if (action === 'groupUp'){
       moveMenuGroup(group, 'up');
       renderMenuAdminList();
@@ -685,6 +770,12 @@ function bindMenuEvents(){
     if (field === 'auto_apply_group'){
       adminMenuMaster[idx].auto_apply_key = '';
       renderMenuAdminList();
+      return;
+    }
+    if (field === 'auto_apply_group_2'){
+      adminMenuMaster[idx].auto_apply_key_2 = '';
+      renderMenuAdminList();
+      return;
     }
   });
 }
@@ -714,7 +805,9 @@ function buildSaveMenuPayload(){
       menu_group: group,
       required_flag: !!item.required_flag,
       auto_apply_group: String(item.auto_apply_group || '').trim(),
-      auto_apply_key: String(item.auto_apply_key || '').trim()
+      auto_apply_key: String(item.auto_apply_key || '').trim(),
+      auto_apply_group_2: String(item.auto_apply_group_2 || '').trim(),
+      auto_apply_key_2: String(item.auto_apply_key_2 || '').trim()
     };
   }).filter(item => String(item.label || '').trim());
 }
@@ -726,11 +819,13 @@ function buildMenuGroupConfigPayload(){
   })).filter(group => !!group.key);
 
   const visibility = cloneMenuObject(getStoredMenuGroupVisibility());
+  const required = cloneMenuObject(getStoredMenuGroupRequired());
   const order = getEffectiveMenuGroupOrder().slice();
 
   return {
     menu_group_catalog_json: JSON.stringify(catalog),
     menu_group_visibility_json: JSON.stringify(visibility),
+    menu_group_required_json: JSON.stringify(required),
     menu_group_order_json: JSON.stringify(order)
   };
 }
