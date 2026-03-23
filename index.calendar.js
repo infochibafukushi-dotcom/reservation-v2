@@ -1,3 +1,4 @@
+if (typeof globalThis.hasBoundGridDelegation === 'undefined') globalThis.hasBoundGridDelegation = false;
 let publicCalendarPage = 0;
 let hasBoundPublicCalendarNav = false;
 
@@ -230,7 +231,7 @@ function renderCalendar() {
 }
 
 function bindGridDelegation(){
-  if (hasBoundGridDelegation) return;
+  if (globalThis.hasBoundGridDelegation) return;
 
   const grid = document.getElementById('calendarGrid');
   if (!grid) return;
@@ -256,5 +257,5 @@ function bindGridDelegation(){
     }
   }, { passive: false });
 
-  hasBoundGridDelegation = true;
+  globalThis.hasBoundGridDelegation = true;
 }
