@@ -72,31 +72,6 @@ function cloneMenuObject(value){
   return JSON.parse(JSON.stringify(value || {}));
 }
 
-
-function normalizeLegacyMenuGroup(item){
-  const row = item || {};
-  const rawGroup = String(row.menu_group || '').trim();
-  const rawKey = String(row.key || '').trim().toUpperCase();
-
-  if (rawGroup === 'move' || rawGroup === 'moveType' || rawGroup === 'move_type') return 'move_type';
-  if (rawGroup === 'roundtrip' || rawGroup === 'roundTrip' || rawGroup === 'round_trip') return 'round_trip';
-  if (rawGroup === 'stairs' || rawGroup === 'stair') return 'stair';
-  if (rawGroup === 'equip' || rawGroup === 'equipment') return 'equipment';
-  if (rawGroup === 'assist' || rawGroup === 'assistance') return 'assistance';
-  if (rawGroup === 'price') return 'price';
-  if (rawGroup === 'auto_set') return 'auto_set';
-
-  if (rawKey.startsWith('MOVE_')) return 'move_type';
-  if (rawKey.startsWith('ROUND_') or rawKey.startsWith('ROUNDTRIP_') or rawKey.startsWith('ROUND_TRIP_')) return 'round_trip';
-  if (rawKey.startsWith('STAIR_')) return 'stair';
-  if (rawKey.startsWith('EQUIP_') or rawKey.startsWith('EQUIPMENT_')) return 'equipment';
-  if (rawKey.startsWith('ASSIST_') or rawKey.startsWith('ASSISTANCE_') or rawKey in ['BOARDING_ASSIST','BODY_ASSIST','STAFF_ADD']) return 'assistance';
-  if (rawKey.startsWith('PRICE_') or rawKey in ['BASE_FARE','DISPATCH','SPECIAL_VEHICLE']) return 'price';
-  if ('AUTO_SET' in rawKey) return 'auto_set';
-
-  return rawGroup || 'custom';
-}
-
 function getAllKnownMenuGroups(){
   const map = {};
 
@@ -169,6 +144,42 @@ function getEffectiveMenuGroupOrder(){
 function getGroupLabelByKey(groupKey){
   const found = getAllKnownMenuGroups().find(group => String(group.key || '') === String(groupKey || ''));
   return found ? String(found.label || groupKey || '') : String(groupKey || '');
+}
+
+
+function normalizeLegacyMenuGroup(item){
+  const row = item || {};
+  const rawGroup = String(row.menu_group || '').trim();
+  const rawKey = String(row.key || '').trim();
+  const rawKeyJp = String(row.key_jp || '').trim();
+  const rawLabel = String(row.label || '').trim();
+
+  if (rawGroup === 'move' || rawGroup === 'moveType' || rawGroup === 'move_type') return 'move_type';
+  if (rawGroup === 'roundtrip' || rawGroup === 'roundTrip' || rawGroup === 'round_trip') return 'round_trip';
+  if (rawGroup === 'stairs' || rawGroup === 'stair') return 'stair';
+  if (rawGroup === 'equip' || rawGroup === 'equipment') return 'equipment';
+  if (rawGroup === 'assist' || rawGroup === 'assistance') return 'assistance';
+  if (rawGroup === 'price') return 'price';
+  if (rawGroup === 'auto_set') return 'auto_set';
+
+  const keyUpper = rawKey.toUpperCase();
+
+  if (keyUpper.startsWith('MOVE_')) return 'move_type';
+  if (keyUpper.startsWith('ROUND_') || keyUpper.startsWith('ROUNDTRIP_') || keyUpper.startsWith('ROUND_TRIP_')) return 'round_trip';
+  if (keyUpper.startsWith('STAIR_')) return 'stair';
+  if (keyUpper.startsWith('EQUIP_') || keyUpper.startsWith('EQUIPMENT_')) return 'equipment';
+  if (keyUpper.startsWith('ASSIST_') || keyUpper.startsWith('ASSISTANCE_') || keyUpper === 'BODY_ASSIST' || keyUpper === 'BOARDING_ASSIST') return 'assistance';
+  if (keyUpper.startsWith('PRICE_') || keyUpper === 'BASE_FARE' || keyUpper === 'DISPATCH' || keyUpper === 'SPECIAL_VEHICLE') return 'price';
+  if (/AUTO_SET|STAFF_ADD/i.test(rawKey)) return 'auto_set';
+
+  if (/移動方法/.test(rawKeyJp) || /移動方法/.test(rawLabel)) return 'move_type';
+  if (/往復/.test(rawKeyJp) || /往復/.test(rawLabel)) return 'round_trip';
+  if (/階段/.test(rawKeyJp) || /階段/.test(rawLabel)) return 'stair';
+  if (/機材|レンタル|車いす|ストレッチャー/.test(rawKeyJp) || /機材|レンタル|車いす|ストレッチャー/.test(rawLabel)) return 'equipment';
+  if (/介助/.test(rawKeyJp) || /介助/.test(rawLabel)) return 'assistance';
+  if (/料金|基本/.test(rawKeyJp) || /料金|基本/.test(rawLabel)) return 'price';
+
+  return rawGroup || 'custom';
 }
 
 function normalizeGroupKey(group){
@@ -246,7 +257,7 @@ function buildMenuAutoApplyOptions(selectedGroup, selectedKey){
 
   let keyCandidates = [];
   if (selectedGroup) {
-    keyCandidates = (adminMenuMaster || []).filter(item => String(item.menu_group || '') === String(selectedGroup || ''));
+    keyCandidates = adminNormalizeMenuRows().filter(item => String(item.menu_group || '') === String(normalizeGroupKey(selectedGroup) || ''));
   }
 
   const keyOptions = [`<option value="">選択してください</option>`].concat(
@@ -297,8 +308,8 @@ function adminNormalizeMenuRows(){
 }
 
 function getMenuItemsByGroup(group){
-  return (adminMenuMaster || [])
-    .filter(item => String(normalizeLegacyMenuGroup(item)) === String(group || ''))
+  return adminNormalizeMenuRows()
+    .filter(item => String(item.menu_group || '') === String(normalizeGroupKey(group) || ''))
     .sort((a, b) => Number(a.sort_order || 9999) - Number(b.sort_order || 9999));
 }
 

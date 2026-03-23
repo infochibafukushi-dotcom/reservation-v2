@@ -621,7 +621,12 @@ async function initAdmin(){
 
   try{
     await withLoading(async ()=>{
-      await adminRefreshAllData();
+      try{
+        await adminRefreshBootstrapData(true);
+        await adminRefreshVisibleWindow();
+      }catch(_bootstrapErr){
+        await adminRefreshAllData();
+      }
     }, '読み込み中...');
   }catch(err){
     toast(err?.message || '初期化に失敗しました');

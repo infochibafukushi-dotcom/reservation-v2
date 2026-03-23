@@ -1,4 +1,4 @@
-const GAS_URL = "https://script.google.com/macros/s/AKfycbzVIEREUxN43gudkQU077sjRbqineT-Jp-gBF_fcYKGAgnHc4BsXAKbaj_kcHLeUfnL/exec";
+const GAS_URL = "https://script.google.com/macros/s/AKfycbyFKoCd64H2d5E8ExCrPRwG_g4shqlgHefgQYZrJ6HVOY5t5lwRVZ3UaXfYXIqNkCra/exec";
 const PUBLIC_PAGE_URL = "index.html";
 
 function toast(msg='通信エラー', ms=2200){
@@ -193,12 +193,26 @@ const gsRun = async (func, ...args) => {
     data = await _getJsonWithRetry(`${GAS_URL}?action=getConfig`, 1, 20000);
   } else if (func === 'api_getInitData') {
     data = await _getJsonWithRetry(`${GAS_URL}?action=getInitData`, 1, 25000);
+  } else if (func === 'api_getAdminBootstrap') {
+    data = await _getJsonWithRetry(`${GAS_URL}?action=getAdminBootstrap`, 1, 25000);
+  } else if (func === 'api_getReservationsRange') {
+    const range = args[0] || {};
+    const start = encodeURIComponent(String(range.start || ''));
+    const end = encodeURIComponent(String(range.end || ''));
+    data = await _getJsonWithRetry(`${GAS_URL}?action=getReservationsRange&start=${start}&end=${end}`, 1, 25000);
+  } else if (func === 'api_getBlocksRange') {
+    const range = args[0] || {};
+    const start = encodeURIComponent(String(range.start || ''));
+    const end = encodeURIComponent(String(range.end || ''));
+    data = await _getJsonWithRetry(`${GAS_URL}?action=getBlocksRange&start=${start}&end=${end}`, 1, 25000);
+  } else if (func === 'api_getMenuMaster') {
+    data = await _getJsonWithRetry(`${GAS_URL}?action=getMenuMaster`, 1, 20000);
   } else if (func === 'api_getMenuKeyCatalog') {
     data = await _getJsonWithRetry(`${GAS_URL}?action=getMenuKeyCatalog`, 1, 20000);
   } else if (func === 'api_getMenuGroupCatalog') {
     data = await _getJsonWithRetry(`${GAS_URL}?action=getMenuGroupCatalog`, 1, 20000);
-  } else if (func === 'api_getAdminBootstrap') {
-    data = await _getJsonWithRetry(`${GAS_URL}?action=getAdminBootstrap`, 1, 25000);
+  } else if (func === 'api_getAutoRuleCatalog') {
+    data = await _getJsonWithRetry(`${GAS_URL}?action=getAutoRuleCatalog`, 1, 20000);
   } else if (func === 'api_toggleBlock') {
     data = await _postJson('toggleBlock', args[0]);
   } else if (func === 'api_setRegularDayBlocked') {
@@ -302,8 +316,6 @@ const ADMIN_DEFAULT_CONFIG = {
   logo_image_url: '',
   logo_use_github_image: '1',
   phone_notify_text: '090-6331-4289',
-  gas_notify_url: 'https://script.google.com/macros/s/AKfycbxzM8EPlE-1hwHx6qwh4Q1jXgYa0nyc3_WtK0NYbYbcm5JExMJOi1zzjQocUhsoCuUQ/exec?secret=secret1',
-  gas_notify_secret: 'secret1',
   same_day_enabled: '0',
   same_day_min_hours: '3',
   admin_panels_collapsed_default: '1',
