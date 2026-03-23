@@ -253,11 +253,7 @@ function bindGridDelegation(){
       const blocked = isSlotBlockedWithMinute(date, hour, minute);
       if (blocked) return;
 
-      try{
-        await openBookingForm(date, hour, minute);
-      }catch(err){
-        try{ toast(err?.message || 'フォームを開けませんでした'); }catch(_){ }
-      }
+      await openBookingForm(date, hour, minute);
     }
   }, { passive: false });
 
