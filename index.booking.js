@@ -265,6 +265,8 @@ function calculatePrice(){
   let total = 0;
   const breakdown = [];
 
+  const moveType = document.getElementById('moveType').value;
+  const moveTypeKey = getSelectedOptionKey('moveType');
   const assistanceType = document.getElementById('assistanceType').value;
   const stairAssistance = document.getElementById('stairAssistance').value;
   const equipmentRental = document.getElementById('equipmentRental').value;
@@ -291,6 +293,15 @@ function calculatePrice(){
   breakdown.push({ name:getMenuLabel('BASE_FARE', '運賃'), price:baseFare, suffix:' から' });
   breakdown.push({ name:getMenuLabel('DISPATCH', '配車予約'), price:dispatch });
   breakdown.push({ name:getMenuLabel('SPECIAL_VEHICLE', '特殊車両使用料'), price:specialVehicle });
+
+  if (moveTypeKey){
+    const moveTypePrice = getMenuPrice(moveTypeKey, 0);
+    total += moveTypePrice;
+    breakdown.push({
+      name: moveType || getMenuLabel(moveTypeKey, '移動方法'),
+      price: moveTypePrice
+    });
+  }
 
   if (autoState.appliedBodyAssist){
     total += bodyAssistPrice;
@@ -412,6 +423,8 @@ async function submitBooking(e){
     phone_number: document.getElementById('phoneNumber').value.trim(),
     pickup_location: document.getElementById('pickupLocation').value.trim(),
     destination: document.getElementById('destination').value.trim() || '',
+    move_type: document.getElementById('moveType').value,
+    move_type_key: getSelectedOptionKey('moveType'),
     assistance_type: document.getElementById('assistanceType').value,
     stair_assistance: document.getElementById('stairAssistance').value,
     equipment_rental: equipmentRental,

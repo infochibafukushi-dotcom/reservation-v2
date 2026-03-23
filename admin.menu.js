@@ -94,7 +94,7 @@ function getAllKnownMenuGroups(){
   });
 
   (adminMenuMaster || []).forEach(item => {
-    const key = String(item && item.menu_group || '').trim();
+    const key = String(normalizeLegacyMenuGroup(item)).trim();
     if (!key) return;
     if (!map[key]){
       map[key] = {
@@ -144,6 +144,45 @@ function getEffectiveMenuGroupOrder(){
 function getGroupLabelByKey(groupKey){
   const found = getAllKnownMenuGroups().find(group => String(group.key || '') === String(groupKey || ''));
   return found ? String(found.label || groupKey || '') : String(groupKey || '');
+}
+
+function normalizeLegacyMenuGroup(item){
+  const row = item || {};
+  const rawGroup = String(row.menu_group || '').trim();
+  const rawKey = String(row.key || '').trim();
+  const rawKeyJp = String(row.key_jp || '').trim();
+  const rawLabel = String(row.label || '').trim();
+
+  if (rawGroup) {
+    if (rawGroup === 'move' || rawGroup === 'moveType' || rawGroup === 'move_type') return 'move_type';
+    if (rawGroup === 'roundtrip' || rawGroup === 'roundTrip' || rawGroup === 'round_trip') return 'round_trip';
+    if (rawGroup === 'stairs' || rawGroup === 'stair') return 'stair';
+    if (rawGroup === 'equip' || rawGroup === 'equipment') return 'equipment';
+    if (rawGroup === 'assist' || rawGroup === 'assistance') return 'assistance';
+    if (rawGroup === 'price') return 'price';
+    if (rawGroup === 'custom') return 'custom';
+    if (rawGroup === 'auto_set') return 'auto_set';
+  }
+
+  const keyUpper = rawKey.toUpperCase();
+  const keyJp = rawKeyJp;
+  const label = rawLabel;
+
+  if (keyUpper.startsWith('MOVE_')) return 'move_type';
+  if (keyUpper.startsWith('ROUND_') || keyUpper.startsWith('ROUNDTRIP_') || keyUpper.startsWith('ROUND_TRIP_')) return 'round_trip';
+  if (keyUpper.startsWith('STAIR_')) return 'stair';
+  if (keyUpper.startsWith('EQUIP_') || keyUpper.startsWith('EQUIPMENT_')) return 'equipment';
+  if (keyUpper.startsWith('ASSIST_') || keyUpper.startsWith('ASSISTANCE_')) return 'assistance';
+  if (keyUpper.startsWith('PRICE_') || keyUpper === 'BASE_FARE' || keyUpper === 'DISPATCH' || keyUpper === 'SPECIAL_VEHICLE') return 'price';
+
+  if (/移動方法/.test(keyJp) || /移動方法/.test(label)) return 'move_type';
+  if (/往復/.test(keyJp) || /往復/.test(label)) return 'round_trip';
+  if (/階段/.test(keyJp) || /階段/.test(label)) return 'stair';
+  if (/機材|レンタル|車いす|ストレッチャー/.test(keyJp) || /機材|レンタル|車いす|ストレッチャー/.test(label)) return 'equipment';
+  if (/介助/.test(keyJp) || /介助/.test(label)) return 'assistance';
+  if (/料金|基本/.test(keyJp) || /料金|基本/.test(label)) return 'price';
+
+  return rawGroup || 'custom';
 }
 
 function normalizeGroupKey(group){
@@ -254,7 +293,7 @@ function normalizeRequiredFlag(value){
 function adminNormalizeMenuRows(){
   return (adminMenuMaster || []).map((item, idx) => {
     const clone = cloneMenuObject(item || {});
-    clone.menu_group = normalizeGroupKey(clone.menu_group);
+    clone.menu_group = normalizeGroupKey(normalizeLegacyMenuGroup(clone));
     clone.key = makeMenuInternalKey(clone, idx);
     clone.key_jp = String(clone.key_jp || '');
     clone.label = String(clone.label || '');
@@ -576,7 +615,7 @@ function moveMenuItemWithinGroup(key, direction){
 
 function toggleMenuGroup(group){
   const body = document.getElementById(`menuGroupBody_${group}`);
-  const toggle = document.querySelector(`[data-menu-group-toggle="${group}"]`);
+  const toggle = document.querySelector(`[data-action="toggleMenuGroup"][data-group="${group}"]`);
   if (!body || !toggle) return;
 
   const collapsed = body.classList.toggle('collapsed');
