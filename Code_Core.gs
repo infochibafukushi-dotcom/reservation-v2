@@ -261,11 +261,11 @@ function _reservationHeaderAliases_() {
     phone_number: ['phone_number', 'phonenumber', 'phone', 'tel', 'telephone', '連絡先', '電話番号'],
     pickup_location: ['pickup_location', 'pickuplocation', 'pickup', 'お伺い先', 'お伺い場所', '迎車地', '出発地'],
     destination: ['destination', '送迎先', '目的地'],
+    move_type: ['move_type', 'movetype', '移動方法'],
+    move_type_key: ['move_type_key', 'movetypekey', '移動方法キー'],
     assistance_type: ['assistance_type', 'assistancetype', '介助内容'],
     stair_assistance: ['stair_assistance', 'stairassistance', '階段介助'],
-    move_type: ['move_type', 'movetype', '移動方法'],
-    move_type_key: ['move_type_key', 'movetypekey', '移動方法key', '移動方法キー'],
-    equipment_rental: ['equipment_rental', 'equipmentrental', 'equipment', '機材'],
+    equipment_rental: ['equipment_rental', 'equipmentrental', 'equipment', '機材', '機材レンタル'],
     stretcher_two_staff: ['stretcher_two_staff', 'stretchertwostaff', 'two_staff', 'twostaff', '2名体制', '二名体制'],
     round_trip: ['round_trip', 'roundtrip', '往復', '往復送迎'],
     notes: ['notes', 'note', '備考', 'お問い合わせ', 'お問い先'],
@@ -470,7 +470,7 @@ function _readMenuMasterFast_() {
       note: noteIdx >= 0 ? String(row[noteIdx] || '').trim() : '',
       is_visible: visIdx < 0 || row[visIdx] === '' || row[visIdx] === undefined ? true : _toBool(row[visIdx]),
       sort_order: sortIdx < 0 || row[sortIdx] === '' || row[sortIdx] === undefined ? 9999 : Number(row[sortIdx]),
-      menu_group: _normalizeMenuGroup_(groupIdx >= 0 ? row[groupIdx] : ''),
+      menu_group: _normalizeMenuGroupByKey_(groupIdx >= 0 ? row[groupIdx] : '', keyIdx >= 0 ? row[keyIdx] : ''),
       required_flag: reqIdx < 0 || row[reqIdx] === '' || row[reqIdx] === undefined ? false : _toBool(row[reqIdx]),
       auto_apply_group: _normalizeAutoApplyGroup_(autoGroupIdx >= 0 ? row[autoGroupIdx] : ''),
       auto_apply_key: autoKeyIdx >= 0 ? String(row[autoKeyIdx] || '').trim() : '',
@@ -1599,6 +1599,21 @@ function _normalizeMenuGroup_(group) {
     return String(g && g.key || '') === s;
   });
   return hit ? String(hit.key || '') : 'custom';
+}
+
+
+function _normalizeMenuGroupByKey_(group, key) {
+  var normalized = _normalizeMenuGroup_(group);
+  var k = String(key || '').trim().toUpperCase();
+  if (normalized === 'custom') {
+    if (/^MOVE_/.test(k)) return 'move_type';
+    if (/^ROUND_|^ROUNDTRIP_|^ROUND_TRIP_/.test(k)) return 'round_trip';
+    if (/^STAIR_/.test(k)) return 'stair';
+    if (/^EQUIP_|^EQUIPMENT_/.test(k)) return 'equipment';
+    if (/^ASSIST_|^ASSISTANCE_|^BOARDING_ASSIST$|^BODY_ASSIST$|^STAFF_ADD$/.test(k)) return 'assistance';
+    if (/^BASE_FARE$|^DISPATCH$|^SPECIAL_VEHICLE$|^PRICE_/.test(k)) return 'price';
+  }
+  return normalized;
 }
 
 function _normalizeAutoApplyGroup_(group) {

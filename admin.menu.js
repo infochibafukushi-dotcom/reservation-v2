@@ -72,6 +72,31 @@ function cloneMenuObject(value){
   return JSON.parse(JSON.stringify(value || {}));
 }
 
+
+function normalizeLegacyMenuGroup(item){
+  const row = item || {};
+  const rawGroup = String(row.menu_group || '').trim();
+  const rawKey = String(row.key || '').trim().toUpperCase();
+
+  if (rawGroup === 'move' || rawGroup === 'moveType' || rawGroup === 'move_type') return 'move_type';
+  if (rawGroup === 'roundtrip' || rawGroup === 'roundTrip' || rawGroup === 'round_trip') return 'round_trip';
+  if (rawGroup === 'stairs' || rawGroup === 'stair') return 'stair';
+  if (rawGroup === 'equip' || rawGroup === 'equipment') return 'equipment';
+  if (rawGroup === 'assist' || rawGroup === 'assistance') return 'assistance';
+  if (rawGroup === 'price') return 'price';
+  if (rawGroup === 'auto_set') return 'auto_set';
+
+  if (rawKey.startsWith('MOVE_')) return 'move_type';
+  if (rawKey.startsWith('ROUND_') or rawKey.startsWith('ROUNDTRIP_') or rawKey.startsWith('ROUND_TRIP_')) return 'round_trip';
+  if (rawKey.startsWith('STAIR_')) return 'stair';
+  if (rawKey.startsWith('EQUIP_') or rawKey.startsWith('EQUIPMENT_')) return 'equipment';
+  if (rawKey.startsWith('ASSIST_') or rawKey.startsWith('ASSISTANCE_') or rawKey in ['BOARDING_ASSIST','BODY_ASSIST','STAFF_ADD']) return 'assistance';
+  if (rawKey.startsWith('PRICE_') or rawKey in ['BASE_FARE','DISPATCH','SPECIAL_VEHICLE']) return 'price';
+  if ('AUTO_SET' in rawKey) return 'auto_set';
+
+  return rawGroup || 'custom';
+}
+
 function getAllKnownMenuGroups(){
   const map = {};
 
@@ -94,7 +119,7 @@ function getAllKnownMenuGroups(){
   });
 
   (adminMenuMaster || []).forEach(item => {
-    const key = String(item && item.menu_group || '').trim();
+    const key = String(normalizeLegacyMenuGroup(item)).trim();
     if (!key) return;
     if (!map[key]){
       map[key] = {
@@ -254,7 +279,7 @@ function normalizeRequiredFlag(value){
 function adminNormalizeMenuRows(){
   return (adminMenuMaster || []).map((item, idx) => {
     const clone = cloneMenuObject(item || {});
-    clone.menu_group = normalizeGroupKey(clone.menu_group);
+    clone.menu_group = normalizeGroupKey(normalizeLegacyMenuGroup(clone));
     clone.key = makeMenuInternalKey(clone, idx);
     clone.key_jp = String(clone.key_jp || '');
     clone.label = String(clone.label || '');
@@ -273,7 +298,7 @@ function adminNormalizeMenuRows(){
 
 function getMenuItemsByGroup(group){
   return (adminMenuMaster || [])
-    .filter(item => String(item.menu_group || '') === String(group || ''))
+    .filter(item => String(normalizeLegacyMenuGroup(item)) === String(group || ''))
     .sort((a, b) => Number(a.sort_order || 9999) - Number(b.sort_order || 9999));
 }
 
