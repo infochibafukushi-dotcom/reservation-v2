@@ -211,7 +211,7 @@ const MENU_GROUP_CATALOG = [
   { key: 'round_trip', label: '往復送迎',                description: '予約フォームの「往復送迎」プルダウンに表示' },
   { key: 'move_type',  label: '移動方法',                description: '予約フォームの「移動方法」プルダウンに表示' },
   { key: 'custom',     label: 'その他（表示先なし）',    description: '保存のみ。どのプルダウンにも出さない' },
-  { key: 'auto_set',   label: '自動セット',              description: '予約フォームには出さず、内部加算だけに使う' }
+  { key: 'auto_set',   label: '自動セット',            description: '予約フォームには出さず、内部加算だけに使う' }
 ];
 
 // ===== 日本語キー候補（管理画面プルダウン用） =====
@@ -530,6 +530,66 @@ function api_getConfigPublic() {
   }
 }
 
+
+function _normalizeMenuMasterRows_(rows) {
+  return (Array.isArray(rows) ? rows : []).map(function(item) {
+    var row = _clone_(item || {});
+    var key = String(row.key || '').trim();
+    var group = String(row.menu_group || '').trim();
+    if (group === 'custom' && /^MOVE_/.test(key)) {
+      row.menu_group = 'move_type';
+    }
+    if (group === 'equipment' && key === 'EQUIP_STRETCHER_STAFF2') {
+      row.menu_group = 'auto_set';
+    }
+    return row;
+  });
+}
+
+function _notifyReservationByUrlClick_(obj) {
+  try {
+    var cfg = _getConfigMap_();
+    var url = String(cfg.gas_notify_url || '').trim();
+    if (!url) return;
+    var secret = String(cfg.gas_notify_secret || '').trim();
+    var params = {
+      event: 'reservation_created',
+      reservation_id: String((obj && obj.reservation_id) || ''),
+      reservation_datetime: String((obj && obj.reservation_datetime) || ''),
+      slot_date: String((obj && obj.slot_date) || ''),
+      slot_hour: String((obj && obj.slot_hour) || ''),
+      slot_minute: String((obj && obj.slot_minute) || ''),
+      usage_type: String((obj && obj.usage_type) || ''),
+      customer_name: String((obj && obj.customer_name) || ''),
+      phone_number: String((obj && obj.phone_number) || ''),
+      pickup_location: String((obj && obj.pickup_location) || ''),
+      destination: String((obj && obj.destination) || ''),
+      assistance_type: String((obj && obj.assistance_type) || ''),
+      stair_assistance: String((obj && obj.stair_assistance) || ''),
+      move_type: String((obj && obj.move_type) || ''),
+      equipment_rental: String((obj && obj.equipment_rental) || ''),
+      round_trip: String((obj && obj.round_trip) || ''),
+      total_price: String((obj && obj.total_price) || ''),
+      status: String((obj && obj.status) || '')
+    };
+    if (secret) params.secret = secret;
+    var pairs = [];
+    Object.keys(params).forEach(function(key){
+      var value = params[key];
+      if (value === '' || value === null || value === undefined) return;
+      pairs.push(encodeURIComponent(key) + '=' + encodeURIComponent(String(value)));
+    });
+    var sep = url.indexOf('?') >= 0 ? '&' : '?';
+    UrlFetchApp.fetch(url + sep + pairs.join('&'), {
+      method: 'get',
+      muteHttpExceptions: true,
+      followRedirects: true
+    });
+  } catch (notifyErr) {
+    _logAdmin_('NOTIFY_RESERVATION_ERROR', String((obj && obj.reservation_id) || ''), '', '', String(notifyErr && notifyErr.message || notifyErr));
+  }
+}
+
 function api_getPublicBootstrap() {
   try {
     _ensureConfigDefaults_();
@@ -549,9 +609,9 @@ function api_getPublicBootstrap() {
 
     const out = {
       config: configResult.data || {},
-      menu_master: menuResult.data || [],
+      menu_master: _normalizeMenuMasterRows_(menuResult.data || []),
       menu_key_catalog: MENU_KEY_CATALOG,
-      menu_group_catalog: _getResolvedMenuGroupCatalog_(),
+      menu_group_catalog: MENU_GROUP_CATALOG,
       auto_rule_catalog: _buildAutoRuleCatalog_()
     };
 
@@ -595,9 +655,9 @@ function api_getInitData() {
 
     return _ok({
       config: configResult.data || {},
-      menu_master: menuResult.data || [],
+      menu_master: _normalizeMenuMasterRows_(menuResult.data || []),
       menu_key_catalog: MENU_KEY_CATALOG,
-      menu_group_catalog: _getResolvedMenuGroupCatalog_(),
+      menu_group_catalog: MENU_GROUP_CATALOG,
       auto_rule_catalog: _buildAutoRuleCatalog_(),
       reservations: reservations,
       blocks: blocks
@@ -624,9 +684,9 @@ function api_getAdminBootstrap() {
 
     const out = {
       config: configResult.data || {},
-      menu_master: menuResult.data || [],
+      menu_master: _normalizeMenuMasterRows_(menuResult.data || []),
       menu_key_catalog: MENU_KEY_CATALOG,
-      menu_group_catalog: _getResolvedMenuGroupCatalog_(),
+      menu_group_catalog: MENU_GROUP_CATALOG,
       auto_rule_catalog: _buildAutoRuleCatalog_()
     };
 
@@ -675,7 +735,7 @@ function api_getMenuMaster() {
     const cached = _cacheGetJson_(cacheKey);
     if (cached) return _ok(cached);
 
-    const out = _readMenuMasterFast_();
+    const out = _normalizeMenuMasterRows_(_readMenuMasterFast_());
     _cachePutJson_(cacheKey, out, 300);
     return _ok(out);
   } catch (e) {
@@ -693,7 +753,7 @@ function api_getMenuKeyCatalog() {
 
 function api_getMenuGroupCatalog() {
   try {
-    return _ok(_getResolvedMenuGroupCatalog_());
+    return _ok(MENU_GROUP_CATALOG);
   } catch (e) {
     return _ng(e);
   }
@@ -884,41 +944,6 @@ function api_verifyAdminPassword(payload) {
   }
 }
 
-
-function _postReservationNotify_(reservationObj){
-  try{
-    var cfg = _getConfigMap_();
-    var url = String(cfg.gas_notify_url || '').trim();
-    if (!url) return;
-
-    var secret = String(cfg.gas_notify_secret || '').trim();
-    var payload = {
-      reservation_id: String((reservationObj && reservationObj.reservation_id) || ''),
-      reservation_datetime: String((reservationObj && reservationObj.reservation_datetime) || ''),
-      slot_date: String((reservationObj && reservationObj.slot_date) || ''),
-      slot_hour: Number((reservationObj && reservationObj.slot_hour) || 0),
-      slot_minute: Number((reservationObj && reservationObj.slot_minute) || 0),
-      customer_name: String((reservationObj && reservationObj.customer_name) || ''),
-      phone_number: String((reservationObj && reservationObj.phone_number) || ''),
-      pickup_location: String((reservationObj && reservationObj.pickup_location) || ''),
-      destination: String((reservationObj && reservationObj.destination) || ''),
-      assistance_type: String((reservationObj && reservationObj.assistance_type) || ''),
-      equipment_rental: String((reservationObj && reservationObj.equipment_rental) || ''),
-      total_price: Number((reservationObj && reservationObj.total_price) || 0),
-      raw: reservationObj || {}
-    };
-
-    var options = {
-      method: 'post',
-      muteHttpExceptions: true,
-      contentType: 'application/json',
-      payload: JSON.stringify(payload),
-      headers: secret ? { 'X-Notify-Secret': secret } : {}
-    };
-    UrlFetchApp.fetch(url, options);
-  }catch(_){}
-}
-
 /**
  * 予約作成
  * - round_trip === '不要'               → 2枠（60分）
@@ -950,7 +975,6 @@ function api_createReservation(obj) {
 
     _appendByHeader(sheet, obj);
     _upsertReservationBlocksBulk_(dateStr, hour, minute, slots, rid);
-    _postReservationNotify_(obj);
 
     _logAdmin_(
       'CREATE_RESERVATION',
@@ -966,6 +990,7 @@ function api_createReservation(obj) {
     );
 
     _invalidateBlockedSlotKeysCache_();
+    _notifyReservationByUrlClick_(obj);
     return _ok({ added: true });
   } catch (e) {
     return _ng(e);

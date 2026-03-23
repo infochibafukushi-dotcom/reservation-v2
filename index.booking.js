@@ -1,43 +1,3 @@
-
-function getPublicGroupRequiredConfig_(){
-  const required = {};
-  (menuMaster || []).forEach(item => {
-    let group = String(item && item.menu_group || '').trim();
-    const key = String(item && item.key || '').trim();
-    if (group === 'custom' && /^MOVE_/.test(key)) group = 'move_type';
-    if (!group) return;
-    const visible = !(item && (item.is_visible === false || String(item.is_visible).toUpperCase() === 'FALSE'));
-    if (!visible) return;
-    if (item && (item.required_flag === true || String(item.required_flag).toUpperCase() === 'TRUE' || String(item.required_flag) === '1')) required[group] = true;
-    else if (required[group] === undefined) required[group] = false;
-  });
-  return required;
-}
-
-function isPublicGroupShown_(group){
-  const key = String(group || '').trim();
-  const visibility = (typeof getPublicMenuGroupVisibilityConfig === 'function') ? getPublicMenuGroupVisibilityConfig() : {};
-  const val = visibility[key];
-  if (val === undefined || val === null || val === '') return true;
-  if (val === true || String(val) === '1' || String(val).toUpperCase() === 'TRUE') return true;
-  return false;
-}
-
-function isPublicGroupRequired_(group){
-  const key = String(group || '').trim();
-  if (!key || !isPublicGroupShown_(key)) return false;
-  if (['price','custom','auto_set'].includes(key)) return false;
-  const required = getPublicGroupRequiredConfig_();
-  return !!required[key];
-}
-
-function getPublicGroupValue_(group){
-  const map = { move_type:'moveType', assistance:'assistanceType', stair:'stairAssistance', equipment:'equipmentRental', round_trip:'roundTrip' };
-  const id = map[String(group || '').trim()];
-  const el = id ? document.getElementById(id) : null;
-  return el ? String(el.value || '').trim() : '';
-}
-
 function buildSelectOptions(selectEl, items, includePlaceholder, placeholderText, formatter){
   if (!selectEl) return;
   let html = '';
@@ -242,12 +202,11 @@ function hasBookingSelectOptionsReady(){
   const moveTypeReady = !!(moveTypeEl && moveTypeEl.options && moveTypeEl.options.length > 1);
   const assistanceReady = !!(assistanceEl && assistanceEl.options && assistanceEl.options.length > 1);
   const stairReady = !!(stairEl && stairEl.options && stairEl.options.length > 0);
-  const equipmentReady = !!(equipmentEl && equipmentEl.options && equipmentEl.options.length >= 1);
+  const equipmentReady = !!(equipmentEl && equipmentEl.options && equipmentEl.options.length > 1);
   const roundTripReady = !!(roundTripEl && roundTripEl.options && roundTripEl.options.length > 0);
 
   return moveTypeReady && assistanceReady && stairReady && equipmentReady && roundTripReady;
 }
-
 
 async function ensureBookingFormOptionsReady(){
   if (hasBookingSelectOptionsReady()) return true;
@@ -271,29 +230,19 @@ async function ensureBookingFormOptionsReady(){
 }
 
 async function openBookingForm(date, hour, minute=0){
-  selectedSlot = { date, hour, minute };
-  const infoEl = document.getElementById('selectedSlotInfo');
-  if (infoEl){
-    infoEl.textContent = `${formatDate(date)} ${String(hour).padStart(2,'0')}:${String(minute).padStart(2,'0')} から`;
-  }
-  document.getElementById('bookingModal')?.classList.remove('hidden');
-
-  let ready = hasBookingSelectOptionsReady();
+  const ready = await ensureBookingFormOptionsReady();
   if (!ready){
-    try{ await refreshAllData(false); }catch(_){ }
-    try{ renderServiceSelectors(); }catch(_){ }
-    ready = hasBookingSelectOptionsReady();
+    toast('フォーム読込中です。少し待ってからもう一度お試しください');
+    return;
   }
 
+  selectedSlot = { date, hour, minute };
+  document.getElementById('selectedSlotInfo').textContent =
+    `${formatDate(date)} ${String(hour).padStart(2,'0')}:${String(minute).padStart(2,'0')} から`;
+  document.getElementById('bookingModal').classList.remove('hidden');
   resetBookingForm();
   calculatePrice();
-
-  if (!ready){
-    setTimeout(()=>{ try{ renderServiceSelectors(); resetBookingForm(); calculatePrice(); }catch(_){ } }, 150);
-    setTimeout(()=>{ try{ renderServiceSelectors(); resetBookingForm(); calculatePrice(); }catch(_){ } }, 500);
-  }
 }
-
 
 function resetBookingForm(){
   document.getElementById('bookingForm').reset();
@@ -316,6 +265,8 @@ function calculatePrice(){
   let total = 0;
   const breakdown = [];
 
+  const moveType = document.getElementById('moveType') ? document.getElementById('moveType').value : '';
+  const moveTypeKey = getSelectedOptionKey('moveType');
   const assistanceType = document.getElementById('assistanceType').value;
   const stairAssistance = document.getElementById('stairAssistance').value;
   const equipmentRental = document.getElementById('equipmentRental').value;
@@ -342,6 +293,16 @@ function calculatePrice(){
   breakdown.push({ name:getMenuLabel('BASE_FARE', '運賃'), price:baseFare, suffix:' から' });
   breakdown.push({ name:getMenuLabel('DISPATCH', '配車予約'), price:dispatch });
   breakdown.push({ name:getMenuLabel('SPECIAL_VEHICLE', '特殊車両使用料'), price:specialVehicle });
+
+  if (moveTypeKey){
+    const movePrice = getMenuPrice(moveTypeKey, 0);
+    if (movePrice > 0){
+      total += movePrice;
+      breakdown.push({ name:getMenuLabel(moveTypeKey, moveType || '移動方法'), price:movePrice });
+    } else if (moveType){
+      breakdown.push({ name:moveType, price:0 });
+    }
+  }
 
   if (autoState.appliedBodyAssist){
     total += bodyAssistPrice;
@@ -407,21 +368,17 @@ function calculatePrice(){
 }
 
 function updateSubmitButton(){
-  const privacy = !!(document.getElementById('privacyAgreement') && document.getElementById('privacyAgreement').checked);
-  const usageType = String(document.getElementById('usageType')?.value || '').trim();
-  const customerName = String(document.getElementById('customerName')?.value || '').trim();
-  const phoneNumber = String(document.getElementById('phoneNumber')?.value || '').trim();
-  const pickupLocation = String(document.getElementById('pickupLocation')?.value || '').trim();
+  const privacy = document.getElementById('privacyAgreement').checked;
+  const usageType = document.getElementById('usageType').value;
+  const customerName = document.getElementById('customerName').value.trim();
+  const phoneNumber = document.getElementById('phoneNumber').value.trim();
+  const pickupLocation = document.getElementById('pickupLocation').value.trim();
+  const assistanceType = document.getElementById('assistanceType').value;
+  const equipmentRental = document.getElementById('equipmentRental').value;
 
-  let isValid = privacy && !!usageType && !!customerName && !!phoneNumber && !!pickupLocation;
-  ['move_type','assistance','stair','equipment','round_trip'].forEach(group => {
-    if (!isValid) return;
-    if (!isPublicGroupRequired_(group)) return;
-    if (!getPublicGroupValue_(group)) isValid = false;
-  });
+  const isValid = privacy && usageType && customerName && phoneNumber && pickupLocation && assistanceType && equipmentRental;
 
   const submitBtn = document.getElementById('submitBooking');
-  if (!submitBtn) return;
   if (isValid){
     submitBtn.disabled = false;
     submitBtn.className = 'w-full cute-btn py-4 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white hover:from-emerald-600 hover:to-emerald-700 cursor-pointer text-lg';
@@ -430,7 +387,6 @@ function updateSubmitButton(){
     submitBtn.className = 'w-full cute-btn py-4 bg-gray-300 text-white cursor-not-allowed text-lg';
   }
 }
-
 
 async function waitAndRefresh_(waitMs){
   await sleep(waitMs || 700);
@@ -470,6 +426,7 @@ async function submitBooking(e){
     destination: document.getElementById('destination').value.trim() || '',
     assistance_type: document.getElementById('assistanceType').value,
     stair_assistance: document.getElementById('stairAssistance').value,
+    move_type: document.getElementById('moveType') ? document.getElementById('moveType').value : '',
     equipment_rental: equipmentRental,
     stretcher_two_staff: stretcherTwoStaff,
     round_trip: document.getElementById('roundTrip').value,
@@ -491,7 +448,7 @@ async function submitBooking(e){
     document.getElementById('bookingModal').classList.add('hidden');
     document.getElementById('completeModal').classList.remove('hidden');
 
-    fireTrigger();
+    fireTrigger(reservation);
 
     try{
       await waitAndRefresh_(800);
@@ -846,7 +803,7 @@ renderServiceSelectors = function(){
       function(item){ return `${item.label}${Number(item.price || 0) ? `(${Number(item.price || 0).toLocaleString()}円)` : ''}`; }
     );
     const moveTypeLabel = document.getElementById('moveTypeLabel');
-    if (moveTypeLabel) moveTypeLabel.innerHTML = `${escapeHtml(config.form_move_type_label || defaultConfig.form_move_type_label || '移動方法')}${isPublicGroupRequired_('move_type') ? ' <span class="required">*</span>' : ''}`;
+    if (moveTypeLabel) moveTypeLabel.innerHTML = `${escapeHtml(config.form_move_type_label || defaultConfig.form_move_type_label || '移動方法')} <span class="required">*</span>`;
     const moveTypeNote = document.getElementById('moveTypeNote');
     if (moveTypeNote) moveTypeNote.textContent = config.form_move_type_help_text || defaultConfig.form_move_type_help_text || '最初に移動方法をお選びください';
   }
@@ -901,10 +858,7 @@ applyAutoSelections = function(){
 
 const _calculatePriceOriginal = calculatePrice;
 calculatePrice = function(){
-  try{ syncEquipmentFromMoveTypePatched(); }catch(_){ }
-  try{ applyAutoSelections(); }catch(_){ }
   const total = _calculatePriceOriginal();
-  try{ updateSubmitButton(); }catch(_){ }
   return total;
 };
 

@@ -1,5 +1,5 @@
 const ADMIN_ICON_FILE_ID = '1a0QB8ei00w_lSfL4PnF_xuEFUC2JP6FW';
-const GAS_URL = "https://script.google.com/macros/s/AKfycbyFKoCd64H2d5E8ExCrPRwG_g4shqlgHefgQYZrJ6HVOY5t5lwRVZ3UaXfYXIqNkCra/exec";
+const GAS_URL = "https://script.google.com/macros/s/AKfycbzVIEREUxN43gudkQU077sjRbqineT-Jp-gBF_fcYKGAgnHc4BsXAKbaj_kcHLeUfnL/exec";
 const ADMIN_PAGE_URL = "admin.html";
 
 function toast(msg='通信エラー', ms=2200){
@@ -260,26 +260,31 @@ function _writeLocalJson_(key, value){
   }catch(_){ }
 }
 
-
-function normalizePublicMenuMaster_(items){
-  return (Array.isArray(items) ? items : []).map(item => {
-    const clone = Object.assign({}, item || {});
-    const key = String(clone.key || '').trim();
-    const group = String(clone.menu_group || '').trim();
-    if (group === 'custom' && /^MOVE_/.test(key)) clone.menu_group = 'move_type';
-    return clone;
-  });
-}
-
 function _isFreshCache_(entry, ttlMs){
   if (!entry || !entry.savedAt) return false;
   const age = Date.now() - Number(entry.savedAt || 0);
   return age >= 0 && age <= Number(ttlMs || 0);
 }
 
+
+function _normalizePublicMenuMaster_(items){
+  return (Array.isArray(items) ? items : []).map(item => {
+    const row = { ...(item || {}) };
+    const key = String(row.key || '').trim();
+    const group = String(row.menu_group || '').trim();
+    if (group === 'custom' && /^MOVE_/.test(key)) {
+      row.menu_group = 'move_type';
+    }
+    if (group === 'equipment' && key === 'EQUIP_STRETCHER_STAFF2') {
+      row.menu_group = 'auto_set';
+    }
+    return row;
+  });
+}
+
 function _applyBootstrapData_(data){
   config = { ...defaultConfig, ...(data.config || config || {}) };
-  menuMaster = normalizePublicMenuMaster_(Array.isArray(data.menu_master) ? data.menu_master : []);
+  menuMaster = _normalizePublicMenuMaster_(Array.isArray(data.menu_master) ? data.menu_master : []);
   menuKeyCatalog = Array.isArray(data.menu_key_catalog) ? data.menu_key_catalog : [];
   menuGroupCatalog = Array.isArray(data.menu_group_catalog) && data.menu_group_catalog.length ? data.menu_group_catalog : defaultMenuGroupCatalog;
   autoRuleCatalog = Array.isArray(data.auto_rule_catalog) ? data.auto_rule_catalog : [];
@@ -332,15 +337,31 @@ function hydratePublicCacheForFastPaint(){
   return bootLoaded || blockedLoaded;
 }
 
-const TRIGGER_URL = 'https://script.google.com/macros/s/AKfycbyFKoCd64H2d5E8ExCrPRwG_g4shqlgHefgQYZrJ6HVOY5t5lwRVZ3UaXfYXIqNkCra/exec?secret=secret1';
+const TRIGGER_URL = '';
 
-function fireTrigger(){
+function fireTrigger(payload){
   try{
-    if (!TRIGGER_URL) return;
-    const sep = TRIGGER_URL.includes('?') ? '&' : '?';
-    const url = TRIGGER_URL + sep + 't=' + Date.now();
+    const baseUrl = String((config && config.gas_notify_url) || TRIGGER_URL || '').trim();
+    if (!baseUrl) return;
+    const params = new URLSearchParams();
+    params.set('event', 'reservation_created');
+    params.set('t', String(Date.now()));
+    const src = payload && typeof payload === 'object' ? payload : {};
+    [
+      'reservation_id','reservation_datetime','slot_date','slot_hour','slot_minute',
+      'customer_name','phone_number','pickup_location','destination',
+      'assistance_type','stair_assistance','equipment_rental','round_trip',
+      'total_price','status'
+    ].forEach((key)=>{
+      if (src[key] !== undefined && src[key] !== null && String(src[key]).trim() !== ''){
+        params.set(key, String(src[key]));
+      }
+    });
+    const secret = String((config && config.gas_notify_secret) || '').trim();
+    if (secret) params.set('secret', secret);
+    const sep = baseUrl.includes('?') ? '&' : '?';
     const img = new Image();
-    img.src = url;
+    img.src = baseUrl + sep + params.toString();
   }catch(_){}
 }
 
@@ -569,12 +590,8 @@ function getMenuAutoApplyKey(key){
 }
 
 function getItemsByGroup(group){
-  const target = String(group || '').trim();
   return (menuMaster || []).filter(item => {
-    const itemKey = String(item && item.key || '').trim();
-    let itemGroup = String(item && item.menu_group || '').trim();
-    if (itemGroup === 'custom' && /^MOVE_/.test(itemKey)) itemGroup = 'move_type';
-    if (itemGroup !== target) return false;
+    if (String(item.menu_group || '') !== String(group || '')) return false;
     if (item.is_visible === false || String(item.is_visible).toUpperCase() === 'FALSE') return false;
     return true;
   }).sort((a,b) => {
@@ -584,7 +601,6 @@ function getItemsByGroup(group){
     return String(a.key).localeCompare(String(b.key));
   });
 }
-
 
 function getRuleByIndex(index){
   return (autoRuleCatalog || []).find(rule => Number(rule.index) === Number(index)) || null;
