@@ -883,6 +883,53 @@ function api_verifyAdminPassword(payload) {
   }
 }
 
+function _notifyReservationByUrl_(obj) {
+  try {
+    var cfg = _getConfigMap_();
+    var baseUrl = String(cfg.gas_notify_url || '').trim();
+    if (!baseUrl) return;
+
+    var payload = obj || {};
+    var params = {
+      reservation_id: String(payload.reservation_id || ''),
+      reservation_datetime: String(payload.reservation_datetime || ''),
+      slot_date: String(payload.slot_date || ''),
+      slot_hour: String(payload.slot_hour || ''),
+      slot_minute: String(payload.slot_minute || ''),
+      customer_name: String(payload.customer_name || ''),
+      phone_number: String(payload.phone_number || ''),
+      pickup_location: String(payload.pickup_location || ''),
+      destination: String(payload.destination || ''),
+      move_type: String(payload.move_type || ''),
+      assistance_type: String(payload.assistance_type || ''),
+      stair_assistance: String(payload.stair_assistance || ''),
+      equipment_rental: String(payload.equipment_rental || ''),
+      round_trip: String(payload.round_trip || ''),
+      total_price: String(payload.total_price || ''),
+      notes: String(payload.notes || '')
+    };
+
+    var secret = String(cfg.gas_notify_secret || '').trim();
+    if (secret) params.secret = secret;
+
+    var qs = Object.keys(params).map(function(key){
+      return encodeURIComponent(key) + '=' + encodeURIComponent(params[key]);
+    }).join('&');
+
+    var url = baseUrl + (baseUrl.indexOf('?') >= 0 ? '&' : '?') + qs;
+
+    UrlFetchApp.fetch(url, {
+      method: 'get',
+      muteHttpExceptions: true,
+      followRedirects: true
+    });
+  } catch (e) {
+    try {
+      _logAdmin_('RESERVATION_NOTIFY_ERROR', String((obj && obj.reservation_id) || ''), '', '', String(e && e.message || e));
+    } catch (_) {}
+  }
+}
+
 /**
  * 予約作成
  * - round_trip === '不要'               → 2枠（60分）
@@ -929,60 +976,12 @@ function api_createReservation(obj) {
     );
 
     _invalidateBlockedSlotKeysCache_();
-    _notifyReservationByUrlClick_(obj);
+    _notifyReservationByUrl_(obj);
     return _ok({ added: true });
   } catch (e) {
     return _ng(e);
   } finally {
     try { lock.releaseLock(); } catch (_) {}
-  }
-}
-
-
-
-function _notifyReservationByUrlClick_(obj) {
-  try {
-    var cfg = _getConfigMap_();
-    var url = String(cfg.gas_notify_url || '').trim();
-    if (!url) return;
-    var secret = String(cfg.gas_notify_secret || '').trim();
-    var params = {
-      event: 'reservation_created',
-      reservation_id: String((obj && obj.reservation_id) || ''),
-      reservation_datetime: String((obj && obj.reservation_datetime) || ''),
-      slot_date: String((obj && obj.slot_date) || ''),
-      slot_hour: String((obj && obj.slot_hour) || ''),
-      slot_minute: String((obj && obj.slot_minute) || ''),
-      usage_type: String((obj && obj.usage_type) || ''),
-      customer_name: String((obj && obj.customer_name) || ''),
-      phone_number: String((obj && obj.phone_number) || ''),
-      pickup_location: String((obj && obj.pickup_location) || ''),
-      destination: String((obj && obj.destination) || ''),
-      move_type: String((obj && obj.move_type) || ''),
-      assistance_type: String((obj && obj.assistance_type) || ''),
-      stair_assistance: String((obj && obj.stair_assistance) || ''),
-      equipment_rental: String((obj && obj.equipment_rental) || ''),
-      round_trip: String((obj && obj.round_trip) || ''),
-      total_price: String((obj && obj.total_price) || ''),
-      status: String((obj && obj.status) || '')
-    };
-    if (secret) params.secret = secret;
-    var pairs = [];
-    Object.keys(params).forEach(function(key){
-      var value = params[key];
-      if (value === '' || value === null || value === undefined) return;
-      pairs.push(encodeURIComponent(key) + '=' + encodeURIComponent(String(value)));
-    });
-    var sep = url.indexOf('?') >= 0 ? '&' : '?';
-    UrlFetchApp.fetch(url + sep + pairs.join('&'), {
-      method: 'get',
-      muteHttpExceptions: true,
-      followRedirects: true
-    });
-  } catch (e) {
-    try {
-      _logAdmin_('RESERVATION_NOTIFY_ERROR', String((obj && obj.reservation_id) || ''), '', JSON.stringify({ message: String(e && e.message ? e.message : e) }), '');
-    } catch (_) {}
   }
 }
 

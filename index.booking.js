@@ -265,14 +265,13 @@ function calculatePrice(){
   let total = 0;
   const breakdown = [];
 
-  const moveType = document.getElementById('moveType') ? document.getElementById('moveType').value : '';
-  const moveTypeKey = getSelectedOptionKey('moveType');
   const assistanceType = document.getElementById('assistanceType').value;
   const stairAssistance = document.getElementById('stairAssistance').value;
-  const equipmentRental = document.getElementById('equipmentRental').value;
   const roundTrip = document.getElementById('roundTrip').value;
 
   const autoState = applyAutoSelections();
+  const equipmentRental = document.getElementById('equipmentRental').value;
+  const moveType = document.getElementById('moveType') ? document.getElementById('moveType').value : '';
 
   const baseFare = getMenuPrice('BASE_FARE', 730);
   const dispatch = getMenuPrice('DISPATCH', 800);
@@ -293,17 +292,6 @@ function calculatePrice(){
   breakdown.push({ name:getMenuLabel('BASE_FARE', '運賃'), price:baseFare, suffix:' から' });
   breakdown.push({ name:getMenuLabel('DISPATCH', '配車予約'), price:dispatch });
   breakdown.push({ name:getMenuLabel('SPECIAL_VEHICLE', '特殊車両使用料'), price:specialVehicle });
-
-  if (moveTypeKey){
-    const moveTypePrice = getMenuPrice(moveTypeKey, 0);
-    const linkedEquipmentKey = syncEquipmentFromMoveTypePatched();
-    const linkedEquipmentPrice = linkedEquipmentKey ? getMenuPrice(linkedEquipmentKey, 0) : 0;
-    const sameAsLinkedEquipment = !!linkedEquipmentKey && Number(moveTypePrice) === Number(linkedEquipmentPrice) && Number(moveTypePrice) > 0;
-    if (!sameAsLinkedEquipment){
-      total += moveTypePrice;
-      breakdown.push({ name:(moveType || getMenuLabel(moveTypeKey, '移動方法')), price:moveTypePrice });
-    }
-  }
 
   if (autoState.appliedBodyAssist){
     total += bodyAssistPrice;
@@ -369,17 +357,50 @@ function calculatePrice(){
 }
 
 function updateSubmitButton(){
-  const privacy = document.getElementById('privacyAgreement').checked;
-  const usageType = document.getElementById('usageType').value;
-  const customerName = document.getElementById('customerName').value.trim();
-  const phoneNumber = document.getElementById('phoneNumber').value.trim();
-  const pickupLocation = document.getElementById('pickupLocation').value.trim();
-  const assistanceType = document.getElementById('assistanceType').value;
-  const equipmentRental = document.getElementById('equipmentRental').value;
+  try{
+    applyAutoSelections();
+  }catch(_){}
 
-  const isValid = privacy && usageType && customerName && phoneNumber && pickupLocation && assistanceType && equipmentRental;
+  const visibility = getPublicMenuGroupVisibilityConfig ? getPublicMenuGroupVisibilityConfig() : {};
+  const isShown = (group) => {
+    const v = visibility[group];
+    return v === undefined || v === null || v === '' || v === true || String(v) === '1' || String(v).toUpperCase() === 'TRUE';
+  };
+
+  const privacy = !!document.getElementById('privacyAgreement')?.checked;
+  const usageType = String(document.getElementById('usageType')?.value || '').trim();
+  const customerName = String(document.getElementById('customerName')?.value || '').trim();
+  const phoneNumber = String(document.getElementById('phoneNumber')?.value || '').trim();
+  const pickupLocation = String(document.getElementById('pickupLocation')?.value || '').trim();
+
+  const moveType = String(document.getElementById('moveType')?.value || '').trim();
+  const assistanceType = String(document.getElementById('assistanceType')?.value || '').trim();
+  const stairAssistance = String(document.getElementById('stairAssistance')?.value || '').trim();
+  const equipmentRental = String(document.getElementById('equipmentRental')?.value || '').trim();
+  const roundTrip = String(document.getElementById('roundTrip')?.value || '').trim();
+
+  const moveTypeOk = !isShown('move_type') || !!moveType;
+  const assistanceOk = !isShown('assistance') || !!assistanceType;
+  const stairOk = !isShown('stair') || !!stairAssistance;
+  const equipmentOk = !isShown('equipment') || !!(equipmentRental || moveType);
+  const roundTripOk = !isShown('round_trip') || !!roundTrip;
+
+  const isValid = !!(
+    privacy &&
+    usageType &&
+    customerName &&
+    phoneNumber &&
+    pickupLocation &&
+    moveTypeOk &&
+    assistanceOk &&
+    stairOk &&
+    equipmentOk &&
+    roundTripOk
+  );
 
   const submitBtn = document.getElementById('submitBooking');
+  if (!submitBtn) return isValid;
+
   if (isValid){
     submitBtn.disabled = false;
     submitBtn.className = 'w-full cute-btn py-4 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white hover:from-emerald-600 hover:to-emerald-700 cursor-pointer text-lg';
@@ -387,6 +408,7 @@ function updateSubmitButton(){
     submitBtn.disabled = true;
     submitBtn.className = 'w-full cute-btn py-4 bg-gray-300 text-white cursor-not-allowed text-lg';
   }
+  return isValid;
 }
 
 async function waitAndRefresh_(waitMs){
@@ -407,8 +429,9 @@ async function submitBooking(e){
   const reservationId = formatDateForId(selectedSlot.date, selectedSlot.hour, selectedSlot.minute);
   const total = calculatePrice();
 
-  const equipmentRental = document.getElementById('equipmentRental').value;
   const autoState = applyAutoSelections();
+  const equipmentRental = document.getElementById('equipmentRental').value;
+  const moveType = document.getElementById('moveType') ? document.getElementById('moveType').value : '';
 
   const stretcherTwoStaff = (
     equipmentRental === getMenuLabel('EQUIP_STRETCHER', 'ストレッチャーレンタル') &&
@@ -425,7 +448,7 @@ async function submitBooking(e){
     phone_number: document.getElementById('phoneNumber').value.trim(),
     pickup_location: document.getElementById('pickupLocation').value.trim(),
     destination: document.getElementById('destination').value.trim() || '',
-    move_type: document.getElementById('moveType') ? document.getElementById('moveType').value : '',
+    move_type: moveType,
     assistance_type: document.getElementById('assistanceType').value,
     stair_assistance: document.getElementById('stairAssistance').value,
     equipment_rental: equipmentRental,
@@ -860,6 +883,7 @@ applyAutoSelections = function(){
 const _calculatePriceOriginal = calculatePrice;
 calculatePrice = function(){
   const total = _calculatePriceOriginal();
+  try{ updateSubmitButton(); }catch(_){}
   return total;
 };
 
