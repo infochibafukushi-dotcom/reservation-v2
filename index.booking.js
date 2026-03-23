@@ -265,8 +265,6 @@ function calculatePrice(){
   let total = 0;
   const breakdown = [];
 
-  const moveType = document.getElementById('moveType') ? document.getElementById('moveType').value : '';
-  const moveTypeKey = getSelectedOptionKey('moveType');
   const assistanceType = document.getElementById('assistanceType').value;
   const stairAssistance = document.getElementById('stairAssistance').value;
   const equipmentRental = document.getElementById('equipmentRental').value;
@@ -288,17 +286,11 @@ function calculatePrice(){
   const stretcherStaffPrice = getMenuPrice('EQUIP_STRETCHER_STAFF2', 5000);
   const standbyPrice = getMenuPrice('ROUND_STANDBY', 800);
   const hospitalEscortPrice = getMenuPrice('ROUND_HOSPITAL', 1600);
-  const moveTypePrice = moveTypeKey ? getMenuPrice(moveTypeKey, 0) : 0;
 
   total += baseFare + dispatch + specialVehicle;
   breakdown.push({ name:getMenuLabel('BASE_FARE', '運賃'), price:baseFare, suffix:' から' });
   breakdown.push({ name:getMenuLabel('DISPATCH', '配車予約'), price:dispatch });
   breakdown.push({ name:getMenuLabel('SPECIAL_VEHICLE', '特殊車両使用料'), price:specialVehicle });
-
-  if (moveTypeKey){
-    total += moveTypePrice;
-    breakdown.push({ name:getMenuLabel(moveTypeKey, moveType || '移動方法'), price:moveTypePrice });
-  }
 
   if (autoState.appliedBodyAssist){
     total += bodyAssistPrice;
@@ -402,9 +394,10 @@ async function submitBooking(e){
   const reservationId = formatDateForId(selectedSlot.date, selectedSlot.hour, selectedSlot.minute);
   const total = calculatePrice();
 
-  const moveType = document.getElementById('moveType') ? document.getElementById('moveType').value : '';
-  const moveTypeKey = getSelectedOptionKey('moveType');
+  const moveTypeEl = document.getElementById('moveType');
   const equipmentRental = document.getElementById('equipmentRental').value;
+  const moveType = moveTypeEl ? moveTypeEl.value : '';
+  const moveTypeKey = getSelectedOptionKey('moveType');
   const autoState = applyAutoSelections();
 
   const stretcherTwoStaff = (
@@ -706,37 +699,51 @@ function getMoveTypeNoteTextPatched(key){
   return map[String(key || '')] || (config.form_move_type_help_text || defaultConfig.form_move_type_help_text || '');
 }
 
-function syncAutoSelectionsFromMoveTypePatched(){
+function syncEquipmentFromMoveTypePatched(){
   const moveTypeKey = getSelectedOptionKey('moveType');
-  const applied = {
-    move_type: '',
-    assistance: '',
-    stair: '',
-    equipment: '',
-    round_trip: ''
-  };
+  if (!moveTypeKey) return '';
 
-  if (!moveTypeKey) return applied;
+  const moveTypeAutoPairs = getMenuAutoApplyPairs(moveTypeKey);
+  let syncedEquipmentKey = '';
 
-  const selectIdMap = {
-    assistance: 'assistanceType',
-    stair: 'stairAssistance',
-    equipment: 'equipmentRental',
-    round_trip: 'roundTrip'
-  };
+  moveTypeAutoPairs.forEach(function(pair){
+    const applyGroup = String(pair && pair.apply_group || '').trim();
+    const applyKey = String(pair && pair.apply_key || '').trim();
+    if (!applyGroup || !applyKey) return;
 
-  const pairs = getMenuAutoApplyPairs(moveTypeKey);
-  pairs.forEach(function(pair){
-    const group = String(pair && pair.apply_group || '').trim();
-    const key = String(pair && pair.apply_key || '').trim();
-    const selectId = selectIdMap[group];
-    if (!group || !key || !selectId) return;
-    if (setSelectValueByKey(selectId, key)){
-      applied[group] = key;
+    if (applyGroup === 'equipment') {
+      if (setSelectValueByKey('equipmentRental', applyKey)) syncedEquipmentKey = applyKey;
+      return;
+    }
+    if (applyGroup === 'assistance') {
+      setSelectValueByKey('assistanceType', applyKey);
+      return;
+    }
+    if (applyGroup === 'stair') {
+      setSelectValueByKey('stairAssistance', applyKey);
+      return;
+    }
+    if (applyGroup === 'round_trip') {
+      setSelectValueByKey('roundTrip', applyKey);
+      return;
+    }
+    if (applyGroup === 'move_type') {
+      setSelectValueByKey('moveType', applyKey);
     }
   });
 
-  return applied;
+  const moveTypeAuto = findAutoApplyFromMenu('move_type', moveTypeKey);
+  if (moveTypeAuto && moveTypeAuto.apply_group === 'equipment' && moveTypeAuto.apply_key){
+    if (setSelectValueByKey('equipmentRental', moveTypeAuto.apply_key)) syncedEquipmentKey = String(moveTypeAuto.apply_key || '');
+  } else if (moveTypeAuto && moveTypeAuto.apply_group === 'assistance' && moveTypeAuto.apply_key){
+    setSelectValueByKey('assistanceType', moveTypeAuto.apply_key);
+  } else if (moveTypeAuto && moveTypeAuto.apply_group === 'stair' && moveTypeAuto.apply_key){
+    setSelectValueByKey('stairAssistance', moveTypeAuto.apply_key);
+  } else if (moveTypeAuto && moveTypeAuto.apply_group === 'round_trip' && moveTypeAuto.apply_key){
+    setSelectValueByKey('roundTrip', moveTypeAuto.apply_key);
+  }
+
+  return syncedEquipmentKey;
 }
 
 
@@ -843,25 +850,13 @@ renderServiceSelectors = function(){
 const _applyAutoSelectionsOriginal = applyAutoSelections;
 applyAutoSelections = function(){
   const moveTypeKey = getSelectedOptionKey('moveType');
-  const syncedAuto = syncAutoSelectionsFromMoveTypePatched();
+  const syncedEquipmentKey = syncEquipmentFromMoveTypePatched();
   const state = _applyAutoSelectionsOriginal();
-  const equipmentKey = syncedAuto.equipment || getSelectedOptionKey('equipmentRental');
-  const stairKey = syncedAuto.stair || getSelectedOptionKey('stairAssistance');
+  const equipmentKey = syncedEquipmentKey || getSelectedOptionKey('equipmentRental');
 
   const moveTypeNoteEl = document.getElementById('moveTypeNote');
   if (moveTypeNoteEl){
     moveTypeNoteEl.textContent = getMoveTypeNoteTextPatched(moveTypeKey);
-  }
-
-  if (syncedAuto.assistance === 'BODY_ASSIST' && state && !state.appliedBodyAssist){
-    state.appliedBodyAssist = true;
-    const stairWarning = document.getElementById('stairWarning');
-    if (stairWarning && stairKey && !['STAIR_NONE','STAIR_WATCH'].includes(String(stairKey || ''))){
-      stairWarning.textContent = (config.warning_stair_bodyassist_text || defaultConfig.warning_stair_bodyassist_text || '階段介助ご利用時は身体介助が必要です')
-        + ' / '
-        + (config.warning_staff_add_text || defaultConfig.warning_staff_add_text || '表示価格は1名体制での目安です。状況により安全確保のため2名体制となる場合があります（＋5,000円）');
-      stairWarning.classList.remove('hidden');
-    }
   }
 
   if ((moveTypeKey === 'MOVE_STRETCHER' || equipmentKey === 'EQUIP_STRETCHER') && state && !state.appliedStaff2){
@@ -875,7 +870,7 @@ applyAutoSelections = function(){
     }
   }
 
-  if (state && state.appliedBodyAssist && (stairKey && !['STAIR_NONE','STAIR_WATCH'].includes(String(stairKey || '')))){
+  if (state && state.appliedBodyAssist && (getSelectedOptionKey('stairAssistance') && !['STAIR_NONE','STAIR_WATCH'].includes(getSelectedOptionKey('stairAssistance')))){
     const stairWarning = document.getElementById('stairWarning');
     if (stairWarning){
       stairWarning.textContent = (config.warning_stair_bodyassist_text || defaultConfig.warning_stair_bodyassist_text || '階段介助ご利用時は身体介助が必要です')
