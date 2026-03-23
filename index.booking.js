@@ -328,48 +328,42 @@ async function ensureBookingFormOptionsReady(){
   return hasBookingSelectOptionsReady();
 }
 
+
 async function openBookingForm(date, hour, minute=0){
   let ready = false;
   try{
     ready = await ensureBookingFormOptionsReady();
-  }catch(_){ }
+  }catch(_){ ready = false; }
 
   selectedSlot = { date, hour, minute };
   document.getElementById('selectedSlotInfo').textContent =
     `${formatDate(date)} ${String(hour).padStart(2,'0')}:${String(minute).padStart(2,'0')} から`;
   document.getElementById('bookingModal').classList.remove('hidden');
 
-  try{
-    resetBookingForm();
-  }catch(_){ }
-
-  try{
-    calculatePrice();
-  }catch(_){ }
-
-  if (ready) return;
-
-  const retry = async () => {
+  if (!ready && (!Array.isArray(menuMaster) || menuMaster.length === 0)){
     try{
-      await refreshAllData(false);
-    }catch(_){ }
-    try{
+      await refreshAllData(true);
       renderServiceSelectors();
     }catch(_){ }
-    try{
-      resetBookingForm();
-    }catch(_){ }
-    try{
-      calculatePrice();
-    }catch(_){ }
-    try{
-      updateSubmitButton();
-    }catch(_){ }
-  };
+  } else {
+    try{ renderServiceSelectors(); }catch(_){ }
+  }
 
-  setTimeout(() => { retry(); }, 120);
-  setTimeout(() => { retry(); }, 400);
-  setTimeout(() => { retry(); }, 900);
+  resetBookingForm();
+  calculatePrice();
+  updateSubmitButton();
+
+  if (!ready){
+    setTimeout(async ()=>{
+      try{
+        await refreshAllData(true);
+        renderServiceSelectors();
+        resetBookingForm();
+        calculatePrice();
+        updateSubmitButton();
+      }catch(_){ }
+    }, 250);
+  }
 }
 
 function resetBookingForm(){
@@ -506,28 +500,65 @@ function isPublicMenuGroupRequired(group){
   return v === true || String(v) === '1' || String(v).toUpperCase() === 'TRUE';
 }
 
+
+function isPublicGroupRequired(groupKey){
+  const key = String(groupKey || '').trim();
+  if (!key) return false;
+  if (['price','custom','auto_set'].includes(key)) return false;
+
+  let required = {};
+  try{
+    required = JSON.parse(String(config.menu_group_required_json || '{}')) || {};
+  }catch(_){ required = {}; }
+
+  if (Object.prototype.hasOwnProperty.call(required, key)){
+    const v = required[key];
+    return v === true || v === 1 || String(v) === '1' || String(v).toUpperCase() === 'TRUE';
+  }
+  return ['move_type','assistance'].includes(key);
+}
+
+function isPublicGroupVisible(groupKey){
+  const key = String(groupKey || '').trim();
+  if (!key) return false;
+  let visibility = {};
+  try{
+    visibility = JSON.parse(String(config.menu_group_visibility_json || '{}')) || {};
+  }catch(_){ visibility = {}; }
+  const raw = visibility[key];
+  if (raw === undefined || raw === null || raw === '') return true;
+  return raw === true || raw === 1 || String(raw) === '1' || String(raw).toUpperCase() === 'TRUE';
+}
+
 function updateSubmitButton(){
-  const privacy = document.getElementById('privacyAgreement').checked;
-  const usageType = document.getElementById('usageType').value;
-  const customerName = document.getElementById('customerName').value.trim();
-  const phoneNumber = document.getElementById('phoneNumber').value.trim();
-  const pickupLocation = document.getElementById('pickupLocation').value.trim();
+  try{ applyAutoSelections(); }catch(_){}
+
+  const privacy = !!document.getElementById('privacyAgreement')?.checked;
+  const usageType = String(document.getElementById('usageType')?.value || '').trim();
+  const customerName = String(document.getElementById('customerName')?.value || '').trim();
+  const phoneNumber = String(document.getElementById('phoneNumber')?.value || '').trim();
+  const pickupLocation = String(document.getElementById('pickupLocation')?.value || '').trim();
 
   const groupValues = {
-    move_type: document.getElementById('moveType') ? document.getElementById('moveType').value : '',
-    assistance: document.getElementById('assistanceType') ? document.getElementById('assistanceType').value : '',
-    stair: document.getElementById('stairAssistance') ? document.getElementById('stairAssistance').value : '',
-    equipment: document.getElementById('equipmentRental') ? document.getElementById('equipmentRental').value : '',
-    round_trip: document.getElementById('roundTrip') ? document.getElementById('roundTrip').value : ''
+    move_type: String(document.getElementById('moveType')?.value || '').trim(),
+    assistance: String(document.getElementById('assistanceType')?.value || '').trim(),
+    stair: String(document.getElementById('stairAssistance')?.value || '').trim(),
+    equipment: String(document.getElementById('equipmentRental')?.value || '').trim(),
+    round_trip: String(document.getElementById('roundTrip')?.value || '').trim()
   };
 
-  const requiredGroups = Object.keys(groupValues).filter(group => isPublicMenuGroupShown(group) && isPublicMenuGroupRequired(group));
-  const groupValid = requiredGroups.every(group => !!String(groupValues[group] || '').trim());
+  const groupsValid = ['move_type','assistance','stair','equipment','round_trip'].every((groupKey)=>{
+    if (!isPublicGroupVisible(groupKey)) return true;
+    if (!isPublicGroupRequired(groupKey)) return true;
+    return !!groupValues[groupKey];
+  });
 
-  const isValid = !!(privacy && usageType && customerName && phoneNumber && pickupLocation && groupValid);
-
+  const isValid = privacy && !!usageType && !!customerName && !!phoneNumber && !!pickupLocation && groupsValid;
   const submitBtn = document.getElementById('submitBooking');
   if (!submitBtn) return;
+
+  if (submitBtn.dataset.sending === '1') return;
+
   if (isValid){
     submitBtn.disabled = false;
     submitBtn.className = 'w-full cute-btn py-4 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white hover:from-emerald-600 hover:to-emerald-700 cursor-pointer text-lg';
