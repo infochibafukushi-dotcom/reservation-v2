@@ -295,12 +295,13 @@ function calculatePrice(){
   breakdown.push({ name:getMenuLabel('SPECIAL_VEHICLE', '特殊車両使用料'), price:specialVehicle });
 
   if (moveTypeKey){
-    const movePrice = getMenuPrice(moveTypeKey, 0);
-    if (movePrice > 0){
-      total += movePrice;
-      breakdown.push({ name:getMenuLabel(moveTypeKey, moveType || '移動方法'), price:movePrice });
-    } else if (moveType){
-      breakdown.push({ name:moveType, price:0 });
+    const moveTypePrice = getMenuPrice(moveTypeKey, 0);
+    const linkedEquipmentKey = syncEquipmentFromMoveTypePatched();
+    const linkedEquipmentPrice = linkedEquipmentKey ? getMenuPrice(linkedEquipmentKey, 0) : 0;
+    const sameAsLinkedEquipment = !!linkedEquipmentKey && Number(moveTypePrice) === Number(linkedEquipmentPrice) && Number(moveTypePrice) > 0;
+    if (!sameAsLinkedEquipment){
+      total += moveTypePrice;
+      breakdown.push({ name:(moveType || getMenuLabel(moveTypeKey, '移動方法')), price:moveTypePrice });
     }
   }
 
@@ -424,9 +425,9 @@ async function submitBooking(e){
     phone_number: document.getElementById('phoneNumber').value.trim(),
     pickup_location: document.getElementById('pickupLocation').value.trim(),
     destination: document.getElementById('destination').value.trim() || '',
+    move_type: document.getElementById('moveType') ? document.getElementById('moveType').value : '',
     assistance_type: document.getElementById('assistanceType').value,
     stair_assistance: document.getElementById('stairAssistance').value,
-    move_type: document.getElementById('moveType') ? document.getElementById('moveType').value : '',
     equipment_rental: equipmentRental,
     stretcher_two_staff: stretcherTwoStaff,
     round_trip: document.getElementById('roundTrip').value,
@@ -448,7 +449,7 @@ async function submitBooking(e){
     document.getElementById('bookingModal').classList.add('hidden');
     document.getElementById('completeModal').classList.remove('hidden');
 
-    fireTrigger(reservation);
+    fireTrigger();
 
     try{
       await waitAndRefresh_(800);
