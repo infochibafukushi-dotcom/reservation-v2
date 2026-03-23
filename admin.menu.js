@@ -146,6 +146,7 @@ function getGroupLabelByKey(groupKey){
   return found ? String(found.label || groupKey || '') : String(groupKey || '');
 }
 
+
 function normalizeLegacyMenuGroup(item){
   const row = item || {};
   const rawGroup = String(row.menu_group || '').trim();
@@ -160,27 +161,40 @@ function normalizeLegacyMenuGroup(item){
     if (rawGroup === 'equip' || rawGroup === 'equipment') return 'equipment';
     if (rawGroup === 'assist' || rawGroup === 'assistance') return 'assistance';
     if (rawGroup === 'price') return 'price';
-    if (rawGroup === 'custom') return 'custom';
+    if (rawGroup === 'custom') {
+      const keyUpperCustom = rawKey.toUpperCase();
+      if (keyUpperCustom.startsWith('MOVE_')) return 'move_type';
+      if (keyUpperCustom.startsWith('ROUND_') || keyUpperCustom.startsWith('ROUNDTRIP_') || keyUpperCustom.startsWith('ROUND_TRIP_')) return 'round_trip';
+      if (keyUpperCustom.startsWith('STAIR_')) return 'stair';
+      if (keyUpperCustom.startsWith('EQUIP_') || keyUpperCustom.startsWith('EQUIPMENT_')) return 'equipment';
+      if (keyUpperCustom.startsWith('ASSIST_') || keyUpperCustom.startsWith('ASSISTANCE_') || keyUpperCustom.startsWith('BOARDING_') || keyUpperCustom.startsWith('BODY_')) return 'assistance';
+      if (keyUpperCustom.startsWith('PRICE_') || keyUpperCustom === 'BASE_FARE' || keyUpperCustom === 'DISPATCH' || keyUpperCustom === 'SPECIAL_VEHICLE') return 'price';
+      if (/移動方法/.test(rawKeyJp) || /移動方法/.test(rawLabel)) return 'move_type';
+      if (/往復/.test(rawKeyJp) || /往復/.test(rawLabel)) return 'round_trip';
+      if (/階段/.test(rawKeyJp) || /階段/.test(rawLabel)) return 'stair';
+      if (/機材|レンタル|車いす|ストレッチャー/.test(rawKeyJp) || /機材|レンタル|車いす|ストレッチャー/.test(rawLabel)) return 'equipment';
+      if (/介助/.test(rawKeyJp) || /介助/.test(rawLabel)) return 'assistance';
+      if (/料金|基本/.test(rawKeyJp) || /料金|基本/.test(rawLabel)) return 'price';
+      return 'custom';
+    }
     if (rawGroup === 'auto_set') return 'auto_set';
   }
 
   const keyUpper = rawKey.toUpperCase();
-  const keyJp = rawKeyJp;
-  const label = rawLabel;
 
   if (keyUpper.startsWith('MOVE_')) return 'move_type';
   if (keyUpper.startsWith('ROUND_') || keyUpper.startsWith('ROUNDTRIP_') || keyUpper.startsWith('ROUND_TRIP_')) return 'round_trip';
   if (keyUpper.startsWith('STAIR_')) return 'stair';
   if (keyUpper.startsWith('EQUIP_') || keyUpper.startsWith('EQUIPMENT_')) return 'equipment';
-  if (keyUpper.startsWith('ASSIST_') || keyUpper.startsWith('ASSISTANCE_')) return 'assistance';
+  if (keyUpper.startsWith('ASSIST_') || keyUpper.startsWith('ASSISTANCE_') || keyUpper.startsWith('BOARDING_') || keyUpper.startsWith('BODY_')) return 'assistance';
   if (keyUpper.startsWith('PRICE_') || keyUpper === 'BASE_FARE' || keyUpper === 'DISPATCH' || keyUpper === 'SPECIAL_VEHICLE') return 'price';
 
-  if (/移動方法/.test(keyJp) || /移動方法/.test(label)) return 'move_type';
-  if (/往復/.test(keyJp) || /往復/.test(label)) return 'round_trip';
-  if (/階段/.test(keyJp) || /階段/.test(label)) return 'stair';
-  if (/機材|レンタル|車いす|ストレッチャー/.test(keyJp) || /機材|レンタル|車いす|ストレッチャー/.test(label)) return 'equipment';
-  if (/介助/.test(keyJp) || /介助/.test(label)) return 'assistance';
-  if (/料金|基本/.test(keyJp) || /料金|基本/.test(label)) return 'price';
+  if (/移動方法/.test(rawKeyJp) || /移動方法/.test(rawLabel)) return 'move_type';
+  if (/往復/.test(rawKeyJp) || /往復/.test(rawLabel)) return 'round_trip';
+  if (/階段/.test(rawKeyJp) || /階段/.test(rawLabel)) return 'stair';
+  if (/機材|レンタル|車いす|ストレッチャー/.test(rawKeyJp) || /機材|レンタル|車いす|ストレッチャー/.test(rawLabel)) return 'equipment';
+  if (/介助/.test(rawKeyJp) || /介助/.test(rawLabel)) return 'assistance';
+  if (/料金|基本/.test(rawKeyJp) || /料金|基本/.test(rawLabel)) return 'price';
 
   return rawGroup || 'custom';
 }
@@ -260,7 +274,7 @@ function buildMenuAutoApplyOptions(selectedGroup, selectedKey){
 
   let keyCandidates = [];
   if (selectedGroup) {
-    keyCandidates = (adminMenuMaster || []).filter(item => String(item.menu_group || '') === String(selectedGroup || ''));
+    keyCandidates = (adminMenuMaster || []).filter(item => String(normalizeLegacyMenuGroup(item)) === String(selectedGroup || ''));
   }
 
   const keyOptions = [`<option value="">選択してください</option>`].concat(
@@ -312,7 +326,7 @@ function adminNormalizeMenuRows(){
 
 function getMenuItemsByGroup(group){
   return (adminMenuMaster || [])
-    .filter(item => String(item.menu_group || '') === String(group || ''))
+    .filter(item => String(normalizeLegacyMenuGroup(item)) === String(group || ''))
     .sort((a, b) => Number(a.sort_order || 9999) - Number(b.sort_order || 9999));
 }
 
@@ -846,7 +860,7 @@ function buildSaveMenuPayload(){
 
   return adminMenuMaster.map((item, idx) => {
     const label = String(item.label || '').trim();
-    const group = String(item.menu_group || 'custom').trim() || 'custom';
+    const group = String(normalizeLegacyMenuGroup(item)).trim() || 'custom';
     const key = String(item.key || '').trim() || makeMenuInternalKey(item, idx);
 
     let keyJp = String(item.key_jp || '').trim();

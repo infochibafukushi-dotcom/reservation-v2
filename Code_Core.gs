@@ -468,7 +468,7 @@ function _readMenuMasterFast_() {
       note: noteIdx >= 0 ? String(row[noteIdx] || '').trim() : '',
       is_visible: visIdx < 0 || row[visIdx] === '' || row[visIdx] === undefined ? true : _toBool(row[visIdx]),
       sort_order: sortIdx < 0 || row[sortIdx] === '' || row[sortIdx] === undefined ? 9999 : Number(row[sortIdx]),
-      menu_group: _normalizeMenuGroup_(groupIdx >= 0 ? row[groupIdx] : ''),
+      menu_group: _inferMenuGroupFromLegacyRow_(groupIdx >= 0 ? row[groupIdx] : '', keyIdx >= 0 ? row[keyIdx] : '', keyJpIdx >= 0 ? row[keyJpIdx] : '', labelIdx >= 0 ? row[labelIdx] : ''),
       required_flag: reqIdx < 0 || row[reqIdx] === '' || row[reqIdx] === undefined ? false : _toBool(row[reqIdx]),
       auto_apply_group: _normalizeAutoApplyGroup_(autoGroupIdx >= 0 ? row[autoGroupIdx] : ''),
       auto_apply_key: autoKeyIdx >= 0 ? String(row[autoKeyIdx] || '').trim() : '',
@@ -483,6 +483,38 @@ function _readMenuMasterFast_() {
   });
 
   return out;
+}
+
+
+function _inferMenuGroupFromLegacyRow_(group, key, keyJp, label) {
+  const rawGroup = String(group || '').trim();
+  const rawKey = String(key || '').trim().toUpperCase();
+  const rawKeyJp = String(keyJp || '').trim();
+  const rawLabel = String(label || '').trim();
+
+  if (rawGroup === 'move' || rawGroup === 'moveType' || rawGroup === 'move_type') return 'move_type';
+  if (rawGroup === 'roundtrip' || rawGroup === 'roundTrip' || rawGroup === 'round_trip') return 'round_trip';
+  if (rawGroup === 'stairs' || rawGroup === 'stair') return 'stair';
+  if (rawGroup === 'equip' || rawGroup === 'equipment') return 'equipment';
+  if (rawGroup === 'assist' || rawGroup === 'assistance') return 'assistance';
+  if (rawGroup === 'price') return 'price';
+  if (rawGroup && rawGroup !== 'custom') return _normalizeMenuGroup_(rawGroup);
+
+  if (rawKey.startsWith('MOVE_')) return 'move_type';
+  if (rawKey.startsWith('ROUND_') || rawKey.startsWith('ROUNDTRIP_') || rawKey.startsWith('ROUND_TRIP_')) return 'round_trip';
+  if (rawKey.startsWith('STAIR_')) return 'stair';
+  if (rawKey.startsWith('EQUIP_') || rawKey.startsWith('EQUIPMENT_')) return 'equipment';
+  if (rawKey.startsWith('ASSIST_') || rawKey.startsWith('ASSISTANCE_') || rawKey.startsWith('BOARDING_') || rawKey.startsWith('BODY_')) return 'assistance';
+  if (rawKey.startsWith('PRICE_') || rawKey === 'BASE_FARE' || rawKey === 'DISPATCH' || rawKey === 'SPECIAL_VEHICLE') return 'price';
+
+  if (/移動方法/.test(rawKeyJp) || /移動方法/.test(rawLabel)) return 'move_type';
+  if (/往復/.test(rawKeyJp) || /往復/.test(rawLabel)) return 'round_trip';
+  if (/階段/.test(rawKeyJp) || /階段/.test(rawLabel)) return 'stair';
+  if (/機材|レンタル|車いす|ストレッチャー/.test(rawKeyJp) || /機材|レンタル|車いす|ストレッチャー/.test(rawLabel)) return 'equipment';
+  if (/介助/.test(rawKeyJp) || /介助/.test(rawLabel)) return 'assistance';
+  if (/料金|基本/.test(rawKeyJp) || /料金|基本/.test(rawLabel)) return 'price';
+
+  return rawGroup || 'custom';
 }
 
 function _sheetToObjects(sheet) {
@@ -1492,7 +1524,7 @@ function _normalizeMenuItem_(item, defaultSort) {
 
   let menuGroup = String((item && item.menu_group) || '').trim();
   if (!menuGroup && catalog) menuGroup = String(catalog.menu_group || '').trim();
-  menuGroup = _normalizeMenuGroup_(menuGroup);
+  menuGroup = _inferMenuGroupFromLegacyRow_(menuGroup, key, keyJp, label);
 
   const price = (item && item.price !== undefined && item.price !== null && item.price !== '')
     ? Number(item.price || 0)
