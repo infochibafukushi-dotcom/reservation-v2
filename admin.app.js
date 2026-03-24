@@ -15,10 +15,9 @@ async function adminRefreshAllData(){
   try{
     await adminRefreshBootstrapData(true);
     await adminRefreshVisibleWindow();
-  }catch(primaryErr){
+  }catch(primaryError){
     const res = await gsRun('api_getInitData');
     const data = res && res.data ? res.data : {};
-
     adminConfig = { ...ADMIN_DEFAULT_CONFIG, ...(data.config || {}) };
     adminReservations = Array.isArray(data.reservations) ? data.reservations : [];
     adminBlocks = Array.isArray(data.blocks) ? data.blocks : [];
@@ -26,14 +25,7 @@ async function adminRefreshAllData(){
     adminMenuKeyCatalog = Array.isArray(data.menu_key_catalog) ? data.menu_key_catalog : [];
     adminMenuGroupCatalog = Array.isArray(data.menu_group_catalog) && data.menu_group_catalog.length ? data.menu_group_catalog : getAdminResolvedGroupCatalog();
     adminAutoRuleCatalog = Array.isArray(data.auto_rule_catalog) ? data.auto_rule_catalog : [];
-
-    buildAdminBlockedSlots(adminBlocks);
-    buildAdminReservedSlots(adminReservations);
-    applyAdminConfigToForm();
-    renderAdminStats();
-    renderMenuAdminList();
-    renderAdminCalendar();
-    renderReservationTable();
+    adminApplyDerivedState({ renderConfig: true });
   }
 }
 
@@ -172,27 +164,6 @@ function safeSetValue(id, value){
   el.value = value == null ? '' : value;
 }
 
-
-function safeGetEl(id){
-  try{
-    return document.getElementById(id);
-  }catch(_){
-    return null;
-  }
-}
-
-function safeSetValue(id, value){
-  const el = safeGetEl(id);
-  if (!el) return;
-  el.value = value == null ? '' : String(value);
-}
-
-function safeGetValue(id, fallback = ''){
-  const el = safeGetEl(id);
-  if (!el) return fallback;
-  return String(el.value == null ? fallback : el.value);
-}
-
 function renderAdminStats(){
   document.getElementById('totalReservations').textContent = String(adminReservations.length || 0);
   document.getElementById('pendingCount').textContent = String(adminReservations.filter(r => String(r.status || '未対応') === '未対応').length);
@@ -252,8 +223,6 @@ function applyAdminConfigToForm(){
   safeSetValue('cfgCalendarScrollGuideText', adminConfig.calendar_scroll_guide_text || '');
   safeSetValue('cfgSameDayEnabled', String(adminConfig.same_day_enabled || '0'));
   safeSetValue('cfgSameDayMinHours', String(adminConfig.same_day_min_hours || '3'));
-  safeSetValue('statusSelect', String(r.status || '未対応'));
-  safeSetValue('cfgLogoImageUrl', res.data.raw_url);
   safeSetValue('cfgCurrentPassword', '');
   safeSetValue('cfgNewPassword', '');
   safeSetValue('cfgConfirmPassword', '');
