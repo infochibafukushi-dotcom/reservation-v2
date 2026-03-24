@@ -1,3 +1,6 @@
+// NOTE: このファイルは現在 admin.html から読み込んでいません。
+// 管理ロジック本体は admin.app.js / admin.menu.js / admin.calendar.js / admin.api.js に集約されています。
+
 function ensureAdminAuth(){
   const auth = sessionStorage.getItem('chiba_care_taxi_admin_auth');
   if (auth === 'ok'){

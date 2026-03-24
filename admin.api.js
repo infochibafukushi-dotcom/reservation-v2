@@ -1,4 +1,4 @@
-const GAS_URL = "https://script.google.com/macros/s/AKfycbyFKoCd64H2d5E8ExCrPRwG_g4shqlgHefgQYZrJ6HVOY5t5lwRVZ3UaXfYXIqNkCra/exec";
+const GAS_URL = "https://script.google.com/macros/s/AKfycbzVIEREUxN43gudkQU077sjRbqineT-Jp-gBF_fcYKGAgnHc4BsXAKbaj_kcHLeUfnL/exec";
 const PUBLIC_PAGE_URL = "index.html";
 
 function toast(msg='通信エラー', ms=2200){
@@ -122,21 +122,6 @@ function _jsonpCall(url, timeoutMs = 20000){
 
 async function _getJsonWithRetry(url, retryCount = 2, timeoutMs = 25000){
   let lastError = null;
-  for (let i = 0; i <= retryCount; i++){
-    try{
-      return await _jsonpCall(url, timeoutMs);
-    }catch(err){
-      lastError = err;
-      if (i < retryCount){
-        await sleep(600 + (i * 500));
-      }
-    }
-  }
-  throw lastError || new Error('JSONP error');
-}
-
-async function _getJsonWithRetry(url, retryCount = 2, timeoutMs = 25000){
-  let lastError = null;
 
   for (let i = 0; i <= retryCount; i++){
     try{
@@ -193,26 +178,12 @@ const gsRun = async (func, ...args) => {
     data = await _getJsonWithRetry(`${GAS_URL}?action=getConfig`, 1, 20000);
   } else if (func === 'api_getInitData') {
     data = await _getJsonWithRetry(`${GAS_URL}?action=getInitData`, 1, 25000);
-  } else if (func === 'api_getAdminBootstrap') {
-    data = await _getJsonWithRetry(`${GAS_URL}?action=getAdminBootstrap`, 1, 25000);
-  } else if (func === 'api_getReservationsRange') {
-    const range = args[0] || {};
-    const start = encodeURIComponent(String(range.start || ''));
-    const end = encodeURIComponent(String(range.end || ''));
-    data = await _getJsonWithRetry(`${GAS_URL}?action=getReservationsRange&start=${start}&end=${end}`, 1, 25000);
-  } else if (func === 'api_getBlocksRange') {
-    const range = args[0] || {};
-    const start = encodeURIComponent(String(range.start || ''));
-    const end = encodeURIComponent(String(range.end || ''));
-    data = await _getJsonWithRetry(`${GAS_URL}?action=getBlocksRange&start=${start}&end=${end}`, 1, 25000);
-  } else if (func === 'api_getMenuMaster') {
-    data = await _getJsonWithRetry(`${GAS_URL}?action=getMenuMaster`, 1, 20000);
   } else if (func === 'api_getMenuKeyCatalog') {
     data = await _getJsonWithRetry(`${GAS_URL}?action=getMenuKeyCatalog`, 1, 20000);
   } else if (func === 'api_getMenuGroupCatalog') {
     data = await _getJsonWithRetry(`${GAS_URL}?action=getMenuGroupCatalog`, 1, 20000);
-  } else if (func === 'api_getAutoRuleCatalog') {
-    data = await _getJsonWithRetry(`${GAS_URL}?action=getAutoRuleCatalog`, 1, 20000);
+  } else if (func === 'api_getAdminBootstrap') {
+    data = await _getJsonWithRetry(`${GAS_URL}?action=getAdminBootstrap`, 1, 25000);
   } else if (func === 'api_toggleBlock') {
     data = await _postJson('toggleBlock', args[0]);
   } else if (func === 'api_setRegularDayBlocked') {

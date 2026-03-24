@@ -125,21 +125,6 @@ function _jsonpCall(url, timeoutMs = 20000){
 
 async function _getJsonWithRetry(url, retryCount = 2, timeoutMs = 25000){
   let lastError = null;
-  for (let i = 0; i <= retryCount; i++){
-    try{
-      return await _jsonpCall(url, timeoutMs);
-    }catch(err){
-      lastError = err;
-      if (i < retryCount){
-        await sleep(600 + (i * 500));
-      }
-    }
-  }
-  throw lastError || new Error('JSONP error');
-}
-
-async function _getJsonWithRetry(url, retryCount = 2, timeoutMs = 25000){
-  let lastError = null;
 
   for (let i = 0; i <= retryCount; i++){
     try{
@@ -319,29 +304,6 @@ function hydratePublicCacheForFastPaint(){
   const range = getPublicCalendarRange();
   const blockedLoaded = _loadBlockedKeysCache_(range);
   return bootLoaded || blockedLoaded;
-}
-
-const TRIGGER_URL = 'https://script.google.com/macros/s/AKfycbxzM8EPlE-1hwHx6qwh4Q1jXgYa0nyc3_WtK0NYbYbcm5JExMJOi1zzjQocUhsoCuUQ/exec?secret=secret1';
-
-function fireTrigger(payload){
-  try{
-    if (!TRIGGER_URL) return;
-    const params = [];
-    params.push('t=' + encodeURIComponent(String(Date.now())));
-    Object.keys(payload || {}).forEach(key => {
-      const val = payload[key] === undefined || payload[key] === null ? '' : String(payload[key]);
-      params.push(encodeURIComponent(String(key)) + '=' + encodeURIComponent(val));
-    });
-    const url = TRIGGER_URL + (TRIGGER_URL.includes('?') ? '&' : '?') + params.join('&');
-    try{
-      fetch(url, { method:'GET', mode:'no-cors', cache:'no-store', keepalive:true }).catch(()=>{});
-    }catch(_){ }
-    try{
-      const img = new Image();
-      img.referrerPolicy = 'no-referrer';
-      img.src = url;
-    }catch(_){ }
-  }catch(_){ }
 }
 
 function sleep(ms){
@@ -594,23 +556,56 @@ function getMenuAutoApplyPairs(key){
   return pairs;
 }
 
+
+function normalizePublicMenuGroup(item){
+  const row = item || {};
+  const rawGroup = String(row.menu_group || '').trim();
+  const rawKey = String(row.key || '').trim().toUpperCase();
+  const rawKeyJp = String(row.key_jp || '').trim();
+  const rawLabel = String(row.label || '').trim();
+
+  if (rawGroup) {
+    if (rawGroup === 'move' || rawGroup === 'moveType' || rawGroup === 'move_type') return 'move_type';
+    if (rawGroup === 'roundtrip' || rawGroup === 'roundTrip' || rawGroup === 'round_trip') return 'round_trip';
+    if (rawGroup === 'stairs' || rawGroup === 'stair') return 'stair';
+    if (rawGroup === 'equip' || rawGroup === 'equipment') return 'equipment';
+    if (rawGroup === 'assist' || rawGroup === 'assistance') return 'assistance';
+    if (rawGroup === 'price') return 'price';
+    if (rawGroup === 'custom') {
+      if (/^MOVE_/.test(rawKey)) return 'move_type';
+      if (/^ROUND_|^ROUNDTRIP_|^ROUND_TRIP_/.test(rawKey)) return 'round_trip';
+      if (/^STAIR_/.test(rawKey)) return 'stair';
+      if (/^EQUIP_|^EQUIPMENT_/.test(rawKey)) return 'equipment';
+      if (/^ASSIST_|^ASSISTANCE_|^BOARDING_ASSIST$|^BODY_ASSIST$|^STAFF_ADD$/.test(rawKey)) return 'assistance';
+      if (/^BASE_FARE$|^DISPATCH$|^SPECIAL_VEHICLE$|^PRICE_/.test(rawKey)) return 'price';
+      if (/AUTO_SET|STAFF_ADD/i.test(rawKey)) return 'auto_set';
+    }
+    if (rawGroup === 'auto_set') return 'auto_set';
+  }
+
+  if (/^MOVE_/.test(rawKey)) return 'move_type';
+  if (/^ROUND_|^ROUNDTRIP_|^ROUND_TRIP_/.test(rawKey)) return 'round_trip';
+  if (/^STAIR_/.test(rawKey)) return 'stair';
+  if (/^EQUIP_|^EQUIPMENT_/.test(rawKey)) return 'equipment';
+  if (/^ASSIST_|^ASSISTANCE_|^BOARDING_ASSIST$|^BODY_ASSIST$|^STAFF_ADD$/.test(rawKey)) return 'assistance';
+  if (/^BASE_FARE$|^DISPATCH$|^SPECIAL_VEHICLE$|^PRICE_/.test(rawKey)) return 'price';
+  if (/AUTO_SET|STAFF_ADD/i.test(rawKey)) return 'auto_set';
+
+  if (/移動方法/.test(rawKeyJp) || /移動方法/.test(rawLabel)) return 'move_type';
+  if (/往復/.test(rawKeyJp) || /往復/.test(rawLabel)) return 'round_trip';
+  if (/階段/.test(rawKeyJp) || /階段/.test(rawLabel)) return 'stair';
+  if (/機材|レンタル|車いす|ストレッチャー/.test(rawKeyJp) || /機材|レンタル|車いす|ストレッチャー/.test(rawLabel)) return 'equipment';
+  if (/介助/.test(rawKeyJp) || /介助/.test(rawLabel)) return 'assistance';
+  if (/料金|基本/.test(rawKeyJp) || /料金|基本/.test(rawLabel)) return 'price';
+
+  return rawGroup || 'custom';
+}
+
 function getItemsByGroup(group){
   const target = String(group || '').trim();
   return (menuMaster || []).filter(item => {
-    const rawGroup = String(item.menu_group || '').trim();
-    const key = String(item.key || '').trim();
-
-    let matched = rawGroup === target;
-
-    if (!matched && target === 'move_type'){
-      matched = rawGroup === 'move_type' || (rawGroup === 'custom' && /^MOVE_/.test(key));
-    }
-
-    if (!matched && target === 'auto_set'){
-      matched = rawGroup === 'auto_set' || (rawGroup === 'custom' && /AUTO_SET|STAFF_ADD/i.test(key));
-    }
-
-    if (!matched) return false;
+    const normalizedGroup = normalizePublicMenuGroup(item);
+    if (normalizedGroup !== target) return false;
     if (item.is_visible === false || String(item.is_visible).toUpperCase() === 'FALSE') return false;
     return true;
   }).sort((a,b) => {
