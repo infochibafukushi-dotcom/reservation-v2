@@ -1108,3 +1108,248 @@ document.addEventListener('DOMContentLoaded', function(){
   _bookingRecheckSubmitButtonSoon();
 });
 /* ===== booking button stabilization patch end ===== */
+
+
+/* ===== root fix patch: move_type / auto_apply_2 / notify ===== */
+function __bookingUniquePush(list, value){
+  const v = String(value || '').trim();
+  if (!v) return;
+  if (!list.includes(v)) list.push(v);
+}
+
+function __bookingGetSelectedKey(selectId){
+  try{ return String(getSelectedOptionKey(selectId) || '').trim(); }catch(_){ return ''; }
+}
+
+function __bookingGetSelectedLabel(selectId){
+  const el = document.getElementById(selectId);
+  return el ? String(el.value || '').trim() : '';
+}
+
+function __bookingIsPlaceholderValue(key, label){
+  const k = String(key || '').trim();
+  const l = String(label || '').trim();
+  if (!k && !l) return true;
+  if (k === 'STAIR_NONE' || k === 'ROUND_NONE') return true;
+  if (l === '選択してください' || l === '不要' || l === '不要(0円)') return true;
+  return false;
+}
+
+function __bookingSuffixForKey(key){
+  const k = String(key || '').trim();
+  if (k === 'BASE_FARE') return ' から';
+  if (k === 'ROUND_STANDBY' || k === 'ROUND_HOSPITAL') return ' から/30分毎';
+  const note = String(getMenuNote(k, '') || '');
+  if (/30分毎/.test(note)) return ' から/30分毎';
+  return '';
+}
+
+function __bookingAddCharge(breakdown, key, fallbackLabel){
+  const k = String(key || '').trim();
+  if (!k) return 0;
+  const price = Number(getMenuPrice(k, 0) || 0);
+  const label = getMenuLabel(k, fallbackLabel || k);
+  breakdown.push({ key:k, name:label, price:price, suffix:__bookingSuffixForKey(k) });
+  return price;
+}
+
+function __bookingGetMoveTypeAutoState(){
+  const moveTypeKey = __bookingGetSelectedKey('moveType');
+  const state = {
+    moveTypeKey: moveTypeKey,
+    assistanceKeys: [],
+    stairKeys: [],
+    equipmentKeys: [],
+    roundTripKeys: []
+  };
+  let pairs = [];
+  try{
+    pairs = Array.isArray(getMenuAutoApplyPairs(moveTypeKey)) ? getMenuAutoApplyPairs(moveTypeKey) : [];
+  }catch(_){
+    pairs = [];
+  }
+  pairs.forEach(pair => {
+    const group = String(pair && pair.apply_group || '').trim();
+    const key = String(pair && pair.apply_key || '').trim();
+    if (!group || !key) return;
+    if (group === 'assistance') __bookingUniquePush(state.assistanceKeys, key);
+    if (group === 'stair') __bookingUniquePush(state.stairKeys, key);
+    if (group === 'equipment') __bookingUniquePush(state.equipmentKeys, key);
+    if (group === 'round_trip') __bookingUniquePush(state.roundTripKeys, key);
+  });
+  return state;
+}
+
+function __bookingIsTwoStaffItem(key, label){
+  const k = String(key || '').trim();
+  const l = String(label || '').trim();
+  return /STAFF2|TWOSTAFF|2名|二名/.test(k) || /2名|二名/.test(l);
+}
+
+const __calculatePriceOriginalRootFix = calculatePrice;
+calculatePrice = function(){
+  try{ syncMoveTypeAutoAppliesPatched(); }catch(_){ }
+  try{ applyAutoSelections(); }catch(_){ }
+
+  const breakdown = [];
+  let total = 0;
+
+  total += __bookingAddCharge(breakdown, 'BASE_FARE', '運賃');
+  total += __bookingAddCharge(breakdown, 'DISPATCH', '配車予約');
+  total += __bookingAddCharge(breakdown, 'SPECIAL_VEHICLE', '特殊車両使用料');
+
+  const moveTypeKey = __bookingGetSelectedKey('moveType');
+  const moveTypeLabel = __bookingGetSelectedLabel('moveType');
+  if (!__bookingIsPlaceholderValue(moveTypeKey, moveTypeLabel)) {
+    total += __bookingAddCharge(breakdown, moveTypeKey, moveTypeLabel || '移動方法');
+  }
+
+  const assistanceKey = __bookingGetSelectedKey('assistanceType');
+  const assistanceLabel = __bookingGetSelectedLabel('assistanceType');
+  if (!__bookingIsPlaceholderValue(assistanceKey, assistanceLabel)) {
+    total += __bookingAddCharge(breakdown, assistanceKey, assistanceLabel || '介助内容');
+  }
+
+  const stairKey = __bookingGetSelectedKey('stairAssistance');
+  const stairLabel = __bookingGetSelectedLabel('stairAssistance');
+  if (!__bookingIsPlaceholderValue(stairKey, stairLabel)) {
+    total += __bookingAddCharge(breakdown, stairKey, stairLabel || '階段介助');
+  }
+
+  const equipmentKey = __bookingGetSelectedKey('equipmentRental');
+  const equipmentLabel = __bookingGetSelectedLabel('equipmentRental');
+  if (!__bookingIsPlaceholderValue(equipmentKey, equipmentLabel)) {
+    total += __bookingAddCharge(breakdown, equipmentKey, equipmentLabel || '機材レンタル');
+  }
+
+  const moveTypeAutoState = __bookingGetMoveTypeAutoState();
+  moveTypeAutoState.equipmentKeys.forEach(key => {
+    if (String(key) === String(equipmentKey)) return;
+    total += __bookingAddCharge(breakdown, key, getMenuLabel(key, key));
+  });
+
+  const roundTripKey = __bookingGetSelectedKey('roundTrip');
+  const roundTripLabel = __bookingGetSelectedLabel('roundTrip');
+  if (!__bookingIsPlaceholderValue(roundTripKey, roundTripLabel)) {
+    total += __bookingAddCharge(breakdown, roundTripKey, roundTripLabel || '往復送迎');
+  }
+
+  const breakdownEl = document.getElementById('priceBreakdown');
+  if (breakdownEl){
+    breakdownEl.innerHTML = breakdown.map(item => `
+      <div class="price-item">
+        <span class="price-label">${escapeHtml(item.name)}</span>
+        <span class="price-value">${Number(item.price).toLocaleString()}円${escapeHtml(item.suffix || '')}</span>
+      </div>
+    `).join('');
+  }
+
+  const totalEl = document.getElementById('totalPrice');
+  if (totalEl) totalEl.textContent = `${total.toLocaleString()}円`;
+  return total;
+};
+
+const __submitBookingOriginalRootFix = submitBooking;
+submitBooking = async function(e){
+  e.preventDefault();
+
+  const submitBtn = document.getElementById('submitBooking');
+  if (!submitBtn || submitBtn.dataset.sending === '1') return;
+
+  submitBtn.dataset.sending = '1';
+  submitBtn.disabled = true;
+  submitBtn.textContent = '予約中...';
+
+  try{ syncMoveTypeAutoAppliesPatched(); }catch(_){ }
+  const total = calculatePrice();
+  const reservationId = formatDateForId(selectedSlot.date, selectedSlot.hour, selectedSlot.minute);
+  const slotDateStr = ymdLocal(selectedSlot.date);
+
+  const moveTypeKey = __bookingGetSelectedKey('moveType');
+  const moveTypeLabel = __bookingGetSelectedLabel('moveType');
+  const selectedEquipmentKey = __bookingGetSelectedKey('equipmentRental');
+  const selectedEquipmentLabel = __bookingGetSelectedLabel('equipmentRental');
+  const autoState = __bookingGetMoveTypeAutoState();
+
+  const equipmentLabels = [];
+  const twoStaffLabels = [];
+
+  const pushEquipmentByKey = function(key, label){
+    const k = String(key || '').trim();
+    const l = String(label || getMenuLabel(k, k) || '').trim();
+    if (!k && !l) return;
+    if (__bookingIsTwoStaffItem(k, l)) {
+      if (!twoStaffLabels.includes(l)) twoStaffLabels.push(l);
+    } else {
+      if (!equipmentLabels.includes(l)) equipmentLabels.push(l);
+    }
+  };
+
+  if (!__bookingIsPlaceholderValue(selectedEquipmentKey, selectedEquipmentLabel)) {
+    pushEquipmentByKey(selectedEquipmentKey, selectedEquipmentLabel);
+  }
+  autoState.equipmentKeys.forEach(key => {
+    if (String(key) === String(selectedEquipmentKey)) return;
+    pushEquipmentByKey(key, getMenuLabel(key, key));
+  });
+
+  const reservation = {
+    reservation_id: reservationId,
+    reservation_datetime: `${slotDateStr} ${String(selectedSlot.hour).padStart(2,'0')}:${String(selectedSlot.minute).padStart(2,'0')}`,
+    usage_type: document.getElementById('usageType').value,
+    customer_name: document.getElementById('customerName').value.trim(),
+    phone_number: document.getElementById('phoneNumber').value.trim(),
+    pickup_location: document.getElementById('pickupLocation').value.trim(),
+    destination: document.getElementById('destination').value.trim() || '',
+    move_type: moveTypeLabel,
+    move_type_key: moveTypeKey,
+    assistance_type: document.getElementById('assistanceType').value,
+    stair_assistance: document.getElementById('stairAssistance').value,
+    equipment_rental: equipmentLabels.join(' / '),
+    stretcher_two_staff: twoStaffLabels.join(' / '),
+    round_trip: document.getElementById('roundTrip').value,
+    notes: document.getElementById('notes').value.trim() || '',
+    total_price: total,
+    status: '未対応',
+    slot_date: slotDateStr,
+    slot_hour: selectedSlot.hour,
+    slot_minute: selectedSlot.minute,
+    is_visible: true
+  };
+
+  try{
+    await withLoading(async ()=>{
+      await gsRun('api_createReservation', reservation);
+    }, '予約中...');
+
+    const reservationIdEl = document.getElementById('reservationId');
+    if (reservationIdEl) reservationIdEl.textContent = reservationId;
+    document.getElementById('bookingModal').classList.add('hidden');
+    document.getElementById('completeModal').classList.remove('hidden');
+
+    try{ fireTrigger(reservation); }catch(_){ }
+
+    try{
+      await waitAndRefresh_(800);
+      renderCalendar();
+    }catch(_){ }
+
+    submitBtn.disabled = false;
+    submitBtn.dataset.sending = '0';
+    submitBtn.textContent = config.form_submit_button_text || '予約する';
+  }catch(err){
+    submitBtn.disabled = false;
+    submitBtn.dataset.sending = '0';
+    submitBtn.textContent = config.form_submit_button_text || '予約する';
+    toast(err?.message || '通信エラー（予約保存）');
+
+    const oldError = document.querySelector('#bookingForm .booking-error');
+    if (oldError) oldError.remove();
+
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'booking-error bg-red-100 border-2 border-red-300 text-red-700 px-4 py-3 rounded-xl mb-4 font-medium';
+    errorDiv.textContent = 'NG 予約に失敗しました。もう一度お試しください。';
+    document.getElementById('bookingForm').prepend(errorDiv);
+  }
+};
+/* ===== root fix patch end ===== */

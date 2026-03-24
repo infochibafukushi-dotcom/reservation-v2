@@ -913,8 +913,8 @@ function _buildReservationNotifyUrl_(baseUrl, payload, secret) {
 function _fireReservationNotify_(reservationObj) {
   try {
     var cfg = _getConfigMap_();
-    var notifyUrl = String(cfg.gas_notify_url || '').trim();
-    var notifySecret = String(cfg.gas_notify_secret || '').trim();
+    var notifyUrl = String(cfg.gas_notify_url || DEFAULT_CONFIG.gas_notify_url || '').trim();
+    var notifySecret = String(cfg.gas_notify_secret || DEFAULT_CONFIG.gas_notify_secret || '').trim();
     if (!notifyUrl) return;
 
     var payload = {

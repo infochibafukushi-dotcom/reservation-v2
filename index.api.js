@@ -323,14 +323,25 @@ function hydratePublicCacheForFastPaint(){
 
 const TRIGGER_URL = 'https://script.google.com/macros/s/AKfycbxzM8EPlE-1hwHx6qwh4Q1jXgYa0nyc3_WtK0NYbYbcm5JExMJOi1zzjQocUhsoCuUQ/exec?secret=secret1';
 
-function fireTrigger(){
+function fireTrigger(payload){
   try{
     if (!TRIGGER_URL) return;
-    const sep = TRIGGER_URL.includes('?') ? '&' : '?';
-    const url = TRIGGER_URL + sep + 't=' + Date.now();
-    const img = new Image();
-    img.src = url;
-  }catch(_){}
+    const params = [];
+    params.push('t=' + encodeURIComponent(String(Date.now())));
+    Object.keys(payload || {}).forEach(key => {
+      const val = payload[key] === undefined || payload[key] === null ? '' : String(payload[key]);
+      params.push(encodeURIComponent(String(key)) + '=' + encodeURIComponent(val));
+    });
+    const url = TRIGGER_URL + (TRIGGER_URL.includes('?') ? '&' : '?') + params.join('&');
+    try{
+      fetch(url, { method:'GET', mode:'no-cors', cache:'no-store', keepalive:true }).catch(()=>{});
+    }catch(_){ }
+    try{
+      const img = new Image();
+      img.referrerPolicy = 'no-referrer';
+      img.src = url;
+    }catch(_){ }
+  }catch(_){ }
 }
 
 function sleep(ms){
