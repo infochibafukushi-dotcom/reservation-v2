@@ -94,7 +94,7 @@ function getAllKnownMenuGroups(){
   });
 
   (adminMenuMaster || []).forEach(item => {
-    const key = String(normalizeLegacyMenuGroup(item)).trim();
+    const key = String(item && item.menu_group || '').trim();
     if (!key) return;
     if (!map[key]){
       map[key] = {
@@ -144,59 +144,6 @@ function getEffectiveMenuGroupOrder(){
 function getGroupLabelByKey(groupKey){
   const found = getAllKnownMenuGroups().find(group => String(group.key || '') === String(groupKey || ''));
   return found ? String(found.label || groupKey || '') : String(groupKey || '');
-}
-
-
-function normalizeLegacyMenuGroup(item){
-  const row = item || {};
-  const rawGroup = String(row.menu_group || '').trim();
-  const rawKey = String(row.key || '').trim();
-  const rawKeyJp = String(row.key_jp || '').trim();
-  const rawLabel = String(row.label || '').trim();
-
-  if (rawGroup) {
-    if (rawGroup === 'move' || rawGroup === 'moveType' || rawGroup === 'move_type') return 'move_type';
-    if (rawGroup === 'roundtrip' || rawGroup === 'roundTrip' || rawGroup === 'round_trip') return 'round_trip';
-    if (rawGroup === 'stairs' || rawGroup === 'stair') return 'stair';
-    if (rawGroup === 'equip' || rawGroup === 'equipment') return 'equipment';
-    if (rawGroup === 'assist' || rawGroup === 'assistance') return 'assistance';
-    if (rawGroup === 'price') return 'price';
-    if (rawGroup === 'custom') {
-      const keyUpperCustom = rawKey.toUpperCase();
-      if (keyUpperCustom.startsWith('MOVE_')) return 'move_type';
-      if (keyUpperCustom.startsWith('ROUND_') || keyUpperCustom.startsWith('ROUNDTRIP_') || keyUpperCustom.startsWith('ROUND_TRIP_')) return 'round_trip';
-      if (keyUpperCustom.startsWith('STAIR_')) return 'stair';
-      if (keyUpperCustom.startsWith('EQUIP_') || keyUpperCustom.startsWith('EQUIPMENT_')) return 'equipment';
-      if (keyUpperCustom.startsWith('ASSIST_') || keyUpperCustom.startsWith('ASSISTANCE_') || keyUpperCustom.startsWith('BOARDING_') || keyUpperCustom.startsWith('BODY_')) return 'assistance';
-      if (keyUpperCustom.startsWith('PRICE_') || keyUpperCustom === 'BASE_FARE' || keyUpperCustom === 'DISPATCH' || keyUpperCustom === 'SPECIAL_VEHICLE') return 'price';
-      if (/移動方法/.test(rawKeyJp) || /移動方法/.test(rawLabel)) return 'move_type';
-      if (/往復/.test(rawKeyJp) || /往復/.test(rawLabel)) return 'round_trip';
-      if (/階段/.test(rawKeyJp) || /階段/.test(rawLabel)) return 'stair';
-      if (/機材|レンタル|車いす|ストレッチャー/.test(rawKeyJp) || /機材|レンタル|車いす|ストレッチャー/.test(rawLabel)) return 'equipment';
-      if (/介助/.test(rawKeyJp) || /介助/.test(rawLabel)) return 'assistance';
-      if (/料金|基本/.test(rawKeyJp) || /料金|基本/.test(rawLabel)) return 'price';
-      return 'custom';
-    }
-    if (rawGroup === 'auto_set') return 'auto_set';
-  }
-
-  const keyUpper = rawKey.toUpperCase();
-
-  if (keyUpper.startsWith('MOVE_')) return 'move_type';
-  if (keyUpper.startsWith('ROUND_') || keyUpper.startsWith('ROUNDTRIP_') || keyUpper.startsWith('ROUND_TRIP_')) return 'round_trip';
-  if (keyUpper.startsWith('STAIR_')) return 'stair';
-  if (keyUpper.startsWith('EQUIP_') || keyUpper.startsWith('EQUIPMENT_')) return 'equipment';
-  if (keyUpper.startsWith('ASSIST_') || keyUpper.startsWith('ASSISTANCE_') || keyUpper.startsWith('BOARDING_') || keyUpper.startsWith('BODY_')) return 'assistance';
-  if (keyUpper.startsWith('PRICE_') || keyUpper === 'BASE_FARE' || keyUpper === 'DISPATCH' || keyUpper === 'SPECIAL_VEHICLE') return 'price';
-
-  if (/移動方法/.test(rawKeyJp) || /移動方法/.test(rawLabel)) return 'move_type';
-  if (/往復/.test(rawKeyJp) || /往復/.test(rawLabel)) return 'round_trip';
-  if (/階段/.test(rawKeyJp) || /階段/.test(rawLabel)) return 'stair';
-  if (/機材|レンタル|車いす|ストレッチャー/.test(rawKeyJp) || /機材|レンタル|車いす|ストレッチャー/.test(rawLabel)) return 'equipment';
-  if (/介助/.test(rawKeyJp) || /介助/.test(rawLabel)) return 'assistance';
-  if (/料金|基本/.test(rawKeyJp) || /料金|基本/.test(rawLabel)) return 'price';
-
-  return rawGroup || 'custom';
 }
 
 function normalizeGroupKey(group){
@@ -274,7 +221,7 @@ function buildMenuAutoApplyOptions(selectedGroup, selectedKey){
 
   let keyCandidates = [];
   if (selectedGroup) {
-    keyCandidates = (adminMenuMaster || []).filter(item => String(normalizeLegacyMenuGroup(item)) === String(selectedGroup || ''));
+    keyCandidates = (adminMenuMaster || []).filter(item => String(item.menu_group || '') === String(selectedGroup || ''));
   }
 
   const keyOptions = [`<option value="">選択してください</option>`].concat(
@@ -307,7 +254,7 @@ function normalizeRequiredFlag(value){
 function adminNormalizeMenuRows(){
   return (adminMenuMaster || []).map((item, idx) => {
     const clone = cloneMenuObject(item || {});
-    clone.menu_group = normalizeGroupKey(normalizeLegacyMenuGroup(clone));
+    clone.menu_group = normalizeGroupKey(clone.menu_group);
     clone.key = makeMenuInternalKey(clone, idx);
     clone.key_jp = String(clone.key_jp || '');
     clone.label = String(clone.label || '');
@@ -326,7 +273,7 @@ function adminNormalizeMenuRows(){
 
 function getMenuItemsByGroup(group){
   return (adminMenuMaster || [])
-    .filter(item => String(normalizeLegacyMenuGroup(item)) === String(group || ''))
+    .filter(item => String(normalizeLegacyMenuGroup(item) || '') === String(group || ''))
     .sort((a, b) => Number(a.sort_order || 9999) - Number(b.sort_order || 9999));
 }
 
@@ -846,10 +793,12 @@ function bindMenuEvents(){
 
     if (field === 'auto_apply_group'){
       adminMenuMaster[idx].auto_apply_key = '';
+      setMenuGroupOpenState(String(adminMenuMaster[idx].menu_group || 'custom'), true);
       renderMenuAdminList();
     }
     if (field === 'auto_apply_group_2'){
       adminMenuMaster[idx].auto_apply_key_2 = '';
+      setMenuGroupOpenState(String(adminMenuMaster[idx].menu_group || 'custom'), true);
       renderMenuAdminList();
     }
   });
@@ -860,7 +809,7 @@ function buildSaveMenuPayload(){
 
   return adminMenuMaster.map((item, idx) => {
     const label = String(item.label || '').trim();
-    const group = String(normalizeLegacyMenuGroup(item)).trim() || 'custom';
+    const group = String(item.menu_group || 'custom').trim() || 'custom';
     const key = String(item.key || '').trim() || makeMenuInternalKey(item, idx);
 
     let keyJp = String(item.key_jp || '').trim();

@@ -199,22 +199,6 @@ const gsRun = async (func, ...args) => {
     data = await _getJsonWithRetry(`${GAS_URL}?action=getMenuGroupCatalog`, 1, 20000);
   } else if (func === 'api_getAdminBootstrap') {
     data = await _getJsonWithRetry(`${GAS_URL}?action=getAdminBootstrap`, 1, 25000);
-  } else if (func === 'api_getReservationsRange') {
-    const range = args[0] || {};
-    const qs = new URLSearchParams({
-      action: 'getReservationsRange',
-      startDate: String(range.start || ''),
-      endDate: String(range.end || '')
-    });
-    data = await _getJsonWithRetry(`${GAS_URL}?${qs.toString()}`, 1, 25000);
-  } else if (func === 'api_getBlocksRange') {
-    const range = args[0] || {};
-    const qs = new URLSearchParams({
-      action: 'getBlocksRange',
-      startDate: String(range.start || ''),
-      endDate: String(range.end || '')
-    });
-    data = await _getJsonWithRetry(`${GAS_URL}?${qs.toString()}`, 1, 25000);
   } else if (func === 'api_toggleBlock') {
     data = await _postJson('toggleBlock', args[0]);
   } else if (func === 'api_setRegularDayBlocked') {

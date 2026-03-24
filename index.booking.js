@@ -435,7 +435,7 @@ async function submitBooking(e){
     document.getElementById('bookingModal').classList.add('hidden');
     document.getElementById('completeModal').classList.remove('hidden');
 
-    // LINE通知の重複防止: クライアント側 fireTrigger は停止
+    fireTrigger();
 
     try{
       await waitAndRefresh_(800);
@@ -1004,3 +1004,308 @@ document.addEventListener('DOMContentLoaded', function(){
   _bookingRecheckSubmitButtonSoon();
 });
 /* ===== booking button stabilization patch end ===== */
+
+
+
+/* ===== booking consistency patch ===== */
+(function(){
+  function bookingGetSelectKey(selectId){
+    const el = document.getElementById(selectId);
+    if (!el) return '';
+    const opt = el.options && el.selectedIndex >= 0 ? el.options[el.selectedIndex] : null;
+    return String(opt && opt.dataset ? (opt.dataset.key || '') : '').trim();
+  }
+
+  function bookingFindMenuItemByKey(key){
+    const target = String(key || '').trim();
+    if (!target) return null;
+    const list = Array.isArray(menuMaster) ? menuMaster : [];
+    for (let i = 0; i < list.length; i++){
+      const item = list[i] || {};
+      if (String(item.key || '').trim() === target) return item;
+    }
+    return null;
+  }
+
+  function bookingFindMenuItemByLabelInGroup(group, label){
+    const target = String(label || '').trim();
+    if (!target) return null;
+    const list = typeof getItemsByGroup === 'function' ? getItemsByGroup(group) : [];
+    for (let i = 0; i < list.length; i++){
+      const item = list[i] || {};
+      if (String(item.label || '').trim() === target) return item;
+    }
+    return null;
+  }
+
+  function bookingGetSelectedItem(selectId, group){
+    const key = bookingGetSelectKey(selectId);
+    if (key){
+      const byKey = bookingFindMenuItemByKey(key);
+      if (byKey) return byKey;
+    }
+    const el = document.getElementById(selectId);
+    const label = el ? String(el.value || '').trim() : '';
+    if (label){
+      const byLabel = bookingFindMenuItemByLabelInGroup(group, label);
+      if (byLabel) return byLabel;
+    }
+    return null;
+  }
+
+  function bookingFindMoveTypeItem(){
+    return bookingGetSelectedItem('moveType', 'move_type');
+  }
+
+  function bookingGetAutoTargets(moveItem){
+    const out = [];
+    if (!moveItem) return out;
+    if (moveItem.auto_apply_group && moveItem.auto_apply_key){
+      out.push({ group: String(moveItem.auto_apply_group || '').trim(), key: String(moveItem.auto_apply_key || '').trim() });
+    }
+    if (moveItem.auto_apply_group_2 && moveItem.auto_apply_key_2){
+      out.push({ group: String(moveItem.auto_apply_group_2 || '').trim(), key: String(moveItem.auto_apply_key_2 || '').trim() });
+    }
+    return out.filter(function(row){ return row.group && row.key; });
+  }
+
+  function bookingFindItemByTarget(target){
+    if (!target || !target.key) return null;
+    return bookingFindMenuItemByKey(target.key);
+  }
+
+  function bookingCollectEffectiveState(){
+    const moveItem = bookingFindMoveTypeItem();
+    const assistanceItem = bookingGetSelectedItem('assistanceType', 'assistance');
+    const stairItem = bookingGetSelectedItem('stairAssistance', 'stair');
+    const equipmentItem = bookingGetSelectedItem('equipmentRental', 'equipment');
+    const roundItem = bookingGetSelectedItem('roundTrip', 'round_trip');
+    const autoState = typeof applyAutoSelections === 'function' ? (applyAutoSelections() || {}) : {};
+    const autoTargets = bookingGetAutoTargets(moveItem);
+
+    const extras = [];
+    autoTargets.forEach(function(target){
+      const item = bookingFindItemByTarget(target);
+      if (!item) return;
+      extras.push({ target: target, item: item });
+    });
+
+    return {
+      moveItem: moveItem,
+      assistanceItem: assistanceItem,
+      stairItem: stairItem,
+      equipmentItem: equipmentItem,
+      roundItem: roundItem,
+      autoState: autoState,
+      extras: extras
+    };
+  }
+
+  function bookingComputeConsistentTotal(){
+    const state = bookingCollectEffectiveState();
+    const breakdown = [];
+    let total = 0;
+
+    const addItem = function(item, overrideLabel){
+      if (!item) return;
+      const price = Number(item.price || 0);
+      total += price;
+      breakdown.push({
+        key: String(item.key || ''),
+        label: overrideLabel || String(item.label || ''),
+        price: price
+      });
+    };
+
+    addItem(bookingFindMenuItemByKey('BASE_FARE'));
+    addItem(bookingFindMenuItemByKey('DISPATCH'));
+    addItem(bookingFindMenuItemByKey('SPECIAL_VEHICLE'));
+
+    if (state.moveItem){
+      addItem(state.moveItem);
+    }
+
+    if (state.autoState && state.autoState.appliedBodyAssist){
+      addItem(bookingFindMenuItemByKey('BODY_ASSIST'));
+    } else if (state.assistanceItem){
+      addItem(state.assistanceItem);
+    }
+
+    if (state.stairItem){
+      addItem(state.stairItem);
+    }
+
+    if (state.equipmentItem){
+      addItem(state.equipmentItem);
+    }
+
+    if (state.roundItem){
+      addItem(state.roundItem);
+    }
+
+    const already = new Set(breakdown.map(function(row){ return String(row.key || ''); }));
+
+    state.extras.forEach(function(extra){
+      const item = extra.item;
+      const group = String(extra.target.group || '');
+      const key = String(item.key || '');
+
+      if (already.has(key)) return;
+
+      if (group === 'assistance'){
+        addItem(item);
+        already.add(key);
+        return;
+      }
+
+      if (group === 'equipment'){
+        addItem(item);
+        already.add(key);
+        return;
+      }
+
+      if (group === 'stair'){
+        addItem(item);
+        already.add(key);
+        return;
+      }
+
+      if (group === 'round_trip'){
+        addItem(item);
+        already.add(key);
+        return;
+      }
+    });
+
+    return { total: total, breakdown: breakdown, state: state };
+  }
+
+  const __calculatePriceOriginalForConsistency = calculatePrice;
+  calculatePrice = function(){
+    try{
+      const result = bookingComputeConsistentTotal();
+      const breakdownEl = document.getElementById('priceBreakdown');
+      if (breakdownEl){
+        breakdownEl.innerHTML = result.breakdown.map(function(item){
+          return '<div class="price-item">'
+            + '<span class="price-label">' + escapeHtml(String(item.label || '')) + '</span>'
+            + '<span class="price-value">' + Number(item.price || 0).toLocaleString() + '円</span>'
+            + '</div>';
+        }).join('');
+      }
+      const totalEl = document.getElementById('totalPrice');
+      if (totalEl) totalEl.textContent = Number(result.total || 0).toLocaleString() + '円';
+      return Number(result.total || 0);
+    }catch(err){
+      return __calculatePriceOriginalForConsistency();
+    }
+  };
+
+  async function submitBookingConsistent(e){
+    e.preventDefault();
+    if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+
+    const submitBtn = document.getElementById('submitBooking');
+    if (!submitBtn || submitBtn.dataset.sending === '1') return;
+
+    submitBtn.dataset.sending = '1';
+    submitBtn.disabled = true;
+    submitBtn.textContent = '予約中...';
+
+    try{
+      const reservationId = formatDateForId(selectedSlot.date, selectedSlot.hour, selectedSlot.minute);
+      const computed = bookingComputeConsistentTotal();
+      const total = Number(computed.total || 0);
+      const slotDateStr = ymdLocal(selectedSlot.date);
+
+      const moveItem = computed.state.moveItem;
+      const equipmentItem = computed.state.equipmentItem;
+
+      let staff2Label = '';
+      computed.state.extras.forEach(function(extra){
+        if (String(extra.target.group || '') === 'equipment'){
+          const key = String(extra.item && extra.item.key || '');
+          if (key !== String(equipmentItem && equipmentItem.key || '')){
+            staff2Label = String(extra.item.label || '');
+          }
+        }
+      });
+
+      const reservation = {
+        reservation_id: reservationId,
+        reservation_datetime: slotDateStr + ' ' + String(selectedSlot.hour).padStart(2,'0') + ':' + String(selectedSlot.minute).padStart(2,'0'),
+        usage_type: document.getElementById('usageType').value,
+        customer_name: String(document.getElementById('customerName').value || '').trim(),
+        phone_number: String(document.getElementById('phoneNumber').value || '').trim(),
+        pickup_location: String(document.getElementById('pickupLocation').value || '').trim(),
+        destination: String(document.getElementById('destination').value || '').trim(),
+        move_type: String(moveItem && moveItem.label || document.getElementById('moveType').value || ''),
+        move_type_key: String(moveItem && moveItem.key || bookingGetSelectKey('moveType') || ''),
+        assistance_type: String(document.getElementById('assistanceType').value || ''),
+        stair_assistance: String(document.getElementById('stairAssistance').value || ''),
+        equipment_rental: String(equipmentItem && equipmentItem.label || document.getElementById('equipmentRental').value || ''),
+        stretcher_two_staff: String(staff2Label || ''),
+        round_trip: String(document.getElementById('roundTrip').value || ''),
+        notes: String(document.getElementById('notes').value || '').trim(),
+        total_price: total,
+        status: '未対応',
+        slot_date: slotDateStr,
+        slot_hour: selectedSlot.hour,
+        slot_minute: selectedSlot.minute,
+        is_visible: true
+      };
+
+      await withLoading(async function(){
+        await gsRun('api_createReservation', reservation);
+      }, '予約中...');
+
+      const reservationIdEl = document.getElementById('reservationId');
+      if (reservationIdEl) reservationIdEl.textContent = reservationId;
+
+      const bookingModalEl = document.getElementById('bookingModal');
+      const completeModalEl = document.getElementById('completeModal');
+      if (bookingModalEl) bookingModalEl.classList.add('hidden');
+      if (completeModalEl) completeModalEl.classList.remove('hidden');
+
+      try{
+        await waitAndRefresh_(800);
+        renderCalendar();
+      }catch(_){}
+
+      submitBtn.disabled = false;
+      submitBtn.dataset.sending = '0';
+      submitBtn.textContent = config.form_submit_button_text || '予約する';
+    }catch(err){
+      submitBtn.disabled = false;
+      submitBtn.dataset.sending = '0';
+      submitBtn.textContent = config.form_submit_button_text || '予約する';
+      toast(err && err.message ? err.message : '通信エラー（予約保存）');
+
+      const oldError = document.querySelector('#bookingForm .booking-error');
+      if (oldError) oldError.remove();
+
+      const errorDiv = document.createElement('div');
+      errorDiv.className = 'booking-error bg-red-100 border-2 border-red-300 text-red-700 px-4 py-3 rounded-xl mb-4 font-medium';
+      errorDiv.textContent = 'NG 予約に失敗しました。もう一度お試しください。';
+      document.getElementById('bookingForm').prepend(errorDiv);
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', function(){
+    const moveTypeEl = document.getElementById('moveType');
+    if (moveTypeEl && !moveTypeEl.dataset.boundMoveTypeConsistency){
+      moveTypeEl.dataset.boundMoveTypeConsistency = '1';
+      moveTypeEl.addEventListener('change', function(){
+        try{ calculatePrice(); }catch(_){}
+        try{ updateSubmitButton(); }catch(_){}
+      });
+    }
+
+    const form = document.getElementById('bookingForm');
+    if (form && !form.dataset.boundConsistentSubmit){
+      form.dataset.boundConsistentSubmit = '1';
+      form.addEventListener('submit', submitBookingConsistent, true);
+    }
+  });
+})();
+/* ===== booking consistency patch end ===== */

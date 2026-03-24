@@ -32,9 +32,24 @@ function getMenuNote(key, fallback){
   return fallback || '';
 }
 
+
+function normalizePublicMenuGroupByKey_(group, key){
+  const rawGroup = String(group || '').trim();
+  const rawKey = String(key || '').trim().toUpperCase();
+
+  if (rawGroup && rawGroup !== 'custom') return rawGroup;
+  if (/^MOVE_/.test(rawKey)) return 'move_type';
+  if (/^ROUND_|^ROUNDTRIP_|^ROUND_TRIP_/.test(rawKey)) return 'round_trip';
+  if (/^STAIR_/.test(rawKey)) return 'stair';
+  if (/^EQUIP_|^EQUIPMENT_/.test(rawKey)) return 'equipment';
+  if (/^ASSIST_|^ASSISTANCE_|^BOARDING_ASSIST$|^BODY_ASSIST$|^STAFF_ADD$/.test(rawKey)) return 'assistance';
+  if (/^BASE_FARE$|^DISPATCH$|^SPECIAL_VEHICLE$|^PRICE_/.test(rawKey)) return 'price';
+  return rawGroup || 'custom';
+}
+
 function getItemsByGroup(group){
   return (menuMaster || []).filter(item => {
-    if (String(item.menu_group || '') !== String(group || '')) return false;
+    if (String(normalizePublicMenuGroupByKey_(item && item.menu_group, item && item.key) || '') !== String(group || '')) return false;
     if (item.is_visible === false || String(item.is_visible).toUpperCase() === 'FALSE') return false;
     return true;
   }).sort((a,b) => {
