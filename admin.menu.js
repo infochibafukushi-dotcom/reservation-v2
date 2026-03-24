@@ -906,3 +906,136 @@ function buildMenuGroupConfigPayload(){
   };
 }
 
+
+
+/* ===== auto-set details stability patch start ===== */
+function ensureAutoSetDetailsStateStore(){
+  if (!window.__autoSetDetailsOpenState) window.__autoSetDetailsOpenState = {};
+  return window.__autoSetDetailsOpenState;
+}
+
+function setAutoSetDetailsOpenState(key, isOpen){
+  const state = ensureAutoSetDetailsStateStore();
+  state[String(key || '')] = !!isOpen;
+}
+
+function getAutoSetDetailsOpenState(key, fallback){
+  const state = ensureAutoSetDetailsStateStore();
+  const mapKey = String(key || '');
+  if (state[mapKey] === undefined) return !!fallback;
+  return !!state[mapKey];
+}
+
+renderMenuItemCard = function(item, groupItems){
+  const autoOptions1 = buildMenuAutoApplyOptions(item.auto_apply_group || '', item.auto_apply_key || '');
+  const autoOptions2 = buildMenuAutoApplyOptions(item.auto_apply_group_2 || '', item.auto_apply_key_2 || '');
+  const groupIndex = groupItems.findIndex(x => String(x.key || '') === String(item.key || ''));
+  const autoCount = (item.auto_apply_group && item.auto_apply_key ? 1 : 0) + (item.auto_apply_group_2 && item.auto_apply_key_2 ? 1 : 0);
+  const autoOpen = getAutoSetDetailsOpenState(item.key || '', autoCount > 0);
+
+  return `
+    <div class="menu-item-card" data-menu-key="${escapeHtml(item.key || '')}">
+      <div class="menu-item-top">
+        <div class="menu-move-box">
+          <button class="move-btn" data-action="menuUp" data-key="${escapeHtml(item.key || '')}" type="button" ${groupIndex <= 0 ? 'disabled' : ''}>↑</button>
+          <button class="move-btn" data-action="menuDown" data-key="${escapeHtml(item.key || '')}" type="button" ${groupIndex >= groupItems.length - 1 ? 'disabled' : ''}>↓</button>
+        </div>
+
+        <div class="flex-1">
+          <div class="menu-item-main">
+            <div class="form-group">
+              <label class="form-label">項目名</label>
+              <input type="text" value="${escapeHtml(item.label || '')}" data-field="label" data-key="${escapeHtml(item.key || '')}" placeholder="例: テスト">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">価格</label>
+              <input type="number" value="${Number(item.price || 0)}" data-field="price" data-key="${escapeHtml(item.key || '')}" placeholder="0">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">表示切替</label>
+              <select data-field="is_visible" data-key="${escapeHtml(item.key || '')}">
+                <option value="1" ${item.is_visible ? 'selected' : ''}>表示</option>
+                <option value="0" ${!item.is_visible ? 'selected' : ''}>非表示</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">現在グループ</label>
+              <input type="text" value="${escapeHtml(getGroupLabelByKey(item.menu_group || 'custom'))}" disabled>
+            </div>
+          </div>
+
+          <div class="menu-item-bottom">
+            <div class="form-group">
+              <label class="form-label">説明</label>
+              <input type="text" value="${escapeHtml(item.note || '')}" data-field="note" data-key="${escapeHtml(item.key || '')}" placeholder="補足説明">
+            </div>
+          </div>
+
+          <details class="mt-4 rounded-2xl border-2 border-dashed border-sky-200 bg-sky-50/40" data-auto-details-key="${escapeHtml(item.key || '')}" ${autoOpen ? 'open' : ''}>
+            <summary class="cursor-pointer list-none px-4 py-3 font-extrabold text-slate-700 flex items-center justify-between">
+              <span>⚙ 自動セット設定 ${autoCount > 0 ? `（${autoCount}件設定中）` : '（未設定）'}</span>
+              <span class="text-sm text-slate-500">クリックで${autoOpen ? '閉じる' : '開く'}</span>
+            </summary>
+            <div class="px-4 pb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="form-group">
+                <label class="form-label">自動セット先1</label>
+                <select data-field="auto_apply_group" data-key="${escapeHtml(item.key || '')}">
+                  ${autoOptions1.groupOptions}
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">自動セット項目1</label>
+                <select data-field="auto_apply_key" data-key="${escapeHtml(item.key || '')}">
+                  ${autoOptions1.keyOptions}
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">自動セット先2</label>
+                <select data-field="auto_apply_group_2" data-key="${escapeHtml(item.key || '')}">
+                  ${autoOptions2.groupOptions}
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">自動セット項目2</label>
+                <select data-field="auto_apply_key_2" data-key="${escapeHtml(item.key || '')}">
+                  ${autoOptions2.keyOptions}
+                </select>
+              </div>
+            </div>
+          </details>
+
+          <div class="menu-meta">
+            並び順: <strong>${Number(item.sort_order || 0)}</strong>
+            ／ 日本語キー: <strong>${escapeHtml(item.key_jp || item.label || '未設定')}</strong>
+            ／ 保存IDは内部で自動管理します
+          </div>
+        </div>
+
+        <div class="menu-item-actions">
+          <button class="danger-btn" data-action="menuRemove" data-key="${escapeHtml(item.key || '')}" type="button">削除</button>
+        </div>
+      </div>
+    </div>
+  `;
+};
+
+const _bindMenuEventsOriginal_AutoSetPatch = typeof bindMenuEvents === 'function' ? bindMenuEvents : null;
+bindMenuEvents = function(){
+  if (typeof _bindMenuEventsOriginal_AutoSetPatch === 'function'){
+    _bindMenuEventsOriginal_AutoSetPatch();
+  }
+
+  const wrap = document.getElementById('menuAdminList');
+  if (!wrap || wrap.dataset.boundAutoSetDetailsState === '1') return;
+  wrap.dataset.boundAutoSetDetailsState = '1';
+
+  wrap.addEventListener('toggle', function(e){
+    const details = e.target && e.target.closest ? e.target.closest('details[data-auto-details-key]') : null;
+    if (!details) return;
+    setAutoSetDetailsOpenState(details.getAttribute('data-auto-details-key') || '', details.open);
+  }, true);
+};
+/* ===== auto-set details stability patch end ===== */
