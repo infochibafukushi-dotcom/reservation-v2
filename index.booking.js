@@ -1335,120 +1335,134 @@ submitBooking = async function(e){
 /* ===== reservation consistency patch end ===== */
 
 
-/* ===== move_type assistance filter + note cleanup patch ===== */
-function getMoveTypeSelectedMetaPatched(){
-  const el = document.getElementById('moveType');
-  if (!el) return { key:'', label:'', note:'' };
-  const opt = el.options && el.selectedIndex >= 0 ? el.options[el.selectedIndex] : null;
-  const key = String((opt && opt.dataset && opt.dataset.key) || '').trim();
-  const label = String((opt && opt.value) || '').trim();
-  const map = typeof getMenuMap === 'function' ? getMenuMap() : {};
-  const item = map && map[key] ? map[key] : null;
-  const note = String(item && item.note || '').trim();
-  return { key:key, label:label, note:note };
+/* ===== patch: move_type assistance filter + hide 不要 rows ===== */
+function __moveTypeLabelTextPatched__(){
+  try{
+    var el = document.getElementById('moveType');
+    if(!el) return '';
+    return String(el.value || '').trim();
+  }catch(_){ return ''; }
 }
 
-function getMoveTypeCategoryPatched(){
-  const meta = getMoveTypeSelectedMetaPatched();
-  const key = String(meta.key || '').toUpperCase();
-  const label = String(meta.label || '');
-  if (!key && !label) return '';
-  if (key.indexOf('STRETCHER') !== -1 || label.indexOf('ストレッチャー') !== -1) return 'stretcher';
-  if (key.indexOf('RECLINING') !== -1 || label.indexOf('リクライニング') !== -1) return 'wheelchair';
-  if ((key.indexOf('OWN') !== -1 || key.indexOf('WHEELCHAIR') !== -1) && (label.indexOf('その他') === -1)) return 'wheelchair';
-  if (label.indexOf('無料車いす') !== -1 || label.indexOf('ご自身の車いす') !== -1 || label.indexOf('持込車いす') !== -1 || label.indexOf('ご自身車いす') !== -1) return 'wheelchair';
-  if (key.indexOf('OTHER') !== -1 || label.indexOf('その他') !== -1) return 'other';
+function __normalizeMoveTypeRulePatched__(moveKey, moveLabel){
+  var key = String(moveKey || '').trim().toUpperCase();
+  var label = String(moveLabel || '').trim();
+  if (key === 'MOVE_STRETCHER' || label.indexOf('ストレッチャー') !== -1) return 'stretcher';
+  if (key === 'MOVE_RECLINING' || label.indexOf('リクライニング') !== -1) return 'wheelchair_limited';
+  if (key === 'MOVE_WHEELCHAIR' || label.indexOf('無料車いす') !== -1) return 'wheelchair_limited';
+  if (key === 'MOVE_OWN' || label.indexOf('ご自身の車いす') !== -1) return 'wheelchair_limited';
+  if (key === 'MOVE_OTHER' || label.indexOf('その他') !== -1) return 'other';
   return '';
 }
 
-function getMoveTypeNoteTextPatched(key){
-  const meta = getMoveTypeSelectedMetaPatched();
-  const selectedKey = String(key || meta.key || '').trim();
-  const map = typeof getMenuMap === 'function' ? getMenuMap() : {};
-  const item = map && map[selectedKey] ? map[selectedKey] : null;
-  const itemNote = String(item && item.note || meta.note || '').trim();
-  if (itemNote) return itemNote;
-  return config.form_move_type_help_text || defaultConfig.form_move_type_help_text || '最初に移動方法をお選びください';
+function __getAllowedAssistanceKeysPatched__(moveKey, moveLabel){
+  var rule = __normalizeMoveTypeRulePatched__(moveKey, moveLabel);
+  if (rule === 'stretcher') return ['BODY_ASSIST'];
+  if (rule === 'wheelchair_limited') return ['BOARDING_ASSIST','BODY_ASSIST'];
+  if (rule === 'other') return ['BOARDING_ASSIST','BODY_ASSIST','ASSIST_NONE'];
+  return null;
 }
 
-function getFilteredAssistanceItemsPatched(){
-  const items = (typeof getItemsByGroup === 'function' ? getItemsByGroup('assistance') : []) || [];
-  const category = getMoveTypeCategoryPatched();
-  if (!category) return items;
+function __filterAssistanceItemsPatched__(items, moveKey, moveLabel){
+  var allowed = __getAllowedAssistanceKeysPatched__(moveKey, moveLabel);
+  if (!allowed || !Array.isArray(items)) return Array.isArray(items) ? items.slice() : [];
   return items.filter(function(item){
-    const key = String(item && item.key || '').trim().toUpperCase();
-    const label = String(item && item.label || '').trim();
-    const isBoarding = key === 'BOARDING_ASSIST' || label.indexOf('乗降介助') !== -1;
-    const isBody = key === 'BODY_ASSIST' || label.indexOf('身体介助') !== -1;
-    const isNone = label.indexOf('不要') !== -1 || label.indexOf('介助不要') !== -1 || key.indexOf('NONE') !== -1;
-    if (category === 'wheelchair') return isBoarding || isBody;
-    if (category === 'stretcher') return isBody;
-    if (category === 'other') return isBoarding || isBody || isNone;
-    return true;
+    var key = String(item && item.key || '').trim();
+    var label = String(item && item.label || '').trim();
+    if (allowed.indexOf(key) !== -1) return true;
+    if (allowed.indexOf('ASSIST_NONE') !== -1 && (label.indexOf('不要') !== -1 || label.indexOf('介助不要') !== -1)) return true;
+    return false;
   });
 }
 
-function updateAssistanceOptionsByMoveTypePatched(){
-  const assistanceEl = document.getElementById('assistanceType');
-  if (!assistanceEl || typeof buildSelectOptions !== 'function') return;
-  const currentKey = getSelectedOptionKey('assistanceType');
-  const items = getFilteredAssistanceItemsPatched();
+function __syncAssistanceOptionsByMoveTypePatched__(){
+  var moveKey = getSelectedOptionKey('moveType');
+  var moveLabel = __moveTypeLabelTextPatched__();
+  var assistanceEl = document.getElementById('assistanceType');
+  if (!assistanceEl) return;
+
+  var currentAssistanceKey = getSelectedOptionKey('assistanceType');
+  var items = getItemsByGroup('assistance');
+  var filtered = __filterAssistanceItemsPatched__(items, moveKey, moveLabel);
+
   buildSelectOptions(
     assistanceEl,
-    items,
+    filtered,
     true,
     config.form_usage_type_placeholder || '選択してください',
-    function(item){ return `${item.label}(${Number(item.price || 0).toLocaleString()}円)`; }
+    function(item){ return ''.concat(item.label, '(').concat(Number(item.price || 0).toLocaleString(), '円)'); }
   );
-  if (currentKey && typeof setSelectValueByKey === 'function' && setSelectValueByKey('assistanceType', currentKey)) {
-    return;
+
+  if (currentAssistanceKey && !setSelectValueByKey('assistanceType', currentAssistanceKey)) {
+    if (filtered.length === 1) {
+      setSelectValueByKey('assistanceType', String(filtered[0].key || ''));
+    } else {
+      assistanceEl.selectedIndex = 0;
+    }
   }
-  const category = getMoveTypeCategoryPatched();
-  if (category === 'stretcher') {
-    setSelectValueByKey('assistanceType', 'BODY_ASSIST');
+
+  if (!currentAssistanceKey && filtered.length === 1) {
+    setSelectValueByKey('assistanceType', String(filtered[0].key || ''));
   }
 }
 
 (function(){
-  const _renderServiceSelectorsPatchedBase = renderServiceSelectors;
+  var __renderServiceSelectorsPatchedBase__ = renderServiceSelectors;
   renderServiceSelectors = function(){
-    _renderServiceSelectorsPatchedBase();
-    updateAssistanceOptionsByMoveTypePatched();
-    const moveTypeNoteEl = document.getElementById('moveTypeNote');
-    if (moveTypeNoteEl) moveTypeNoteEl.textContent = getMoveTypeNoteTextPatched(getSelectedOptionKey('moveType'));
-    const sw1 = document.getElementById('stairWarning');
-    const sw2 = document.getElementById('wheelchairWarning');
-    const sw3 = document.getElementById('stretcherWarning');
-    if (sw1) sw1.style.display = 'none';
-    if (sw2) sw2.style.display = 'none';
-    if (sw3) sw3.style.display = 'none';
+    var prevMoveKey = getSelectedOptionKey('moveType');
+    var prevMoveLabel = __moveTypeLabelTextPatched__();
+    var prevAssistanceKey = getSelectedOptionKey('assistanceType');
+    var result = __renderServiceSelectorsPatchedBase__.apply(this, arguments);
+
+    if (prevMoveKey) {
+      setSelectValueByKey('moveType', prevMoveKey);
+    } else {
+      var moveEl = document.getElementById('moveType');
+      if (moveEl && prevMoveLabel) moveEl.value = prevMoveLabel;
+    }
+
+    __syncAssistanceOptionsByMoveTypePatched__();
+
+    if (prevAssistanceKey) {
+      setSelectValueByKey('assistanceType', prevAssistanceKey);
+    }
+    return result;
   };
 
-  const _applyAutoSelectionsPatchedBase2 = applyAutoSelections;
-  applyAutoSelections = function(){
-    updateAssistanceOptionsByMoveTypePatched();
-    const state = _applyAutoSelectionsPatchedBase2();
-    const moveTypeNoteEl = document.getElementById('moveTypeNote');
-    if (moveTypeNoteEl) moveTypeNoteEl.textContent = getMoveTypeNoteTextPatched(getSelectedOptionKey('moveType'));
-    const sw1 = document.getElementById('stairWarning');
-    const sw2 = document.getElementById('wheelchairWarning');
-    const sw3 = document.getElementById('stretcherWarning');
-    if (sw1) { sw1.classList.add('hidden'); sw1.style.display = 'none'; }
-    if (sw2) { sw2.classList.add('hidden'); sw2.style.display = 'none'; }
-    if (sw3) { sw3.classList.add('hidden'); sw3.style.display = 'none'; }
-    return state;
+  var __calculatePricePatchedBase__ = calculatePrice;
+  calculatePrice = function(){
+    var result = __calculatePricePatchedBase__.apply(this, arguments);
+    try{
+      var breakdownEl = document.getElementById('priceBreakdown');
+      if (breakdownEl){
+        Array.prototype.slice.call(breakdownEl.querySelectorAll('.price-item')).forEach(function(row){
+          var labelEl = row.querySelector('.price-label');
+          var valueEl = row.querySelector('.price-value');
+          var label = String(labelEl ? labelEl.textContent || '' : '');
+          var value = String(valueEl ? valueEl.textContent || '' : '');
+          if ((label.indexOf('不要') !== -1 || label.indexOf('介助不要') !== -1) && value.indexOf('0円') !== -1){
+            row.remove();
+          }
+        });
+      }
+    }catch(_){ }
+    return result;
   };
 
   document.addEventListener('DOMContentLoaded', function(){
-    const moveTypeEl = document.getElementById('moveType');
-    if (moveTypeEl && !moveTypeEl.dataset.boundMoveTypeAssistPatch){
-      moveTypeEl.dataset.boundMoveTypeAssistPatch = '1';
+    var moveTypeEl = document.getElementById('moveType');
+    if (moveTypeEl && !moveTypeEl.dataset.boundMoveAssistFilterPatched){
+      moveTypeEl.dataset.boundMoveAssistFilterPatched = '1';
       moveTypeEl.addEventListener('change', function(){
-        updateAssistanceOptionsByMoveTypePatched();
-        const moveTypeNoteEl = document.getElementById('moveTypeNote');
-        if (moveTypeNoteEl) moveTypeNoteEl.textContent = getMoveTypeNoteTextPatched(getSelectedOptionKey('moveType'));
+        __syncAssistanceOptionsByMoveTypePatched__();
+        try{ applyAutoSelections(); }catch(_){ }
+        try{ calculatePrice(); }catch(_){ }
+        try{ updateSubmitButton(); }catch(_){ }
       });
     }
+
+    try{ __syncAssistanceOptionsByMoveTypePatched__(); }catch(_){ }
+    try{ calculatePrice(); }catch(_){ }
   });
 })();
-/* ===== move_type assistance filter + note cleanup patch end ===== */
+/* ===== patch end ===== */
