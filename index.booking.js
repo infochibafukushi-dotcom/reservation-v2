@@ -1335,44 +1335,287 @@ submitBooking = async function(e){
 /* ===== reservation consistency patch end ===== */
 
 
-/* ===== patch: hide 不要(0円) rows while keeping current logic ===== */
+/* ===== authoritative final booking fix ===== */
 (function(){
-  function __hideNoneZeroRowsFinal__(){
+  function __finalHelpText__(){
+    return config.form_move_type_help_text || defaultConfig.form_move_type_help_text || '最初に移動方法をお選びください';
+  }
+
+  function __finalGetSelect__(id){
+    return document.getElementById(id);
+  }
+
+  function __finalSelectedOption__(id){
+    var el = __finalGetSelect__(id);
+    if (!el) return null;
+    return el.options && el.selectedIndex >= 0 ? el.options[el.selectedIndex] : null;
+  }
+
+  function __finalSelectedKey__(id){
+    try{
+      return String(getSelectedOptionKey(id) || '').trim();
+    }catch(_){
+      return '';
+    }
+  }
+
+  function __finalSelectedLabel__(id){
+    var el = __finalGetSelect__(id);
+    if (!el) return '';
+    return String(el.value || '').trim();
+  }
+
+  function __finalMenuItemByKey__(key){
+    try{
+      var map = typeof getMenuMap === 'function' ? getMenuMap() : {};
+      return map && map[key] ? map[key] : null;
+    }catch(_){
+      return null;
+    }
+  }
+
+  function __finalMoveMeta__(){
+    var key = __finalSelectedKey__('moveType');
+    var label = __finalSelectedLabel__('moveType');
+    var item = __finalMenuItemByKey__(key);
+    var note = '';
+    if (item && item.note) note = String(item.note || '').trim();
+    if (!note){
+      var opt = __finalSelectedOption__('moveType');
+      if (opt && opt.dataset && opt.dataset.note) note = String(opt.dataset.note || '').trim();
+    }
+    return {
+      key: key,
+      label: label,
+      note: note
+    };
+  }
+
+  function getMoveTypeNoteTextPatched(key){
+    var item = __finalMenuItemByKey__(String(key || '').trim());
+    if (item && String(item.note || '').trim()) return String(item.note || '').trim();
+    return __finalHelpText__();
+  }
+
+  function __finalMoveRule__(meta){
+    var key = String(meta && meta.key || '').toUpperCase();
+    var label = String(meta && meta.label || '');
+
+    if (key === 'MOVE_STRETCHER' || label.indexOf('ストレッチャー') !== -1) return 'stretcher';
+    if (key === 'MOVE_RECLINING' || label.indexOf('リクライニング') !== -1) return 'wheelchair';
+    if (key === 'MOVE_WHEELCHAIR' || label.indexOf('無料車いす') !== -1) return 'wheelchair';
+    if (key === 'MOVE_OWN' || label.indexOf('ご自身の車いす') !== -1) return 'wheelchair';
+    if (key === 'MOVE_OTHER' || label.indexOf('その他') !== -1) return 'other';
+
+    return '';
+  }
+
+  function __isBoardingAssistItem__(item){
+    var key = String(item && item.key || '').trim().toUpperCase();
+    var label = String(item && item.label || '').trim();
+    return key === 'BOARDING_ASSIST' || label.indexOf('乗降介助') !== -1;
+  }
+
+  function __isBodyAssistItem__(item){
+    var key = String(item && item.key || '').trim().toUpperCase();
+    var label = String(item && item.label || '').trim();
+    return key === 'BODY_ASSIST' || label.indexOf('身体介助') !== -1;
+  }
+
+  function __isNoneAssistItem__(item){
+    var key = String(item && item.key || '').trim().toUpperCase();
+    var label = String(item && item.label || '').trim();
+    return key === 'ASSIST_NONE' || label.indexOf('介助不要') !== -1 || label === '不要' || label.indexOf('不要(') !== -1;
+  }
+
+  function __finalAllowedAssistanceItems__(items, rule){
+    var list = Array.isArray(items) ? items.slice() : [];
+
+    if (rule === 'wheelchair'){
+      return list.filter(function(item){
+        return __isBoardingAssistItem__(item) || __isBodyAssistItem__(item);
+      });
+    }
+
+    if (rule === 'stretcher'){
+      return list.filter(function(item){
+        return __isBodyAssistItem__(item);
+      });
+    }
+
+    if (rule === 'other'){
+      return list.filter(function(item){
+        return __isBoardingAssistItem__(item) || __isBodyAssistItem__(item) || __isNoneAssistItem__(item);
+      });
+    }
+
+    return list;
+  }
+
+  function __finalBuildAssistanceOptions__(){
+    var assistanceEl = __finalGetSelect__('assistanceType');
+    if (!assistanceEl) return;
+
+    var currentKey = __finalSelectedKey__('assistanceType');
+    var meta = __finalMoveMeta__();
+    var rule = __finalMoveRule__(meta);
+    var items = typeof getItemsByGroup === 'function' ? getItemsByGroup('assistance') : [];
+    var filtered = __finalAllowedAssistanceItems__(items, rule);
+
+    buildSelectOptions(
+      assistanceEl,
+      filtered,
+      true,
+      config.form_usage_type_placeholder || '選択してください',
+      function(item){
+        return ''.concat(item.label, '(').concat(Number(item.price || 0).toLocaleString(), '円)');
+      }
+    );
+
+    if (currentKey && !setSelectValueByKey('assistanceType', currentKey)){
+      if (filtered.length === 1){
+        setSelectValueByKey('assistanceType', String(filtered[0].key || ''));
+      } else {
+        assistanceEl.selectedIndex = 0;
+      }
+    } else if (!currentKey && filtered.length === 1){
+      setSelectValueByKey('assistanceType', String(filtered[0].key || ''));
+    }
+  }
+
+  function __finalFindNoneOptionKey__(selectId){
+    var el = __finalGetSelect__(selectId);
+    if (!el || !el.options) return '';
+    for (var i = 0; i < el.options.length; i++){
+      var opt = el.options[i];
+      var key = String(opt && opt.dataset && opt.dataset.key || '').trim();
+      var label = String(opt && opt.value || '').trim();
+      if (key.toUpperCase().indexOf('NONE') !== -1) return key;
+      if (label.indexOf('不要') !== -1) return key;
+    }
+    return '';
+  }
+
+  function __finalSyncEquipment__(){
+    var meta = __finalMoveMeta__();
+    var rule = __finalMoveRule__(meta);
+    var equipmentEl = __finalGetSelect__('equipmentRental');
+    if (!equipmentEl) return;
+
+    if (rule === 'stretcher'){
+      try{
+        var moveTypeAuto = findAutoApplyFromMenu('move_type', meta.key);
+        if (moveTypeAuto && moveTypeAuto.apply_group === 'equipment' && moveTypeAuto.apply_key){
+          setSelectValueByKey('equipmentRental', String(moveTypeAuto.apply_key || ''));
+        }
+      }catch(_){}
+      return;
+    }
+
+    var equipmentKey = __finalSelectedKey__('equipmentRental');
+    var equipmentLabel = __finalSelectedLabel__('equipmentRental');
+    var isStretcherEquipment = (
+      equipmentKey === 'EQUIP_STRETCHER' ||
+      equipmentKey === 'EQUIP_STRETCHER_STAFF2' ||
+      equipmentLabel.indexOf('ストレッチャー') !== -1
+    );
+
+    if (isStretcherEquipment){
+      var noneKey = __finalFindNoneOptionKey__('equipmentRental');
+      if (noneKey){
+        setSelectValueByKey('equipmentRental', noneKey);
+      } else {
+        equipmentEl.selectedIndex = 0;
+      }
+    }
+  }
+
+  function __finalHideWarnings__(){
+    ['stairWarning','stretcherWarning','wheelchairWarning'].forEach(function(id){
+      var el = document.getElementById(id);
+      if (el) el.classList.add('hidden');
+    });
+  }
+
+  function __finalSyncMoveTypeNote__(){
+    var noteEl = document.getElementById('moveTypeNote');
+    if (!noteEl) return;
+    var meta = __finalMoveMeta__();
+    noteEl.textContent = meta.note || __finalHelpText__();
+  }
+
+  function __finalHideNoneZeroRows__(){
     try{
       var breakdownEl = document.getElementById('priceBreakdown');
       if (!breakdownEl) return;
       Array.prototype.slice.call(breakdownEl.querySelectorAll('.price-item')).forEach(function(row){
-        try{
-          var labelEl = row.querySelector('.price-label');
-          var valueEl = row.querySelector('.price-value');
-          var label = String(labelEl ? labelEl.textContent || '' : '').trim();
-          var value = String(valueEl ? valueEl.textContent || '' : '').trim();
-          var isNoneLabel = (
-            label.indexOf('不要') !== -1 ||
-            label.indexOf('介助不要') !== -1 ||
-            label.indexOf('不要(0円)') !== -1
-          );
-          var isZeroValue = (
-            value === '0円' ||
-            value.indexOf('0円') !== -1
-          );
-          if (isNoneLabel && isZeroValue){
-            row.remove();
-          }
-        }catch(_){}
+        var labelEl = row.querySelector('.price-label');
+        var valueEl = row.querySelector('.price-value');
+        var label = String(labelEl ? labelEl.textContent || '' : '').trim();
+        var value = String(valueEl ? valueEl.textContent || '' : '').trim();
+        var isNoneLabel = (
+          label.indexOf('不要') !== -1 ||
+          label.indexOf('介助不要') !== -1
+        );
+        var isZero = value.indexOf('0円') !== -1;
+        if (isNoneLabel && isZero){
+          row.remove();
+        }
       });
     }catch(_){}
   }
 
-  var __calculatePriceKeepCurrentBase__ = calculatePrice;
+  function __finalNormalizeBookingState__(){
+    __finalSyncMoveTypeNote__();
+    __finalBuildAssistanceOptions__();
+    __finalSyncEquipment__();
+    __finalHideWarnings__();
+  }
+
+  var __finalRenderServiceSelectorsBase__ = renderServiceSelectors;
+  renderServiceSelectors = function(){
+    var result = __finalRenderServiceSelectorsBase__.apply(this, arguments);
+    __finalNormalizeBookingState__();
+    return result;
+  };
+
+  var __finalApplyAutoSelectionsBase__ = applyAutoSelections;
+  applyAutoSelections = function(){
+    __finalNormalizeBookingState__();
+    var state = __finalApplyAutoSelectionsBase__.apply(this, arguments);
+    __finalHideWarnings__();
+    __finalSyncMoveTypeNote__();
+    return state;
+  };
+
+  var __finalCalculatePriceBase__ = calculatePrice;
   calculatePrice = function(){
-    var total = __calculatePriceKeepCurrentBase__.apply(this, arguments);
-    __hideNoneZeroRowsFinal__();
+    __finalNormalizeBookingState__();
+    var total = __finalCalculatePriceBase__.apply(this, arguments);
+    __finalHideWarnings__();
+    __finalSyncMoveTypeNote__();
+    __finalHideNoneZeroRows__();
     return total;
   };
 
+  function __finalAfterMoveTypeChanged__(){
+    __finalNormalizeBookingState__();
+    try{ applyAutoSelections(); }catch(_){}
+    try{ calculatePrice(); }catch(_){}
+    try{ updateSubmitButton(); }catch(_){}
+  }
+
   document.addEventListener('DOMContentLoaded', function(){
-    try{ __hideNoneZeroRowsFinal__(); }catch(_){}
+    __finalNormalizeBookingState__();
+    try{ calculatePrice(); }catch(_){}
+
+    var moveTypeEl = __finalGetSelect__('moveType');
+    if (moveTypeEl && !moveTypeEl.dataset.finalAuthoritativeBound){
+      moveTypeEl.dataset.finalAuthoritativeBound = '1';
+      moveTypeEl.addEventListener('change', function(){
+        __finalAfterMoveTypeChanged__();
+      });
+    }
   });
 })();
-/* ===== patch end ===== */
+/* ===== authoritative final booking fix end ===== */
