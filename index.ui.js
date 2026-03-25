@@ -673,34 +673,3 @@ function bindUI(){
     }catch(_){}
   }, 150));
 }
-
-
-/* ==== PATCH: 不要(0円)を描画前に除去 ==== */
-(function(){
-  try{
-    const __strip = function(html){
-      try{
-        return String(html||'')
-          .replace(/<div[^>]*>[^<]*不要[^<]*0円[^<]*<\/div>/g,'')
-          .replace(/<span[^>]*>[^<]*不要[^<]*<\/span>\s*<span[^>]*>[^<]*0円[^<]*<\/span>/g,'');
-      }catch(e){ return html; }
-    };
-
-    // insertAdjacentHTML フック
-    const _origInsert = Element.prototype.insertAdjacentHTML;
-    Element.prototype.insertAdjacentHTML = function(pos, html){
-      return _origInsert.call(this, pos, __strip(html));
-    };
-
-    // innerHTML setter フック
-    const desc = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
-    if (desc && desc.set){
-      Object.defineProperty(Element.prototype, 'innerHTML', {
-        set: function(v){
-          return desc.set.call(this, __strip(v));
-        },
-        get: desc.get
-      });
-    }
-  }catch(e){}
-})();

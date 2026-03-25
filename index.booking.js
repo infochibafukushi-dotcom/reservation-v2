@@ -774,6 +774,134 @@ function applyPublicServiceGroupLayout(){
   });
 }
 
+
+function _moveTypeMatchesAny_(moveTypeKey, moveTypeLabel, keyList, labelPatterns){
+  const key = String(moveTypeKey || '').trim().toUpperCase();
+  const label = String(moveTypeLabel || '').trim();
+  if (key && Array.isArray(keyList) && keyList.some(function(v){ return key === String(v || '').trim().toUpperCase(); })) {
+    return true;
+  }
+  if (label && Array.isArray(labelPatterns) && labelPatterns.some(function(re){ return re && re.test && re.test(label); })) {
+    return true;
+  }
+  return false;
+}
+
+function _getSelectedMoveTypeStateForAssist_(){
+  const moveTypeEl = document.getElementById('moveType');
+  const selectedOption = moveTypeEl && moveTypeEl.options ? moveTypeEl.options[moveTypeEl.selectedIndex] : null;
+  return {
+    key: getSelectedOptionKey('moveType'),
+    label: String(selectedOption ? (selectedOption.textContent || selectedOption.value || '') : '').trim()
+  };
+}
+
+function _isAssistanceNoneItem_(item){
+  const row = item || {};
+  const key = String(row.key || '').trim().toUpperCase();
+  const keyJp = String(row.key_jp || '').trim();
+  const label = String(row.label || '').trim();
+  return (
+    key === 'ASSIST_NONE' ||
+    key === 'ASSISTANCE_NONE' ||
+    key === 'NO_ASSIST' ||
+    key === 'NONE_ASSIST' ||
+    /介助不要/.test(keyJp) ||
+    /介助不要/.test(label) ||
+    /通常座席/.test(keyJp) ||
+    /通常座席/.test(label)
+  );
+}
+
+function _getFilteredAssistanceItemsByMoveType_(){
+  const moveState = _getSelectedMoveTypeStateForAssist_();
+  const moveTypeKey = String(moveState.key || '').trim();
+  const moveTypeLabel = String(moveState.label || '').trim();
+  const assistanceItems = getItemsByGroup('assistance');
+
+  if (!moveTypeKey && !moveTypeLabel) {
+    return assistanceItems;
+  }
+
+  const isWheelchairMode = _moveTypeMatchesAny_(
+    moveTypeKey,
+    moveTypeLabel,
+    ['MOVE_WHEELCHAIR','MOVE_RECLINING','MOVE_OWN'],
+    [/無料車いす/, /リクライニング/, /ご自身の車いす/, /ご自身車いす/]
+  );
+
+  const isStretcherMode = _moveTypeMatchesAny_(
+    moveTypeKey,
+    moveTypeLabel,
+    ['MOVE_STRETCHER'],
+    [/ストレッチャー/]
+  );
+
+  const isOtherMode = _moveTypeMatchesAny_(
+    moveTypeKey,
+    moveTypeLabel,
+    ['MOVE_OTHER'],
+    [/その他/]
+  );
+
+  if (isWheelchairMode) {
+    return assistanceItems.filter(function(item){
+      const key = String(item && item.key || '').trim().toUpperCase();
+      return key === 'BOARDING_ASSIST' || key === 'BODY_ASSIST';
+    });
+  }
+
+  if (isStretcherMode) {
+    return assistanceItems.filter(function(item){
+      const key = String(item && item.key || '').trim().toUpperCase();
+      return key === 'BODY_ASSIST';
+    });
+  }
+
+  if (isOtherMode) {
+    return assistanceItems.filter(function(item){
+      const key = String(item && item.key || '').trim().toUpperCase();
+      return key === 'BOARDING_ASSIST' || key === 'BODY_ASSIST' || _isAssistanceNoneItem_(item);
+    });
+  }
+
+  return assistanceItems;
+}
+
+function _renderFilteredAssistanceOptionsByMoveType_(){
+  const assistanceEl = document.getElementById('assistanceType');
+  if (!assistanceEl) return;
+
+  const currentKey = getSelectedOptionKey('assistanceType');
+  const filteredItems = _getFilteredAssistanceItemsByMoveType_();
+
+  buildSelectOptions(
+    assistanceEl,
+    filteredItems,
+    true,
+    config.form_usage_type_placeholder || '選択してください',
+    function(item){ return `${item.label}(${Number(item.price || 0).toLocaleString()}円)`; }
+  );
+
+  const allowedKeys = filteredItems.map(function(item){ return String(item && item.key || '').trim(); }).filter(Boolean);
+  const moveState = _getSelectedMoveTypeStateForAssist_();
+  const moveTypeKey = String(moveState.key || '').trim().toUpperCase();
+
+  if (currentKey && allowedKeys.includes(currentKey)) {
+    setSelectValueByKey('assistanceType', currentKey);
+    return;
+  }
+
+  if (moveTypeKey === 'MOVE_STRETCHER') {
+    if (setSelectValueByKey('assistanceType', 'BODY_ASSIST')) {
+      return;
+    }
+  }
+
+  assistanceEl.selectedIndex = 0;
+}
+
+
 const _renderServiceSelectorsOriginal = renderServiceSelectors;
 renderServiceSelectors = function(){
   const moveTypeItems = getItemsByGroup('move_type');
@@ -803,6 +931,7 @@ renderServiceSelectors = function(){
     ].join('<br>');
   }
 
+  _renderFilteredAssistanceOptionsByMoveType_();
   applyPublicServiceGroupLayout();
 };
 
@@ -866,6 +995,7 @@ document.addEventListener('DOMContentLoaded', function(){
   if (moveTypeEl && !moveTypeEl.dataset.boundMoveType){
     moveTypeEl.dataset.boundMoveType = '1';
     moveTypeEl.addEventListener('change', function(){
+      _renderFilteredAssistanceOptionsByMoveType_();
       applyAutoSelections();
       calculatePrice();
       updateSubmitButton();
@@ -1333,34 +1463,3 @@ submitBooking = async function(e){
   }
 };
 /* ===== reservation consistency patch end ===== */
-
-
-/* ==== PATCH: 不要(0円)を描画前に除去 ==== */
-(function(){
-  try{
-    const __strip = function(html){
-      try{
-        return String(html||'')
-          .replace(/<div[^>]*>[^<]*不要[^<]*0円[^<]*<\/div>/g,'')
-          .replace(/<span[^>]*>[^<]*不要[^<]*<\/span>\s*<span[^>]*>[^<]*0円[^<]*<\/span>/g,'');
-      }catch(e){ return html; }
-    };
-
-    // insertAdjacentHTML フック
-    const _origInsert = Element.prototype.insertAdjacentHTML;
-    Element.prototype.insertAdjacentHTML = function(pos, html){
-      return _origInsert.call(this, pos, __strip(html));
-    };
-
-    // innerHTML setter フック
-    const desc = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
-    if (desc && desc.set){
-      Object.defineProperty(Element.prototype, 'innerHTML', {
-        set: function(v){
-          return desc.set.call(this, __strip(v));
-        },
-        get: desc.get
-      });
-    }
-  }catch(e){}
-})();
