@@ -1335,33 +1335,16 @@ submitBooking = async function(e){
 /* ===== reservation consistency patch end ===== */
 
 
-// ==== FORCE HIDE 不要(0円) ====
-function __skipZeroNone__(label, price){
+// ==== FINAL FIX: 強制DOM削除 ====
+function __removeZeroNoneRows__(){
   try{
-    if(Number(price||0)===0 && String(label||'').includes('不要')) return true;
-    return false;
-  }catch(e){ return false; }
+    document.querySelectorAll('*').forEach(el=>{
+      if(el.innerText && el.innerText.includes('不要') && el.innerText.includes('0円')){
+        const parent = el.closest('div');
+        if(parent) parent.remove();
+      }
+    });
+  }catch(e){}
 }
 
-// wrap possible row functions
-(function(){
-  try{
-    if (typeof window.addRow === 'function'){
-      const __orig = window.addRow;
-      window.addRow = function(label, price){
-        if(__skipZeroNone__(label, price)) return;
-        return __orig.apply(this, arguments);
-      };
-    }
-  }catch(e){}
-
-  try{
-    if (typeof window.addSummaryRow === 'function'){
-      const __orig2 = window.addSummaryRow;
-      window.addSummaryRow = function(label, price){
-        if(__skipZeroNone__(label, price)) return;
-        return __orig2.apply(this, arguments);
-      };
-    }
-  }catch(e){}
-})();
+setInterval(__removeZeroNoneRows__, 500);
