@@ -311,9 +311,12 @@ function resetBookingForm(){
   const oldError = document.querySelector('#bookingForm .booking-error');
   if (oldError) oldError.remove();
 
-  document.getElementById('stairWarning').classList.add('hidden');
-  document.getElementById('wheelchairWarning').classList.add('hidden');
-  document.getElementById('stretcherWarning').classList.add('hidden');
+  const stairWarningEl = document.getElementById('stairWarning');
+  const wheelchairWarningEl = document.getElementById('wheelchairWarning');
+  const stretcherWarningEl = document.getElementById('stretcherWarning');
+  if (stairWarningEl) stairWarningEl.classList.add('hidden');
+  if (wheelchairWarningEl) wheelchairWarningEl.classList.add('hidden');
+  if (stretcherWarningEl) stretcherWarningEl.classList.add('hidden');
 
   const stairDefault = getItemsByGroup('stair')[0];
   const roundDefault = getItemsByGroup('round_trip')[0];
@@ -340,9 +343,9 @@ function calculatePrice(){
   let mustUseBodyAssist = false;
   let mustUseStretcherStaff2 = false;
 
-  stairWarning.classList.add('hidden');
-  stretcherWarning.classList.add('hidden');
-  wheelchairWarning.classList.add('hidden');
+  if (stairWarning) stairWarning.classList.add('hidden');
+  if (stretcherWarning) stretcherWarning.classList.add('hidden');
+  if (wheelchairWarning) wheelchairWarning.classList.add('hidden');
 
   const baseFare = getMenuPrice('BASE_FARE', 730);
   const dispatch = getMenuPrice('DISPATCH', 800);
@@ -372,15 +375,11 @@ function calculatePrice(){
 
   if (stairNeedBody) {
     if (String(config.rule_force_body_assist_on_stair || '1') === '1' || getRuleEnabled(1) || getRuleEnabled(2) || getRuleEnabled(3) || getRuleEnabled(4)) {
-      stairWarning.textContent = config.warning_stair_bodyassist_text || defaultConfig.warning_stair_bodyassist_text;
-      stairWarning.classList.remove('hidden');
       mustUseBodyAssist = true;
     }
   }
 
   if (equipmentRental === getMenuLabel('EQUIP_STRETCHER', 'ストレッチャーレンタル')){
-    stretcherWarning.textContent = config.warning_stretcher_bodyassist_text || defaultConfig.warning_stretcher_bodyassist_text;
-    stretcherWarning.classList.remove('hidden');
 
     if (String(config.rule_force_body_assist_on_stretcher || '1') === '1' || getRuleEnabled(5)) {
       mustUseBodyAssist = true;
@@ -391,8 +390,6 @@ function calculatePrice(){
   }
 
   if (equipmentRental === getMenuLabel('EQUIP_OWN_WHEELCHAIR', 'ご自身車いす')){
-    wheelchairWarning.textContent = config.warning_wheelchair_damage_text || defaultConfig.warning_wheelchair_damage_text;
-    wheelchairWarning.classList.remove('hidden');
   }
 
   if (mustUseBodyAssist){
