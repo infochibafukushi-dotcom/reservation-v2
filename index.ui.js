@@ -227,9 +227,13 @@ function buildSelectOptions(selectEl, items, includePlaceholder, placeholderText
 
 function renderServiceSelectors(){
   const assistanceItems = getItemsByGroup('assistance');
+  const assistanceItemsFiltered = (assistanceItems||[]).filter(function(it){ return !__shouldHideFreeItem__(it); });
   const stairItems = getItemsByGroup('stair');
+  const stairItemsFiltered = (stairItems||[]).filter(function(it){ return !__shouldHideFreeItem__(it); });
   const equipmentItems = getItemsByGroup('equipment');
+  const equipmentItemsFiltered = (equipmentItems||[]).filter(function(it){ return !__shouldHideFreeItem__(it); });
   const roundTripItems = getItemsByGroup('round_trip');
+  const roundTripItemsFiltered = (roundTripItems||[]).filter(function(it){ return !__shouldHideFreeItem__(it); });
 
   buildSelectOptions(
     document.getElementById('assistanceType'),
@@ -672,4 +676,21 @@ function bindUI(){
       renderCalendar();
     }catch(_){}
   }, 150));
+}
+
+
+// ==== AUTO ADDED: hide "不要(0円)" items in summary card ====
+function __shouldHideFreeItem__(item){
+  try{
+    if(!item) return false;
+    var key = String(item.key || '').toUpperCase();
+    var label = String(item.label || '');
+    var price = Number(item.price || 0);
+    var isNoneKey = key.indexOf('NONE') !== -1 || key.indexOf('NO_') === 0;
+    var isNoneLabel = label.indexOf('不要') !== -1 || label.indexOf('なし') !== -1;
+    if (price === 0 && (isNoneKey || isNoneLabel)) return true;
+    return false;
+  }catch(e){
+    return false;
+  }
 }

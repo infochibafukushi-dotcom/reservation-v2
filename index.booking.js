@@ -1333,3 +1333,20 @@ submitBooking = async function(e){
   }
 };
 /* ===== reservation consistency patch end ===== */
+
+
+// ==== AUTO ADDED: hide "不要(0円)" items in summary card ====
+function __shouldHideFreeItem__(item){
+  try{
+    if(!item) return false;
+    var key = String(item.key || '').toUpperCase();
+    var label = String(item.label || '');
+    var price = Number(item.price || 0);
+    var isNoneKey = key.indexOf('NONE') !== -1 || key.indexOf('NO_') === 0;
+    var isNoneLabel = label.indexOf('不要') !== -1 || label.indexOf('なし') !== -1;
+    if (price === 0 && (isNoneKey || isNoneLabel)) return true;
+    return false;
+  }catch(e){
+    return false;
+  }
+}
