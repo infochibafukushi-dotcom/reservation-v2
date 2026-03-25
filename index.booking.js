@@ -1335,57 +1335,44 @@ submitBooking = async function(e){
 /* ===== reservation consistency patch end ===== */
 
 
-/* ===== stretcher staff2 auto-release patch start ===== */
+/* ===== patch: hide 不要(0円) rows while keeping current logic ===== */
 (function(){
-  const __buildResolvedSelectionStateBase__ = buildResolvedSelectionState;
-  const __syncResolvedSelectionsToVisibleInputsBase__ = syncResolvedSelectionsToVisibleInputs;
-
-  function __hasCurrentStretcherSource__(state){
-    const selected = state && state.selected ? state.selected : {};
-    const appliedPairs = state && state.appliedPairs ? state.appliedPairs : [];
-    const moveTypeKey = String(selected.move_type || '').trim();
-    const equipmentKey = String(selected.equipment || '').trim();
-
-    if (moveTypeKey === 'MOVE_STRETCHER') return true;
-    if (equipmentKey === 'EQUIP_STRETCHER') return true;
-    return appliedPairs.some(function(pair){
-      return String(pair && pair.apply_key || '').trim() === 'EQUIP_STRETCHER_STAFF2';
-    });
+  function __hideNoneZeroRowsFinal__(){
+    try{
+      var breakdownEl = document.getElementById('priceBreakdown');
+      if (!breakdownEl) return;
+      Array.prototype.slice.call(breakdownEl.querySelectorAll('.price-item')).forEach(function(row){
+        try{
+          var labelEl = row.querySelector('.price-label');
+          var valueEl = row.querySelector('.price-value');
+          var label = String(labelEl ? labelEl.textContent || '' : '').trim();
+          var value = String(valueEl ? valueEl.textContent || '' : '').trim();
+          var isNoneLabel = (
+            label.indexOf('不要') !== -1 ||
+            label.indexOf('介助不要') !== -1 ||
+            label.indexOf('不要(0円)') !== -1
+          );
+          var isZeroValue = (
+            value === '0円' ||
+            value.indexOf('0円') !== -1
+          );
+          if (isNoneLabel && isZeroValue){
+            row.remove();
+          }
+        }catch(_){}
+      });
+    }catch(_){}
   }
 
-  buildResolvedSelectionState = function(){
-    const state = __buildResolvedSelectionStateBase__.apply(this, arguments);
-    const selected = state && state.selected ? state.selected : {};
-    const autoAppliedMap = state && state.autoAppliedMap ? state.autoAppliedMap : {};
-
-    const equipmentKey = String(selected.equipment || '').trim();
-    const shouldKeepStaff2 = __hasCurrentStretcherSource__(state);
-
-    if (equipmentKey === 'EQUIP_STRETCHER_STAFF2' && !shouldKeepStaff2){
-      selected.equipment = '';
-      try{ delete autoAppliedMap.equipment; }catch(_){ }
-      if (Array.isArray(state.appliedPairs)){
-        state.appliedPairs = state.appliedPairs.filter(function(pair){
-          return String(pair && pair.apply_key || '').trim() !== 'EQUIP_STRETCHER_STAFF2';
-        });
-      }
-    }
-
-    return state;
+  var __calculatePriceKeepCurrentBase__ = calculatePrice;
+  calculatePrice = function(){
+    var total = __calculatePriceKeepCurrentBase__.apply(this, arguments);
+    __hideNoneZeroRowsFinal__();
+    return total;
   };
 
-  syncResolvedSelectionsToVisibleInputs = function(state){
-    const result = __syncResolvedSelectionsToVisibleInputsBase__.apply(this, arguments);
-    const selected = state && state.selected ? state.selected : {};
-    const equipmentEl = document.getElementById('equipmentRental');
-    const resolvedEquipmentKey = String(selected.equipment || '').trim();
-    const currentEquipmentKey = getSelectedOptionKeySafe('equipmentRental');
-
-    if (equipmentEl && !resolvedEquipmentKey && currentEquipmentKey === 'EQUIP_STRETCHER_STAFF2'){
-      equipmentEl.selectedIndex = 0;
-    }
-
-    return result;
-  };
+  document.addEventListener('DOMContentLoaded', function(){
+    try{ __hideNoneZeroRowsFinal__(); }catch(_){}
+  });
 })();
-/* ===== stretcher staff2 auto-release patch end ===== */
+/* ===== patch end ===== */
