@@ -1335,26 +1335,32 @@ submitBooking = async function(e){
 /* ===== reservation consistency patch end ===== */
 
 
-document.addEventListener('DOMContentLoaded', function(){
+/* ==== PATCH: 不要(0円)を描画前に除去 ==== */
+(function(){
   try{
-    const target = document.querySelector('.card-soft') || document.body;
-
-    function clean(){
+    const __strip = function(html){
       try{
-        const rows = target.querySelectorAll('div');
-        rows.forEach(el=>{
-          const txt = el.innerText || '';
-          if(txt.includes('不要') && txt.includes('0円')){
-            el.remove();
-          }
-        });
-      }catch(e){}
+        return String(html||'')
+          .replace(/<div[^>]*>[^<]*不要[^<]*0円[^<]*<\/div>/g,'')
+          .replace(/<span[^>]*>[^<]*不要[^<]*<\/span>\s*<span[^>]*>[^<]*0円[^<]*<\/span>/g,'');
+      }catch(e){ return html; }
+    };
+
+    // insertAdjacentHTML フック
+    const _origInsert = Element.prototype.insertAdjacentHTML;
+    Element.prototype.insertAdjacentHTML = function(pos, html){
+      return _origInsert.call(this, pos, __strip(html));
+    };
+
+    // innerHTML setter フック
+    const desc = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
+    if (desc && desc.set){
+      Object.defineProperty(Element.prototype, 'innerHTML', {
+        set: function(v){
+          return desc.set.call(this, __strip(v));
+        },
+        get: desc.get
+      });
     }
-
-    clean();
-
-    const observer = new MutationObserver(clean);
-    observer.observe(target, { childList:true, subtree:true });
-
   }catch(e){}
-});
+})();
