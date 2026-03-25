@@ -515,13 +515,29 @@
 
         </div>
       </div>
+
       <div class="admin-panel-card" data-panel-key="warningPanel">
         <div class="admin-panel-header">
-          <div class="admin-panel-title">予約表示文言</div>
+          <div class="admin-panel-title">警告文・予約表示文言</div>
           <div class="admin-panel-toggle" data-panel-toggle="warningPanel">＋</div>
         </div>
         <div class="admin-panel-body collapsed" id="warningPanelBody">
           <div class="config-grid">
+            <div class="form-group" style="display:none !important;">
+              <label class="form-label">階段介助で身体介助を自動セット時の警告文</label>
+              <textarea id="cfgWarningStairBodyAssistText" rows="3"></textarea>
+            </div>
+            <div class="form-group" style="display:none !important;">
+              <label class="form-label">持込車いす時の警告文</label>
+              <textarea id="cfgWarningWheelchairDamageText" rows="3"></textarea>
+            </div>
+          </div>
+
+          <div class="config-grid mt-4">
+            <div class="form-group" style="display:none !important;">
+              <label class="form-label">ストレッチャー時の警告文</label>
+              <textarea id="cfgWarningStretcherBodyAssistText" rows="3"></textarea>
+            </div>
             <div class="form-group">
               <label class="form-label">予約モーダルタイトル</label>
               <input type="text" id="cfgFormModalTitle" placeholder="ご予約">

@@ -199,6 +199,10 @@ function applyAdminConfigToForm(){
   document.getElementById('cfgGithubToken').value = adminConfig.github_token || '';
   document.getElementById('cfgPhoneNotifyText').value = adminConfig.phone_notify_text || '';
 
+  document.getElementById('cfgWarningStairBodyAssistText').value = adminConfig.warning_stair_bodyassist_text || '';
+  document.getElementById('cfgWarningWheelchairDamageText').value = adminConfig.warning_wheelchair_damage_text || '';
+  document.getElementById('cfgWarningStretcherBodyAssistText').value = adminConfig.warning_stretcher_bodyassist_text || '';
+
   document.getElementById('cfgFormModalTitle').value = adminConfig.form_modal_title || '';
   document.getElementById('cfgFormPrivacyText').value = adminConfig.form_privacy_text || '';
   document.getElementById('cfgFormBasicSectionTitle').value = adminConfig.form_basic_section_title || '';
@@ -328,6 +332,9 @@ function collectLogoConfigPayload(){
 
 function collectWarningConfigPayload(){
   return {
+    warning_stair_bodyassist_text: document.getElementById('cfgWarningStairBodyAssistText').value.trim(),
+    warning_wheelchair_damage_text: document.getElementById('cfgWarningWheelchairDamageText').value.trim(),
+    warning_stretcher_bodyassist_text: document.getElementById('cfgWarningStretcherBodyAssistText').value.trim(),
 
     form_modal_title: document.getElementById('cfgFormModalTitle').value.trim(),
     form_privacy_text: document.getElementById('cfgFormPrivacyText').value.trim(),
