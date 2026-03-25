@@ -1335,16 +1335,26 @@ submitBooking = async function(e){
 /* ===== reservation consistency patch end ===== */
 
 
-// ==== FINAL FIX: 強制DOM削除 ====
-function __removeZeroNoneRows__(){
+document.addEventListener('DOMContentLoaded', function(){
   try{
-    document.querySelectorAll('*').forEach(el=>{
-      if(el.innerText && el.innerText.includes('不要') && el.innerText.includes('0円')){
-        const parent = el.closest('div');
-        if(parent) parent.remove();
-      }
-    });
-  }catch(e){}
-}
+    const target = document.querySelector('.card-soft') || document.body;
 
-setInterval(__removeZeroNoneRows__, 500);
+    function clean(){
+      try{
+        const rows = target.querySelectorAll('div');
+        rows.forEach(el=>{
+          const txt = el.innerText || '';
+          if(txt.includes('不要') && txt.includes('0円')){
+            el.remove();
+          }
+        });
+      }catch(e){}
+    }
+
+    clean();
+
+    const observer = new MutationObserver(clean);
+    observer.observe(target, { childList:true, subtree:true });
+
+  }catch(e){}
+});
