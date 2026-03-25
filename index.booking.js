@@ -1335,200 +1335,57 @@ submitBooking = async function(e){
 /* ===== reservation consistency patch end ===== */
 
 
-/* ===== final corrective patch: move_type note from admin note + assistance filter + hide 不要 rows ===== */
-function getMoveTypeNoteTextPatched(key){
-  try{
-    var item = getMenuItemByKeySafe(String(key || '').trim());
-    var note = item && item.note ? String(item.note) : '';
-    if (note) return note;
-  }catch(_){ }
-  return config.form_move_type_help_text || defaultConfig.form_move_type_help_text || '最初に移動方法をお選びください';
-}
-
-function __moveTypeLabelTextFinal__(){
-  try{
-    var el = document.getElementById('moveType');
-    if (!el) return '';
-    return String(el.value || '').trim();
-  }catch(_){
-    return '';
-  }
-}
-
-function __normalizeMoveTypeRuleFinal__(moveKey, moveLabel){
-  var key = String(moveKey || '').trim().toUpperCase();
-  var label = String(moveLabel || '').trim();
-
-  if (key === 'MOVE_STRETCHER' || label.indexOf('ストレッチャー') !== -1) return 'stretcher';
-  if (key === 'MOVE_RECLINING' || label.indexOf('リクライニング') !== -1) return 'wheelchair_limited';
-  if (key === 'MOVE_WHEELCHAIR' || label.indexOf('無料車いす') !== -1) return 'wheelchair_limited';
-  if (key === 'MOVE_OWN' || label.indexOf('ご自身の車いす') !== -1) return 'wheelchair_limited';
-  if (key === 'MOVE_OTHER' || label.indexOf('その他') !== -1) return 'other';
-
-  return '';
-}
-
-function __getAllowedAssistanceKeysFinal__(moveKey, moveLabel){
-  var rule = __normalizeMoveTypeRuleFinal__(moveKey, moveLabel);
-  if (rule === 'stretcher') return ['BODY_ASSIST'];
-  if (rule === 'wheelchair_limited') return ['BOARDING_ASSIST', 'BODY_ASSIST'];
-  if (rule === 'other') return ['BOARDING_ASSIST', 'BODY_ASSIST', 'ASSIST_NONE'];
-  return null;
-}
-
-function __filterAssistanceItemsFinal__(items, moveKey, moveLabel){
-  var allowed = __getAllowedAssistanceKeysFinal__(moveKey, moveLabel);
-  if (!allowed || !Array.isArray(items)) return Array.isArray(items) ? items.slice() : [];
-
-  return items.filter(function(item){
-    var key = String(item && item.key || '').trim();
-    var label = String(item && item.label || '').trim();
-
-    if (allowed.indexOf(key) !== -1) return true;
-    if (allowed.indexOf('ASSIST_NONE') !== -1 && (label.indexOf('不要') !== -1 || label.indexOf('介助不要') !== -1)) return true;
-    return false;
-  });
-}
-
-function __syncAssistanceOptionsByMoveTypeFinal__(){
-  var moveKey = getSelectedOptionKey('moveType');
-  var moveLabel = __moveTypeLabelTextFinal__();
-  var assistanceEl = document.getElementById('assistanceType');
-  if (!assistanceEl) return;
-
-  var currentAssistanceKey = getSelectedOptionKey('assistanceType');
-  var items = getItemsByGroup('assistance');
-  var filtered = __filterAssistanceItemsFinal__(items, moveKey, moveLabel);
-
-  buildSelectOptions(
-    assistanceEl,
-    filtered,
-    true,
-    config.form_usage_type_placeholder || '選択してください',
-    function(item){ return ''.concat(item.label, '(').concat(Number(item.price || 0).toLocaleString(), '円)'); }
-  );
-
-  if (currentAssistanceKey && !setSelectValueByKey('assistanceType', currentAssistanceKey)){
-    if (filtered.length === 1){
-      setSelectValueByKey('assistanceType', String(filtered[0].key || ''));
-    } else {
-      assistanceEl.selectedIndex = 0;
-    }
-  }
-
-  if (!currentAssistanceKey && filtered.length === 1){
-    setSelectValueByKey('assistanceType', String(filtered[0].key || ''));
-  }
-}
-
-function updateResolvedSelectionWarnings(state){
-  var resolved = state && state.selected ? state.selected : {};
-  var autoAppliedMap = state && state.autoAppliedMap ? state.autoAppliedMap : {};
-
-  var stairWarning = document.getElementById('stairWarning');
-  var stretcherWarning = document.getElementById('stretcherWarning');
-  var wheelchairWarning = document.getElementById('wheelchairWarning');
-
-  if (stairWarning) stairWarning.classList.add('hidden');
-  if (stretcherWarning) stretcherWarning.classList.add('hidden');
-  if (wheelchairWarning) wheelchairWarning.classList.add('hidden');
-
-  var stairKey = String(resolved.stair || '').trim();
-  var bodyAssistApplied = String(resolved.assistance || '').trim() === 'BODY_ASSIST' && !!autoAppliedMap.assistance;
-  var staff2Applied = (
-    String(resolved.equipment || '').trim() === 'EQUIP_STRETCHER_STAFF2' ||
-    ((state && state.appliedPairs) || []).some(function(pair){
-      return String(pair && pair.apply_key || '').trim() === 'EQUIP_STRETCHER_STAFF2';
-    })
-  );
-
-  var moveTypeKey = String(resolved.move_type || '').trim();
-  var moveTypeNoteEl = document.getElementById('moveTypeNote');
-  if (moveTypeNoteEl){
-    moveTypeNoteEl.textContent = getMoveTypeNoteTextPatched(moveTypeKey);
-  }
-
-  return {
-    appliedBodyAssist: bodyAssistApplied,
-    appliedStaff2: staff2Applied
-  };
-}
-
+/* ===== stretcher staff2 auto-release patch start ===== */
 (function(){
-  var __renderServiceSelectorsFinalBase__ = renderServiceSelectors;
-  renderServiceSelectors = function(){
-    var prevMoveKey = '';
-    var prevMoveLabel = '';
-    var prevAssistanceKey = '';
+  const __buildResolvedSelectionStateBase__ = buildResolvedSelectionState;
+  const __syncResolvedSelectionsToVisibleInputsBase__ = syncResolvedSelectionsToVisibleInputs;
 
-    try{ prevMoveKey = getSelectedOptionKey('moveType'); }catch(_){ }
-    try{ prevMoveLabel = __moveTypeLabelTextFinal__(); }catch(_){ }
-    try{ prevAssistanceKey = getSelectedOptionKey('assistanceType'); }catch(_){ }
+  function __hasCurrentStretcherSource__(state){
+    const selected = state && state.selected ? state.selected : {};
+    const appliedPairs = state && state.appliedPairs ? state.appliedPairs : [];
+    const moveTypeKey = String(selected.move_type || '').trim();
+    const equipmentKey = String(selected.equipment || '').trim();
 
-    var result = __renderServiceSelectorsFinalBase__.apply(this, arguments);
+    if (moveTypeKey === 'MOVE_STRETCHER') return true;
+    if (equipmentKey === 'EQUIP_STRETCHER') return true;
+    return appliedPairs.some(function(pair){
+      return String(pair && pair.apply_key || '').trim() === 'EQUIP_STRETCHER_STAFF2';
+    });
+  }
 
-    try{
-      if (prevMoveKey){
-        setSelectValueByKey('moveType', prevMoveKey);
-      } else {
-        var moveEl = document.getElementById('moveType');
-        if (moveEl && prevMoveLabel) moveEl.value = prevMoveLabel;
-      }
-    }catch(_){ }
+  buildResolvedSelectionState = function(){
+    const state = __buildResolvedSelectionStateBase__.apply(this, arguments);
+    const selected = state && state.selected ? state.selected : {};
+    const autoAppliedMap = state && state.autoAppliedMap ? state.autoAppliedMap : {};
 
-    try{ __syncAssistanceOptionsByMoveTypeFinal__(); }catch(_){ }
+    const equipmentKey = String(selected.equipment || '').trim();
+    const shouldKeepStaff2 = __hasCurrentStretcherSource__(state);
 
-    try{
-      if (prevAssistanceKey){
-        setSelectValueByKey('assistanceType', prevAssistanceKey);
-      }
-    }catch(_){ }
-
-    try{
-      var moveTypeNoteEl = document.getElementById('moveTypeNote');
-      if (moveTypeNoteEl){
-        moveTypeNoteEl.textContent = getMoveTypeNoteTextPatched(getSelectedOptionKey('moveType'));
-      }
-    }catch(_){ }
-
-    return result;
-  };
-
-  var __calculatePriceFinalBase__ = calculatePrice;
-  calculatePrice = function(){
-    var result = __calculatePriceFinalBase__.apply(this, arguments);
-    try{
-      var breakdownEl = document.getElementById('priceBreakdown');
-      if (breakdownEl){
-        Array.prototype.slice.call(breakdownEl.querySelectorAll('.price-item')).forEach(function(row){
-          var labelEl = row.querySelector('.price-label');
-          var valueEl = row.querySelector('.price-value');
-          var label = String(labelEl ? labelEl.textContent || '' : '');
-          var value = String(valueEl ? valueEl.textContent || '' : '');
-          if ((label.indexOf('不要') !== -1 || label.indexOf('介助不要') !== -1) && value.indexOf('0円') !== -1){
-            row.remove();
-          }
+    if (equipmentKey === 'EQUIP_STRETCHER_STAFF2' && !shouldKeepStaff2){
+      selected.equipment = '';
+      try{ delete autoAppliedMap.equipment; }catch(_){ }
+      if (Array.isArray(state.appliedPairs)){
+        state.appliedPairs = state.appliedPairs.filter(function(pair){
+          return String(pair && pair.apply_key || '').trim() !== 'EQUIP_STRETCHER_STAFF2';
         });
       }
-    }catch(_){ }
-    return result;
-  };
-
-  document.addEventListener('DOMContentLoaded', function(){
-    var moveTypeEl = document.getElementById('moveType');
-    if (moveTypeEl && !moveTypeEl.dataset.boundMoveTypeFinalFix){
-      moveTypeEl.dataset.boundMoveTypeFinalFix = '1';
-      moveTypeEl.addEventListener('change', function(){
-        try{ __syncAssistanceOptionsByMoveTypeFinal__(); }catch(_){ }
-        try{ applyAutoSelections(); }catch(_){ }
-        try{ calculatePrice(); }catch(_){ }
-        try{ updateSubmitButton(); }catch(_){ }
-      });
     }
 
-    try{ __syncAssistanceOptionsByMoveTypeFinal__(); }catch(_){ }
-    try{ applyAutoSelections(); }catch(_){ }
-    try{ calculatePrice(); }catch(_){ }
-  });
+    return state;
+  };
+
+  syncResolvedSelectionsToVisibleInputs = function(state){
+    const result = __syncResolvedSelectionsToVisibleInputsBase__.apply(this, arguments);
+    const selected = state && state.selected ? state.selected : {};
+    const equipmentEl = document.getElementById('equipmentRental');
+    const resolvedEquipmentKey = String(selected.equipment || '').trim();
+    const currentEquipmentKey = getSelectedOptionKeySafe('equipmentRental');
+
+    if (equipmentEl && !resolvedEquipmentKey && currentEquipmentKey === 'EQUIP_STRETCHER_STAFF2'){
+      equipmentEl.selectedIndex = 0;
+    }
+
+    return result;
+  };
 })();
-/* ===== final corrective patch end ===== */
+/* ===== stretcher staff2 auto-release patch end ===== */
