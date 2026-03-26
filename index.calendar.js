@@ -268,7 +268,6 @@ function bindGridDelegation(){
 
   var __slotsCache__ = null;
   var __renderSignature__ = '';
-  var __lastDatesCount__ = 0;
 
   var __baseBuildSlots__ = buildSlots;
   buildSlots = function(){
@@ -284,18 +283,8 @@ function bindGridDelegation(){
       var blockedSize = (typeof blockedSlots !== 'undefined' && blockedSlots) ? blockedSlots.size : 0;
       var reservedSize = (typeof reservedSlots !== 'undefined' && reservedSlots) ? reservedSlots.size : 0;
       var rangeKey = (typeof blockedRangeCacheKey !== 'undefined' ? blockedRangeCacheKey : '');
-      return [
-        String(first),
-        String(last),
-        String(dates ? dates.length : 0),
-        String(isExtendedView ? '1' : '0'),
-        String(rangeKey),
-        String(blockedSize),
-        String(reservedSize)
-      ].join('||');
-    }catch(_){
-      return String(Date.now());
-    }
+      return [String(first),String(last),String(dates ? dates.length : 0),String(isExtendedView ? '1' : '0'),String(rangeKey),String(blockedSize),String(reservedSize)].join('||');
+    }catch(_){ return String(Date.now()); }
   }
 
   var __baseRenderCalendar__ = renderCalendar;
@@ -303,29 +292,23 @@ function bindGridDelegation(){
     var grid = document.getElementById('calendarGrid');
     var dateRangeEl = document.getElementById('dateRange');
     if (!grid || !dateRangeEl) return __baseRenderCalendar__.apply(this, arguments);
-
     try{
       ensurePublicCalendarNav();
       var dates = getDatesRange();
       calendarDates = dates;
       if (!dates || !dates.length){
         __renderSignature__ = '';
-        __lastDatesCount__ = 0;
         return __baseRenderCalendar__.apply(this, arguments);
       }
-
       var sig = __buildCalendarSignature__(dates);
       dateRangeEl.textContent = formatDate(dates[0]) + ' ～ ' + formatDate(dates[dates.length - 1]);
       ensurePublicCalendarNav();
-
       if (sig === __renderSignature__){
         applyCalendarGridColumns(grid, dates.length);
         requestAnimationFrame(function(){ applyCalendarGridColumns(grid, dates.length); });
         return;
       }
-
       __renderSignature__ = sig;
-      __lastDatesCount__ = dates.length;
       return __baseRenderCalendar__.apply(this, arguments);
     }catch(_){
       return __baseRenderCalendar__.apply(this, arguments);
@@ -333,3 +316,34 @@ function bindGridDelegation(){
   };
 })();
 /* ===== calendar render perf safe layer end ===== */
+
+
+/* ===== calendar render perf stage2 layer start ===== */
+(function(){
+  if (window.__calendarRenderPerfStage2Applied__) return;
+  window.__calendarRenderPerfStage2Applied__ = true;
+
+  var __lastNavSignature__ = '';
+
+  var __baseGetDatesRange__ = getDatesRange;
+  getDatesRange = function(){
+    return __baseGetDatesRange__.apply(this, arguments);
+  };
+
+  var __baseEnsurePublicCalendarNav__ = ensurePublicCalendarNav;
+  ensurePublicCalendarNav = function(){
+    try{
+      var sig = String(currentDate ? currentDate.getFullYear() : '') + '||' + String(currentDate ? currentDate.getMonth() : '') + '||' + String(isExtendedView ? '1' : '0');
+      if (__lastNavSignature__ === sig && document.getElementById('publicCalendarNav')) return;
+      __lastNavSignature__ = sig;
+    }catch(_){ }
+    return __baseEnsurePublicCalendarNav__.apply(this, arguments);
+  };
+
+  document.addEventListener('visibilitychange', function(){
+    if (!document.hidden){
+      __lastNavSignature__ = '';
+    }
+  });
+})();
+/* ===== calendar render perf stage2 layer end ===== */

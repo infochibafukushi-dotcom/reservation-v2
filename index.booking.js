@@ -1714,7 +1714,6 @@ submitBooking = async function(e){
     return __warmSelectorsPromise__;
   }
 
-  var __baseInit__ = init;
   init = async function(){
     try{
       try{ hydratePublicCacheForFastPaint(); }catch(_){ }
@@ -1807,3 +1806,130 @@ submitBooking = async function(e){
   });
 })();
 /* ===== display perf max safe layer end ===== */
+
+
+/* ===== display perf stage2 safe layer start ===== */
+(function(){
+  if (window.__displayPerfStage2SafeApplied__) return;
+  window.__displayPerfStage2SafeApplied__ = true;
+
+  var __resolvedSignature__ = '';
+  var __resolvedStateCache__ = null;
+  var __autoApplySignature__ = '';
+  var __autoApplyResult__ = null;
+  var __pendingUiRefresh__ = 0;
+
+  function __selectionPerfSignature__(){
+    try{
+      var moveType = document.getElementById('moveType');
+      var assistanceType = document.getElementById('assistanceType');
+      var stairAssistance = document.getElementById('stairAssistance');
+      var equipmentRental = document.getElementById('equipmentRental');
+      var roundTrip = document.getElementById('roundTrip');
+      return [
+        String(moveType ? moveType.value || '' : ''),
+        String(typeof getSelectedOptionKey === 'function' ? (getSelectedOptionKey('moveType') || '') : ''),
+        String(assistanceType ? assistanceType.value || '' : ''),
+        String(typeof getSelectedOptionKey === 'function' ? (getSelectedOptionKey('assistanceType') || '') : ''),
+        String(stairAssistance ? stairAssistance.value || '' : ''),
+        String(typeof getSelectedOptionKey === 'function' ? (getSelectedOptionKey('stairAssistance') || '') : ''),
+        String(equipmentRental ? equipmentRental.value || '' : ''),
+        String(typeof getSelectedOptionKey === 'function' ? (getSelectedOptionKey('equipmentRental') || '') : ''),
+        String(roundTrip ? roundTrip.value || '' : ''),
+        String(typeof getSelectedOptionKey === 'function' ? (getSelectedOptionKey('roundTrip') || '') : ''),
+        String(config && config.rule_force_body_assist_on_stair || ''),
+        String(config && config.rule_force_body_assist_on_stretcher || ''),
+        String(config && config.rule_force_stretcher_staff2_on_stretcher || '')
+      ].join('||');
+    }catch(_){
+      return String(Date.now());
+    }
+  }
+
+  function __invalidateResolvedPerfCaches__(){
+    __resolvedSignature__ = '';
+    __resolvedStateCache__ = null;
+    __autoApplySignature__ = '';
+    __autoApplyResult__ = null;
+  }
+
+  var __baseBuildResolvedSelectionState__ = buildResolvedSelectionState;
+  buildResolvedSelectionState = function(){
+    var sig = __selectionPerfSignature__();
+    if (__resolvedStateCache__ && sig === __resolvedSignature__){
+      return __resolvedStateCache__;
+    }
+    var resolved = __baseBuildResolvedSelectionState__.apply(this, arguments);
+    __resolvedSignature__ = sig;
+    __resolvedStateCache__ = resolved;
+    return resolved;
+  };
+
+  var __baseApplyAutoSelections__ = applyAutoSelections;
+  applyAutoSelections = function(){
+    var sig = __selectionPerfSignature__();
+    if (__autoApplyResult__ !== null && sig === __autoApplySignature__){
+      return __autoApplyResult__;
+    }
+    var result = __baseApplyAutoSelections__.apply(this, arguments);
+    __autoApplySignature__ = __selectionPerfSignature__();
+    __autoApplyResult__ = result;
+    return result;
+  };
+
+  function __scheduleUiRefreshOnce__(){
+    if (__pendingUiRefresh__) return;
+    __pendingUiRefresh__ = 1;
+    requestAnimationFrame(function(){
+      __pendingUiRefresh__ = 0;
+      try{ calculatePrice(); }catch(_){ }
+      try{ updateSubmitButton(); }catch(_){ }
+    });
+  }
+
+  var __baseBindBookingEvents__ = bindBookingEvents;
+  bindBookingEvents = function(){
+    var result = __baseBindBookingEvents__.apply(this, arguments);
+    try{
+      ['moveType','assistanceType','stairAssistance','equipmentRental','roundTrip','privacyAgreement','usageType','customerName','phoneNumber','pickupLocation']
+        .forEach(function(id){
+          var el = document.getElementById(id);
+          if (!el || el.__stage2PerfBound__) return;
+          var evt = (el.tagName === 'SELECT' || el.type === 'checkbox') ? 'change' : 'input';
+          el.addEventListener(evt, function(){
+            __invalidateResolvedPerfCaches__();
+            __scheduleUiRefreshOnce__();
+          }, { passive: true });
+          el.__stage2PerfBound__ = true;
+        });
+    }catch(_){ }
+    return result;
+  };
+
+  var __baseResetBookingForm2__ = resetBookingForm;
+  resetBookingForm = function(){
+    __invalidateResolvedPerfCaches__();
+    return __baseResetBookingForm2__.apply(this, arguments);
+  };
+
+  var __baseRenderServiceSelectors2__ = renderServiceSelectors;
+  renderServiceSelectors = function(){
+    __invalidateResolvedPerfCaches__();
+    return __baseRenderServiceSelectors2__.apply(this, arguments);
+  };
+
+  var __baseRefreshPublicData2__ = (typeof refreshPublicData === 'function') ? refreshPublicData : null;
+  if (__baseRefreshPublicData2__){
+    refreshPublicData = async function(){
+      __invalidateResolvedPerfCaches__();
+      return await __baseRefreshPublicData2__.apply(this, arguments);
+    };
+  }
+
+  document.addEventListener('visibilitychange', function(){
+    if (!document.hidden){
+      __invalidateResolvedPerfCaches__();
+    }
+  });
+})();
+/* ===== display perf stage2 safe layer end ===== */
