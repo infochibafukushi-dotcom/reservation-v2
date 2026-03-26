@@ -5,8 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>介護タクシー予約 管理画面</title>
 
+  <meta http-equiv="x-dns-prefetch-control" content="on" />
+  <link rel="dns-prefetch" href="//cdn.tailwindcss.com" />
+  <link rel="dns-prefetch" href="//fonts.googleapis.com" />
+  <link rel="dns-prefetch" href="//fonts.gstatic.com" />
+  <link rel="preconnect" href="https://cdn.tailwindcss.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet"></noscript>
 
   <style>
     * { box-sizing: border-box; }
@@ -43,7 +51,7 @@
     .admin-slot-other{background:linear-gradient(135deg,#06b6d4 0%,#0891b2 100%);color:#fff;cursor:pointer;border-radius:12px;font-weight:800}
     .admin-slot-other:hover{transform:scale(1.05)}
 
-    .scroll-container{overflow:auto;-webkit-overflow-scrolling:touch;position:relative;width:100%;overscroll-behavior:contain;scroll-behavior:smooth}
+    .scroll-container{overflow:auto;contain: layout paint;-webkit-overflow-scrolling:touch;position:relative;width:100%;overscroll-behavior:contain;scroll-behavior:smooth}
     .admin-calendar-scroll{max-height:500px}
     @media (min-width: 641px){
       #adminView .admin-calendar-scroll{max-height:calc(100vh - 320px)}
@@ -489,7 +497,7 @@
             <div class="form-group">
               <label class="form-label">ロゴ画像プレビュー</label>
               <div class="logo-preview-wrap">
-                <img id="adminLogoPreview" class="logo-preview-img" src="https://raw.githubusercontent.com/infochibafukushi-dotcom/chiba-care-taxi-assets/main/logo.png" alt="logo preview">
+                <img id="adminLogoPreview" class="logo-preview-img" src="https://raw.githubusercontent.com/infochibafukushi-dotcom/chiba-care-taxi-assets/main/logo.png" alt="logo preview" loading="lazy" decoding="async">
                 <div>
                   <div id="adminLogoPreviewText" class="font-extrabold text-gray-800 text-lg">介護タクシー予約</div>
                   <div id="adminLogoPreviewSubtext" class="text-sm text-gray-500 font-bold mt-1">丁寧・安全な送迎をご提供します</div>
