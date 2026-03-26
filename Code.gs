@@ -256,6 +256,7 @@ function doGet(e) {
           '?action=getConfig',
           '?action=getConfigPublic',
           '?action=getPublicBootstrap',
+          '?action=getPublicBootstrapLite',
           '?action=getAdminBootstrap',
           '?action=getBlockedSlotKeys&start=YYYY-MM-DD&end=YYYY-MM-DD',
           '?action=getReservationsRange&start=YYYY-MM-DD&end=YYYY-MM-DD',
@@ -289,6 +290,11 @@ function doGet(e) {
 
     if (action === 'getPublicBootstrap') {
       result = api_getPublicBootstrap();
+      return _respond_(result, callback);
+    }
+
+    if (action === 'getPublicBootstrapLite') {
+      result = api_getPublicBootstrapLite();
       return _respond_(result, callback);
     }
 
@@ -553,6 +559,31 @@ function api_getPublicBootstrap() {
       menu_key_catalog: MENU_KEY_CATALOG,
       menu_group_catalog: _getResolvedMenuGroupCatalog_(),
       auto_rule_catalog: _buildAutoRuleCatalog_()
+    };
+
+    _cachePutJson_(cacheKey, out, 300);
+    return _ok(out);
+  } catch (e) {
+    return _ng(e);
+  }
+}
+
+
+function api_getPublicBootstrapLite() {
+  try {
+    _ensureConfigDefaults_();
+
+    const cacheKey = 'public_bootstrap_lite_v' + _getPublicApiCacheVersion_('public_bootstrap');
+    const cached = _cacheGetJson_(cacheKey);
+    if (cached) {
+      return _ok(cached);
+    }
+
+    const configResult = api_getConfigPublic();
+    if (!configResult.isOk) throw new Error(configResult.error || '公開設定取得失敗');
+
+    const out = {
+      config: configResult.data || {}
     };
 
     _cachePutJson_(cacheKey, out, 300);
