@@ -508,7 +508,7 @@ function api_getConfig() {
     if (cached) return _ok(cached);
 
     const out = _readConfigSheetFast_();
-    _cachePutJson_(cacheKey, out, 3600);
+    _cachePutJson_(cacheKey, out, 300);
     return _ok(out);
   } catch (e) {
     return _ng(e);
@@ -541,19 +541,46 @@ function api_getPublicBootstrap() {
       return _ok(cached);
     }
 
-    const configData = _clone_(_readConfigSheetFast_() || {});
-    delete configData.admin_password;
-    delete configData.github_token;
+    const configResult = api_getConfigPublic();
+    if (!configResult.isOk) throw new Error(configResult.error || '公開設定取得失敗');
+
+    const menuResult = api_getMenuMaster();
+    if (!menuResult.isOk) throw new Error(menuResult.error || '料金マスタ取得失敗');
 
     const out = {
-      config: configData,
-      menu_master: _readMenuMasterFast_() || [],
+      config: configResult.data || {},
+      menu_master: menuResult.data || [],
       menu_key_catalog: MENU_KEY_CATALOG,
       menu_group_catalog: _getResolvedMenuGroupCatalog_(),
       auto_rule_catalog: _buildAutoRuleCatalog_()
     };
 
-    _cachePutJson_(cacheKey, out, 3600);
+    _cachePutJson_(cacheKey, out, 300);
+    return _ok(out);
+  } catch (e) {
+    return _ng(e);
+  }
+}
+
+
+function api_getPublicBootstrapLite() {
+  try {
+    _ensureConfigDefaults_();
+
+    const cacheKey = 'public_bootstrap_lite_v' + _getPublicApiCacheVersion_('public_bootstrap');
+    const cached = _cacheGetJson_(cacheKey);
+    if (cached) {
+      return _ok(cached);
+    }
+
+    const configResult = api_getConfigPublic();
+    if (!configResult.isOk) throw new Error(configResult.error || '公開設定取得失敗');
+
+    const out = {
+      config: configResult.data || {}
+    };
+
+    _cachePutJson_(cacheKey, out, 300);
     return _ok(out);
   } catch (e) {
     return _ng(e);
@@ -614,15 +641,21 @@ function api_getAdminBootstrap() {
     const cached = _cacheGetJson_(cacheKey);
     if (cached) return _ok(cached);
 
+    const configResult = api_getConfig();
+    if (!configResult.isOk) throw new Error(configResult.error || '設定取得失敗');
+
+    const menuResult = api_getMenuMaster();
+    if (!menuResult.isOk) throw new Error(menuResult.error || '料金マスタ取得失敗');
+
     const out = {
-      config: _readConfigSheetFast_() || {},
-      menu_master: _readMenuMasterFast_() || [],
+      config: configResult.data || {},
+      menu_master: menuResult.data || [],
       menu_key_catalog: MENU_KEY_CATALOG,
       menu_group_catalog: _getResolvedMenuGroupCatalog_(),
       auto_rule_catalog: _buildAutoRuleCatalog_()
     };
 
-    _cachePutJson_(cacheKey, out, 1800);
+    _cachePutJson_(cacheKey, out, 180);
     return _ok(out);
   } catch (e) {
     return _ng(e);
@@ -668,7 +701,7 @@ function api_getMenuMaster() {
     if (cached) return _ok(cached);
 
     const out = _readMenuMasterFast_();
-    _cachePutJson_(cacheKey, out, 3600);
+    _cachePutJson_(cacheKey, out, 300);
     return _ok(out);
   } catch (e) {
     return _ng(e);

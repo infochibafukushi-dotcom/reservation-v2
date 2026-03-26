@@ -230,6 +230,13 @@ async function ensureBookingFormOptionsReady(){
 }
 
 async function openBookingForm(date, hour, minute=0){
+  try{
+    await ensureFullPublicBootstrapLoaded(true);
+  }catch(_){
+    toast('フォーム読込中です。少し待ってからもう一度お試しください');
+    return;
+  }
+
   const ready = await ensureBookingFormOptionsReady();
   if (!ready){
     toast('フォーム読込中です。少し待ってからもう一度お試しください');
@@ -579,9 +586,21 @@ async function init(){
 
     await withLoading(async ()=>{
       await refreshAllData(true);
-      renderServiceSelectors();
       renderCalendar();
     }, '読み込み中...');
+
+    try{
+      const warm = function(){
+        try{
+          ensureFullPublicBootstrapLoaded(false).catch(function(){});
+        }catch(_){}
+      };
+      if (typeof requestIdleCallback === 'function'){
+        requestIdleCallback(warm, { timeout: 1800 });
+      } else {
+        setTimeout(warm, 1200);
+      }
+    }catch(_){ }
   }catch(e){
     try{ showLoading(false); }catch(_){}
     toast('初期化エラー: ' + (e?.message || e));
@@ -1619,317 +1638,3 @@ submitBooking = async function(e){
   });
 })();
 /* ===== authoritative final booking fix end ===== */
-
-
-/* ===== display perf max safe layer start ===== */
-(function(){
-  if (window.__displayPerfMaxSafeApplied__) return;
-  window.__displayPerfMaxSafeApplied__ = true;
-
-  var __warmSelectorsPromise__ = null;
-  var __priceSignature__ = '';
-  var __priceTotalCache__ = null;
-  var __submitSignature__ = '';
-  var __submitStateCache__ = null;
-
-  function __scheduleIdle__(fn, timeout){
-    try{
-      if (window.requestIdleCallback){
-        return window.requestIdleCallback(fn, { timeout: timeout || 800 });
-      }
-    }catch(_){ }
-    return setTimeout(fn, Math.min(Number(timeout || 800), 250));
-  }
-
-  function __buildPriceSignature__(){
-    try{
-      var moveType = document.getElementById('moveType');
-      var assistanceType = document.getElementById('assistanceType');
-      var stairAssistance = document.getElementById('stairAssistance');
-      var equipmentRental = document.getElementById('equipmentRental');
-      var roundTrip = document.getElementById('roundTrip');
-      return [
-        String(moveType ? moveType.value || '' : ''),
-        String(getSelectedOptionKey('moveType') || ''),
-        String(assistanceType ? assistanceType.value || '' : ''),
-        String(getSelectedOptionKey('assistanceType') || ''),
-        String(stairAssistance ? stairAssistance.value || '' : ''),
-        String(getSelectedOptionKey('stairAssistance') || ''),
-        String(equipmentRental ? equipmentRental.value || '' : ''),
-        String(getSelectedOptionKey('equipmentRental') || ''),
-        String(roundTrip ? roundTrip.value || '' : ''),
-        String(getSelectedOptionKey('roundTrip') || ''),
-        String(config.rule_force_body_assist_on_stair || ''),
-        String(config.rule_force_body_assist_on_stretcher || ''),
-        String(config.rule_force_stretcher_staff2_on_stretcher || '')
-      ].join('||');
-    }catch(_){
-      return String(Date.now());
-    }
-  }
-
-  function __buildSubmitSignature__(){
-    try{
-      var privacy = document.getElementById('privacyAgreement');
-      var usageType = document.getElementById('usageType');
-      var customerName = document.getElementById('customerName');
-      var phoneNumber = document.getElementById('phoneNumber');
-      var pickupLocation = document.getElementById('pickupLocation');
-      var assistanceType = document.getElementById('assistanceType');
-      var equipmentRental = document.getElementById('equipmentRental');
-      return [
-        String(privacy && privacy.checked ? '1' : '0'),
-        String(usageType ? usageType.value || '' : ''),
-        String(customerName ? customerName.value || '' : '').trim(),
-        String(phoneNumber ? phoneNumber.value || '' : '').trim(),
-        String(pickupLocation ? pickupLocation.value || '' : '').trim(),
-        String(assistanceType ? assistanceType.value || '' : ''),
-        String(equipmentRental ? equipmentRental.value || '' : '')
-      ].join('||');
-    }catch(_){
-      return String(Date.now());
-    }
-  }
-
-  function __invalidateDisplayPerfCaches__(){
-    __priceSignature__ = '';
-    __priceTotalCache__ = null;
-    __submitSignature__ = '';
-    __submitStateCache__ = null;
-  }
-
-  function __warmBookingSelectorsOnce__(){
-    if (__warmSelectorsPromise__) return __warmSelectorsPromise__;
-    __warmSelectorsPromise__ = Promise.resolve().then(function(){
-      try{
-        if (!hasBookingSelectOptionsReady()){
-          renderServiceSelectors();
-        }
-      }catch(_){ }
-      try{
-        __invalidateDisplayPerfCaches__();
-      }catch(_){ }
-      return true;
-    }).catch(function(){ return false; });
-    return __warmSelectorsPromise__;
-  }
-
-  init = async function(){
-    try{
-      try{ hydratePublicCacheForFastPaint(); }catch(_){ }
-      bindGridDelegation();
-      renderCalendar();
-
-      await withLoading(async function(){
-        await refreshAllData(true);
-        renderCalendar();
-      }, '読み込み中...');
-
-      __scheduleIdle__(function(){
-        try{ __warmBookingSelectorsOnce__(); }catch(_){ }
-      }, 1000);
-    }catch(e){
-      try{ showLoading(false); }catch(_){ }
-      toast('初期化エラー: ' + (e && e.message ? e.message : e));
-      try{ renderCalendar(); }catch(_){ }
-    }
-  };
-
-  var __baseEnsureBookingFormOptionsReady__ = ensureBookingFormOptionsReady;
-  ensureBookingFormOptionsReady = async function(){
-    if (hasBookingSelectOptionsReady()) return true;
-    try{
-      var warmed = await __warmBookingSelectorsOnce__();
-      if (warmed && hasBookingSelectOptionsReady()) return true;
-    }catch(_){ }
-    return await __baseEnsureBookingFormOptionsReady__.apply(this, arguments);
-  };
-
-  var __baseOpenBookingForm__ = openBookingForm;
-  openBookingForm = async function(date, hour, minute){
-    try{
-      if (__warmSelectorsPromise__) {
-        await Promise.race([
-          __warmSelectorsPromise__,
-          new Promise(function(resolve){ setTimeout(resolve, 120); })
-        ]);
-      }
-    }catch(_){ }
-    return await __baseOpenBookingForm__.apply(this, arguments);
-  };
-
-  var __baseResetBookingForm__ = resetBookingForm;
-  resetBookingForm = function(){
-    __invalidateDisplayPerfCaches__();
-    return __baseResetBookingForm__.apply(this, arguments);
-  };
-
-  var __baseRenderServiceSelectors__ = renderServiceSelectors;
-  renderServiceSelectors = function(){
-    var result = __baseRenderServiceSelectors__.apply(this, arguments);
-    __invalidateDisplayPerfCaches__();
-    return result;
-  };
-
-  var __baseCalculatePrice__ = calculatePrice;
-  calculatePrice = function(){
-    var sig = __buildPriceSignature__();
-    if (sig === __priceSignature__ && __priceTotalCache__ !== null){
-      return __priceTotalCache__;
-    }
-    var total = __baseCalculatePrice__.apply(this, arguments);
-    __priceSignature__ = sig;
-    __priceTotalCache__ = total;
-    return total;
-  };
-
-  var __baseUpdateSubmitButton__ = updateSubmitButton;
-  updateSubmitButton = function(){
-    var sig = __buildSubmitSignature__();
-    if (sig === __submitSignature__ && __submitStateCache__ !== null){
-      var btn = document.getElementById('submitBooking');
-      if (btn){
-        btn.disabled = !__submitStateCache__;
-      }
-      return;
-    }
-    __baseUpdateSubmitButton__.apply(this, arguments);
-    var submitBtn = document.getElementById('submitBooking');
-    __submitSignature__ = sig;
-    __submitStateCache__ = submitBtn ? !submitBtn.disabled : null;
-  };
-
-  document.addEventListener('DOMContentLoaded', function(){
-    __scheduleIdle__(function(){
-      try{ __warmBookingSelectorsOnce__(); }catch(_){ }
-    }, 1200);
-  });
-})();
-/* ===== display perf max safe layer end ===== */
-
-
-/* ===== display perf stage2 safe layer start ===== */
-(function(){
-  if (window.__displayPerfStage2SafeApplied__) return;
-  window.__displayPerfStage2SafeApplied__ = true;
-
-  var __resolvedSignature__ = '';
-  var __resolvedStateCache__ = null;
-  var __autoApplySignature__ = '';
-  var __autoApplyResult__ = null;
-  var __pendingUiRefresh__ = 0;
-
-  function __selectionPerfSignature__(){
-    try{
-      var moveType = document.getElementById('moveType');
-      var assistanceType = document.getElementById('assistanceType');
-      var stairAssistance = document.getElementById('stairAssistance');
-      var equipmentRental = document.getElementById('equipmentRental');
-      var roundTrip = document.getElementById('roundTrip');
-      return [
-        String(moveType ? moveType.value || '' : ''),
-        String(typeof getSelectedOptionKey === 'function' ? (getSelectedOptionKey('moveType') || '') : ''),
-        String(assistanceType ? assistanceType.value || '' : ''),
-        String(typeof getSelectedOptionKey === 'function' ? (getSelectedOptionKey('assistanceType') || '') : ''),
-        String(stairAssistance ? stairAssistance.value || '' : ''),
-        String(typeof getSelectedOptionKey === 'function' ? (getSelectedOptionKey('stairAssistance') || '') : ''),
-        String(equipmentRental ? equipmentRental.value || '' : ''),
-        String(typeof getSelectedOptionKey === 'function' ? (getSelectedOptionKey('equipmentRental') || '') : ''),
-        String(roundTrip ? roundTrip.value || '' : ''),
-        String(typeof getSelectedOptionKey === 'function' ? (getSelectedOptionKey('roundTrip') || '') : ''),
-        String(config && config.rule_force_body_assist_on_stair || ''),
-        String(config && config.rule_force_body_assist_on_stretcher || ''),
-        String(config && config.rule_force_stretcher_staff2_on_stretcher || '')
-      ].join('||');
-    }catch(_){
-      return String(Date.now());
-    }
-  }
-
-  function __invalidateResolvedPerfCaches__(){
-    __resolvedSignature__ = '';
-    __resolvedStateCache__ = null;
-    __autoApplySignature__ = '';
-    __autoApplyResult__ = null;
-  }
-
-  var __baseBuildResolvedSelectionState__ = buildResolvedSelectionState;
-  buildResolvedSelectionState = function(){
-    var sig = __selectionPerfSignature__();
-    if (__resolvedStateCache__ && sig === __resolvedSignature__){
-      return __resolvedStateCache__;
-    }
-    var resolved = __baseBuildResolvedSelectionState__.apply(this, arguments);
-    __resolvedSignature__ = sig;
-    __resolvedStateCache__ = resolved;
-    return resolved;
-  };
-
-  var __baseApplyAutoSelections__ = applyAutoSelections;
-  applyAutoSelections = function(){
-    var sig = __selectionPerfSignature__();
-    if (__autoApplyResult__ !== null && sig === __autoApplySignature__){
-      return __autoApplyResult__;
-    }
-    var result = __baseApplyAutoSelections__.apply(this, arguments);
-    __autoApplySignature__ = __selectionPerfSignature__();
-    __autoApplyResult__ = result;
-    return result;
-  };
-
-  function __scheduleUiRefreshOnce__(){
-    if (__pendingUiRefresh__) return;
-    __pendingUiRefresh__ = 1;
-    requestAnimationFrame(function(){
-      __pendingUiRefresh__ = 0;
-      try{ calculatePrice(); }catch(_){ }
-      try{ updateSubmitButton(); }catch(_){ }
-    });
-  }
-
-  var __baseBindBookingEvents__ = bindBookingEvents;
-  bindBookingEvents = function(){
-    var result = __baseBindBookingEvents__.apply(this, arguments);
-    try{
-      ['moveType','assistanceType','stairAssistance','equipmentRental','roundTrip','privacyAgreement','usageType','customerName','phoneNumber','pickupLocation']
-        .forEach(function(id){
-          var el = document.getElementById(id);
-          if (!el || el.__stage2PerfBound__) return;
-          var evt = (el.tagName === 'SELECT' || el.type === 'checkbox') ? 'change' : 'input';
-          el.addEventListener(evt, function(){
-            __invalidateResolvedPerfCaches__();
-            __scheduleUiRefreshOnce__();
-          }, { passive: true });
-          el.__stage2PerfBound__ = true;
-        });
-    }catch(_){ }
-    return result;
-  };
-
-  var __baseResetBookingForm2__ = resetBookingForm;
-  resetBookingForm = function(){
-    __invalidateResolvedPerfCaches__();
-    return __baseResetBookingForm2__.apply(this, arguments);
-  };
-
-  var __baseRenderServiceSelectors2__ = renderServiceSelectors;
-  renderServiceSelectors = function(){
-    __invalidateResolvedPerfCaches__();
-    return __baseRenderServiceSelectors2__.apply(this, arguments);
-  };
-
-  var __baseRefreshPublicData2__ = (typeof refreshPublicData === 'function') ? refreshPublicData : null;
-  if (__baseRefreshPublicData2__){
-    refreshPublicData = async function(){
-      __invalidateResolvedPerfCaches__();
-      return await __baseRefreshPublicData2__.apply(this, arguments);
-    };
-  }
-
-  document.addEventListener('visibilitychange', function(){
-    if (!document.hidden){
-      __invalidateResolvedPerfCaches__();
-    }
-  });
-})();
-/* ===== display perf stage2 safe layer end ===== */
