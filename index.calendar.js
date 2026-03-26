@@ -259,3 +259,77 @@ function bindGridDelegation(){
 
   globalThis.hasBoundGridDelegation = true;
 }
+
+
+/* ===== calendar render perf safe layer start ===== */
+(function(){
+  if (window.__calendarRenderPerfSafeApplied__) return;
+  window.__calendarRenderPerfSafeApplied__ = true;
+
+  var __slotsCache__ = null;
+  var __renderSignature__ = '';
+  var __lastDatesCount__ = 0;
+
+  var __baseBuildSlots__ = buildSlots;
+  buildSlots = function(){
+    if (__slotsCache__) return __slotsCache__;
+    __slotsCache__ = __baseBuildSlots__.apply(this, arguments);
+    return __slotsCache__;
+  };
+
+  function __buildCalendarSignature__(dates){
+    try{
+      var first = dates && dates[0] ? ymdLocal(dates[0]) : '';
+      var last = dates && dates.length ? ymdLocal(dates[dates.length - 1]) : '';
+      var blockedSize = (typeof blockedSlots !== 'undefined' && blockedSlots) ? blockedSlots.size : 0;
+      var reservedSize = (typeof reservedSlots !== 'undefined' && reservedSlots) ? reservedSlots.size : 0;
+      var rangeKey = (typeof blockedRangeCacheKey !== 'undefined' ? blockedRangeCacheKey : '');
+      return [
+        String(first),
+        String(last),
+        String(dates ? dates.length : 0),
+        String(isExtendedView ? '1' : '0'),
+        String(rangeKey),
+        String(blockedSize),
+        String(reservedSize)
+      ].join('||');
+    }catch(_){
+      return String(Date.now());
+    }
+  }
+
+  var __baseRenderCalendar__ = renderCalendar;
+  renderCalendar = function(){
+    var grid = document.getElementById('calendarGrid');
+    var dateRangeEl = document.getElementById('dateRange');
+    if (!grid || !dateRangeEl) return __baseRenderCalendar__.apply(this, arguments);
+
+    try{
+      ensurePublicCalendarNav();
+      var dates = getDatesRange();
+      calendarDates = dates;
+      if (!dates || !dates.length){
+        __renderSignature__ = '';
+        __lastDatesCount__ = 0;
+        return __baseRenderCalendar__.apply(this, arguments);
+      }
+
+      var sig = __buildCalendarSignature__(dates);
+      dateRangeEl.textContent = formatDate(dates[0]) + ' ～ ' + formatDate(dates[dates.length - 1]);
+      ensurePublicCalendarNav();
+
+      if (sig === __renderSignature__){
+        applyCalendarGridColumns(grid, dates.length);
+        requestAnimationFrame(function(){ applyCalendarGridColumns(grid, dates.length); });
+        return;
+      }
+
+      __renderSignature__ = sig;
+      __lastDatesCount__ = dates.length;
+      return __baseRenderCalendar__.apply(this, arguments);
+    }catch(_){
+      return __baseRenderCalendar__.apply(this, arguments);
+    }
+  };
+})();
+/* ===== calendar render perf safe layer end ===== */
