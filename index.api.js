@@ -244,8 +244,9 @@ const gsRun = async (func, ...args) => {
 const PUBLIC_BOOTSTRAP_CACHE_KEY = 'chiba_care_taxi_public_bootstrap_cache_v2';
 const PUBLIC_BOOTSTRAP_LITE_CACHE_KEY = 'chiba_care_taxi_public_bootstrap_lite_cache_v1';
 const PUBLIC_BLOCKED_CACHE_PREFIX = 'chiba_care_taxi_public_blocked_keys_v2__';
-const PUBLIC_BOOTSTRAP_CACHE_TTL_MS = 5 * 60 * 1000;
-const PUBLIC_BLOCKED_CACHE_TTL_MS = 2 * 60 * 1000;
+const PUBLIC_BOOTSTRAP_CACHE_TTL_MS = 30 * 60 * 1000;
+const PUBLIC_BLOCKED_CACHE_TTL_MS = 10 * 60 * 1000;
+const PUBLIC_BLOCKED_STALE_REPAINT_WINDOW_MS = 60 * 60 * 1000;
 
 function _readLocalJson_(key){
   try{
@@ -348,10 +349,47 @@ function _loadBlockedKeysCache_(range){
   return true;
 }
 
+function _loadBlockedKeysCacheStale_(range, maxAgeMs){
+  const entry = _readLocalJson_(_blockedCacheKey_(range));
+  if (!entry || !entry.savedAt) return false;
+  const age = Date.now() - Number(entry.savedAt || 0);
+  if (!(age >= 0 && age <= Number(maxAgeMs || 0))) return false;
+  const keys = Array.isArray(entry.keys) ? entry.keys : [];
+  blockedSlots = new Set(keys.map(v => String(v || '').trim()).filter(Boolean));
+  reservedSlots = new Set();
+  blockedRangeCacheKey = `${range.start}__${range.end}`;
+  return true;
+}
+
+function prefetchBlockedSlotKeys(range){
+  try{
+    if (!range || !range.start || !range.end) return;
+    gsRun('api_getBlockedSlotKeys', range).then(function(res){
+      if (!res || !res.isOk) return;
+      const keys = Array.isArray(res.data?.slot_keys) ? res.data.slot_keys : (Array.isArray(res.data?.keys) ? res.data.keys : []);
+      _saveBlockedKeysCache_(range, keys || []);
+
+    try{
+      if (typeof getDatesRange === 'function') {
+        const dates = getDatesRange();
+        if (Array.isArray(dates) && dates.length) {
+          const span = dates.length;
+          const nextStart = new Date(dates[0]);
+          nextStart.setDate(nextStart.getDate() + span);
+          const nextEnd = new Date(nextStart);
+          nextEnd.setDate(nextStart.getDate() + span - 1);
+          prefetchBlockedSlotKeys({ start: ymdLocal(nextStart), end: ymdLocal(nextEnd) });
+        }
+      }
+    }catch(_){ }
+    }).catch(function(){});
+  }catch(_){ }
+}
+
 function hydratePublicCacheForFastPaint(){
   const bootLoaded = _loadBootstrapCache_() || _loadBootstrapLiteCache_();
   const range = getPublicCalendarRange();
-  const blockedLoaded = _loadBlockedKeysCache_(range);
+  const blockedLoaded = _loadBlockedKeysCache_(range) || _loadBlockedKeysCacheStale_(range, PUBLIC_BLOCKED_STALE_REPAINT_WINDOW_MS);
   return bootLoaded || blockedLoaded;
 }
 
@@ -799,6 +837,20 @@ async function refreshBlockedSlotKeys(showToastOnFail=false){
     reservedSlots = new Set();
     blockedRangeCacheKey = cacheKey;
     _saveBlockedKeysCache_(range, keys || []);
+
+    try{
+      if (typeof getDatesRange === 'function') {
+        const dates = getDatesRange();
+        if (Array.isArray(dates) && dates.length) {
+          const span = dates.length;
+          const nextStart = new Date(dates[0]);
+          nextStart.setDate(nextStart.getDate() + span);
+          const nextEnd = new Date(nextStart);
+          nextEnd.setDate(nextStart.getDate() + span - 1);
+          prefetchBlockedSlotKeys({ start: ymdLocal(nextStart), end: ymdLocal(nextEnd) });
+        }
+      }
+    }catch(_){ }
   }catch(e){
     const range = getPublicCalendarRange();
     if (_loadBlockedKeysCache_(range)) {

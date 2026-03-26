@@ -577,34 +577,48 @@ async function updateLogoPreview(){
 
 async function init(){
   try{
+    let fastPaintHydrated = false;
     try{
-      hydratePublicCacheForFastPaint();
+      fastPaintHydrated = !!hydratePublicCacheForFastPaint();
     }catch(_){ }
 
     bindGridDelegation();
     renderCalendar();
 
-    await withLoading(async ()=>{
-      await refreshAllData(true);
-      renderCalendar();
-    }, '読み込み中...');
+    if (fastPaintHydrated) {
+      try{ showLoading(false); }catch(_){ }
+      Promise.resolve().then(async function(){
+        try{
+          await refreshAllData(false);
+          renderCalendar();
+        }catch(_){ }
+      });
+    } else {
+      await withLoading(async ()=>{
+        await refreshAllData(true);
+        renderCalendar();
+      }, '読み込み中...');
+    }
 
     try{
       const warm = function(){
         try{
           ensureFullPublicBootstrapLoaded(false).catch(function(){});
-        }catch(_){}
+        }catch(_){ }
       };
+      if (fastPaintHydrated) {
+        setTimeout(warm, 250);
+      }
       if (typeof requestIdleCallback === 'function'){
-        requestIdleCallback(warm, { timeout: 1800 });
+        requestIdleCallback(warm, { timeout: fastPaintHydrated ? 800 : 1800 });
       } else {
-        setTimeout(warm, 1200);
+        setTimeout(warm, fastPaintHydrated ? 700 : 1200);
       }
     }catch(_){ }
   }catch(e){
-    try{ showLoading(false); }catch(_){}
+    try{ showLoading(false); }catch(_){ }
     toast('初期化エラー: ' + (e?.message || e));
-    try{ renderCalendar(); }catch(_){}
+    try{ renderCalendar(); }catch(_){ }
   }
 }
 
