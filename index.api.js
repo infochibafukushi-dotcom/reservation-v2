@@ -203,6 +203,11 @@ const gsRun = async (func, ...args) => {
       data = await _getJsonWithRetry(`${GAS_URL}?action=getPublicBootstrap`, 1, 20000);
     } else if (func === 'api_getPublicBootstrapLite') {
       data = await _getJsonWithRetry(`${GAS_URL}?action=getPublicBootstrapLite`, 1, 15000);
+    } else if (func === 'api_getPublicInitLite') {
+      const range = args[0] || {};
+      const start = encodeURIComponent(String(range.start || ''));
+      const end = encodeURIComponent(String(range.end || ''));
+      data = await _getJsonWithRetry(`${GAS_URL}?action=getPublicInitLite&start=${start}&end=${end}`, 1, 15000);
     } else if (func === 'api_getBlockedSlotKeys') {
       const range = args[0] || {};
       const start = encodeURIComponent(String(range.start || ''));
@@ -786,6 +791,22 @@ function getPublicCalendarRange(){
   };
 }
 
+function _applyPublicInitLiteResponse_(payload, range){
+  const data = payload || {};
+  _applyBootstrapLiteData_(data);
+  _saveBootstrapLiteCache_({ config: data.config || {} });
+
+  const keys = Array.isArray(data.slot_keys) ? data.slot_keys : (Array.isArray(data.keys) ? data.keys : []);
+  blockedSlots = new Set((keys || []).map(v => String(v || '').trim()).filter(Boolean));
+  reservedSlots = new Set();
+  const normalizedRange = {
+    start: String((data.start || (range && range.start) || '')).trim(),
+    end: String((data.end || (range && range.end) || '')).trim()
+  };
+  blockedRangeCacheKey = `${normalizedRange.start}__${normalizedRange.end}`;
+  _saveBlockedKeysCache_(normalizedRange, keys || []);
+}
+
 async function refreshBlockedSlotKeys(showToastOnFail=false){
   try{
     const range = getPublicCalendarRange();
@@ -873,27 +894,16 @@ async function refreshData(showToastOnFail=false){
       _loadBootstrapLiteCache_();
     }
 
-    const needLiteBootstrap = !(config && Object.keys(config || {}).length);
-    const litePromise = needLiteBootstrap
-      ? gsRun('api_getPublicBootstrapLite').then((bootRes)=>{
-          if (!bootRes || !bootRes.isOk) throw new Error('bootstrap lite failed');
-          const data = bootRes.data || {};
-          _applyBootstrapLiteData_(data);
-          _saveBootstrapLiteCache_(data);
-          return true;
-        })
-      : Promise.resolve(true);
+    const range = getPublicCalendarRange();
+    const initRes = await gsRun('api_getPublicInitLite', range);
+    if (!initRes || !initRes.isOk) throw new Error('public init lite failed');
 
-    await Promise.all([
-      litePromise,
-      refreshBlockedSlotKeys(showToastOnFail)
-    ]);
+    _applyPublicInitLiteResponse_(initRes.data || {}, range);
   }catch(e){
     const bootRecovered = _loadBootstrapCache_() || _loadBootstrapLiteCache_();
-    if (bootRecovered) {
-      try{
-        await refreshBlockedSlotKeys(false);
-      }catch(_){ }
+    const range = getPublicCalendarRange();
+    const blockedRecovered = _loadBlockedKeysCache_(range);
+    if (bootRecovered || blockedRecovered) {
       return;
     }
     if (showToastOnFail) toast(e?.message || '通信エラー（データ取得）');

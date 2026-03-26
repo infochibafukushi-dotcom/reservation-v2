@@ -257,6 +257,7 @@ function doGet(e) {
           '?action=getConfigPublic',
           '?action=getPublicBootstrap',
           '?action=getPublicBootstrapLite',
+          '?action=getPublicInitLite&start=YYYY-MM-DD&end=YYYY-MM-DD',
           '?action=getAdminBootstrap',
           '?action=getBlockedSlotKeys&start=YYYY-MM-DD&end=YYYY-MM-DD',
           '?action=getReservationsRange&start=YYYY-MM-DD&end=YYYY-MM-DD',
@@ -295,6 +296,13 @@ function doGet(e) {
 
     if (action === 'getPublicBootstrapLite') {
       result = api_getPublicBootstrapLite();
+      return _respond_(result, callback);
+    }
+
+    if (action === 'getPublicInitLite') {
+      const start = String((e && e.parameter && e.parameter.start) || '').trim();
+      const end = String((e && e.parameter && e.parameter.end) || '').trim();
+      result = api_getPublicInitLite(start, end);
       return _respond_(result, callback);
     }
 
@@ -584,6 +592,40 @@ function api_getPublicBootstrapLite() {
 
     const out = {
       config: configResult.data || {}
+    };
+
+    _cachePutJson_(cacheKey, out, 300);
+    return _ok(out);
+  } catch (e) {
+    return _ng(e);
+  }
+}
+
+function api_getPublicInitLite(startDate, endDate) {
+  try {
+    _ensureConfigDefaults_();
+
+    const rangeStart = String(startDate || '').trim();
+    const rangeEnd = String(endDate || '').trim();
+    const cacheKey = 'public_init_lite_v'
+      + _getPublicApiCacheVersion_('public_bootstrap')
+      + '__' + rangeStart + '__' + rangeEnd;
+
+    const cached = _cacheGetJson_(cacheKey);
+    if (cached) {
+      return _ok(cached);
+    }
+
+    const configResult = api_getConfigPublic();
+    if (!configResult.isOk) throw new Error(configResult.error || '公開設定取得失敗');
+
+    const blocked = _getBlockedSlotKeysInRange_(rangeStart, rangeEnd);
+    const out = {
+      config: configResult.data || {},
+      start: blocked.start,
+      end: blocked.end,
+      slot_keys: Array.isArray(blocked.slot_keys) ? blocked.slot_keys : [],
+      keys: Array.isArray(blocked.slot_keys) ? blocked.slot_keys : []
     };
 
     _cachePutJson_(cacheKey, out, 300);
