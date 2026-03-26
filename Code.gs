@@ -256,6 +256,7 @@ function doGet(e) {
           '?action=getConfig',
           '?action=getConfigPublic',
           '?action=getPublicBootstrap',
+          '?action=getPublicBootstrapLite',
           '?action=getAdminBootstrap',
           '?action=getBlockedSlotKeys&start=YYYY-MM-DD&end=YYYY-MM-DD',
           '?action=getReservationsRange&start=YYYY-MM-DD&end=YYYY-MM-DD',
@@ -289,6 +290,11 @@ function doGet(e) {
 
     if (action === 'getPublicBootstrap') {
       result = api_getPublicBootstrap();
+      return _respond_(result, callback);
+    }
+
+    if (action === 'getPublicBootstrapLite') {
+      result = api_getPublicBootstrapLite();
       return _respond_(result, callback);
     }
 
