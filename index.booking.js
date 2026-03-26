@@ -574,6 +574,12 @@ async function init(){
       hydratePublicCacheForFastPaint();
     }catch(_){ }
 
+    try{
+      if (typeof warmStartPublicDataLoad === 'function'){
+        warmStartPublicDataLoad();
+      }
+    }catch(_){ }
+
     bindGridDelegation();
     renderCalendar();
 
@@ -585,10 +591,9 @@ async function init(){
   }catch(e){
     try{ showLoading(false); }catch(_){}
     toast('初期化エラー: ' + (e?.message || e));
-    try{ renderCalendar(); }catch(_){}
+    try{ renderCalendar(); }catch(_){ }
   }
 }
-
 (function bindUI(){
   let tapCount = 0;
   let tapTimer = null;
