@@ -129,7 +129,7 @@ async function _getJsonWithRetry(url, retryCount = 2, timeoutMs = 25000){
     }catch(err){
       lastError = err;
       if (i < retryCount){
-        await sleep(600 + (i * 500));
+        await sleep(450 + (i * 350));
       }
     }
   }
@@ -140,7 +140,7 @@ async function _getJsonWithRetry(url, retryCount = 2, timeoutMs = 25000){
     }catch(err){
       lastError = err;
       if (i < retryCount){
-        await sleep(800 + (i * 700));
+        await sleep(650 + (i * 500));
       }
     }
   }
