@@ -1981,6 +1981,11 @@ function _buildReservationCanonicalObject_(obj) {
     if (out.minute === undefined || out.minute === '') out.minute = Number(out.slot_minute || 0);
   }
 
+  if (out.reservation_id !== undefined && (out.id === undefined || out.id === '')) out.id = out.reservation_id;
+  if (out.customer_name !== undefined && (out.name === undefined || out.name === '')) out.name = out.customer_name;
+  if (out.phone_number !== undefined && (out.phone === undefined || out.phone === '')) out.phone = out.phone_number;
+  if (out.pickup_location !== undefined && (out.pickup === undefined || out.pickup === '')) out.pickup = out.pickup_location;
+
   return out;
 }
 
