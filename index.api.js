@@ -125,6 +125,21 @@ function _jsonpCall(url, timeoutMs = 20000){
 
 async function _getJsonWithRetry(url, retryCount = 2, timeoutMs = 25000){
   let lastError = null;
+  for (let i = 0; i <= retryCount; i++){
+    try{
+      return await _jsonpCall(url, timeoutMs);
+    }catch(err){
+      lastError = err;
+      if (i < retryCount){
+        await sleep(600 + (i * 500));
+      }
+    }
+  }
+  throw lastError || new Error('JSONP error');
+}
+
+async function _getJsonWithRetry(url, retryCount = 2, timeoutMs = 25000){
+  let lastError = null;
 
   for (let i = 0; i <= retryCount; i++){
     try{
@@ -132,7 +147,7 @@ async function _getJsonWithRetry(url, retryCount = 2, timeoutMs = 25000){
     }catch(err){
       lastError = err;
       if (i < retryCount){
-        await sleep(450 + (i * 350));
+        await sleep(600 + (i * 500));
       }
     }
   }
@@ -143,7 +158,7 @@ async function _getJsonWithRetry(url, retryCount = 2, timeoutMs = 25000){
     }catch(err){
       lastError = err;
       if (i < retryCount){
-        await sleep(650 + (i * 500));
+        await sleep(800 + (i * 700));
       }
     }
   }
@@ -229,73 +244,6 @@ const PUBLIC_BLOCKED_CACHE_PREFIX = 'chiba_care_taxi_public_blocked_keys_v2__';
 const PUBLIC_BOOTSTRAP_CACHE_TTL_MS = 5 * 60 * 1000;
 const PUBLIC_BLOCKED_CACHE_TTL_MS = 2 * 60 * 1000;
 
-let __publicBootstrapPromise = null;
-let __publicBlockedPromise = null;
-let __publicBootstrapWarmStartedAt = 0;
-
-function _isPublicBootstrapReady_(){
-  return publicBootstrapLoaded && Array.isArray(menuMaster) && menuMaster.length > 0;
-}
-
-function _primePublicBootstrapLoad_(){
-  if (_isPublicBootstrapReady_()) return Promise.resolve(true);
-  if (__publicBootstrapPromise) return __publicBootstrapPromise;
-
-  __publicBootstrapWarmStartedAt = Date.now();
-  __publicBootstrapPromise = (async ()=>{
-    const bootRes = await gsRun('api_getPublicBootstrap');
-    if (!bootRes || !bootRes.isOk) throw new Error('bootstrap failed');
-    const data = bootRes.data || {};
-    _applyBootstrapData_(data);
-    _saveBootstrapCache_(data);
-    publicBootstrapLoaded = true;
-    return true;
-  })();
-
-  __publicBootstrapPromise.finally(()=>{
-    __publicBootstrapPromise = null;
-  });
-
-  return __publicBootstrapPromise;
-}
-
-function _primeBlockedSlotKeysLoad_(showToastOnFail=false, force=false){
-  const range = getPublicCalendarRange();
-  const cacheKey = `${range.start}__${range.end}`;
-
-  if (!force && blockedRangeCacheKey === cacheKey && blockedSlots && blockedSlots.size >= 0) {
-    return Promise.resolve(true);
-  }
-
-  if (!force && __publicBlockedPromise && __publicBlockedPromise.cacheKey === cacheKey){
-    return __publicBlockedPromise;
-  }
-
-  const promise = (async ()=>{
-    try{
-      const res = await gsRun('api_getBlockedSlotKeys', range);
-      if (!res || !res.isOk) throw new Error('blocked keys failed');
-
-      const keys = Array.isArray(res.data?.slot_keys) ? res.data.slot_keys : (Array.isArray(res.data?.keys) ? res.data.keys : []);
-      blockedSlots = new Set((keys || []).map(v => String(v || '').trim()).filter(Boolean));
-      reservedSlots = new Set();
-      blockedRangeCacheKey = cacheKey;
-      _saveBlockedKeysCache_(range, keys || []);
-      return true;
-    }catch(e){
-      if (_loadBlockedKeysCache_(range)) return true;
-      if (showToastOnFail) toast(e?.message || '通信エラー（空き枠取得）');
-      throw e;
-    }
-  })();
-  promise.cacheKey = cacheKey;
-  __publicBlockedPromise = promise;
-  promise.finally(()=>{
-    if (__publicBlockedPromise === promise) __publicBlockedPromise = null;
-  });
-  return promise;
-}
-
 function _readLocalJson_(key){
   try{
     const raw = localStorage.getItem(String(key || ''));
@@ -371,15 +319,6 @@ function hydratePublicCacheForFastPaint(){
   const range = getPublicCalendarRange();
   const blockedLoaded = _loadBlockedKeysCache_(range);
   return bootLoaded || blockedLoaded;
-}
-
-function warmStartPublicDataLoad(){
-  try{
-    _primePublicBootstrapLoad_().catch(()=>{});
-  }catch(_){ }
-  try{
-    _primeBlockedSlotKeysLoad_(false, false).catch(()=>{});
-  }catch(_){ }
 }
 
 const TRIGGER_URL = 'https://script.google.com/macros/s/AKfycbxzM8EPlE-1hwHx6qwh4Q1jXgYa0nyc3_WtK0NYbYbcm5JExMJOi1zzjQocUhsoCuUQ/exec?secret=secret1';
@@ -813,11 +752,33 @@ function getPublicCalendarRange(){
 }
 
 async function refreshBlockedSlotKeys(showToastOnFail=false){
-  await _primeBlockedSlotKeysLoad_(showToastOnFail, true);
+  try{
+    const range = getPublicCalendarRange();
+    const cacheKey = `${range.start}__${range.end}`;
+
+    const res = await gsRun('api_getBlockedSlotKeys', range);
+    if (!res || !res.isOk) throw new Error('blocked keys failed');
+
+    const keys = Array.isArray(res.data?.slot_keys) ? res.data.slot_keys : (Array.isArray(res.data?.keys) ? res.data.keys : []);
+    blockedSlots = new Set((keys || []).map(v => String(v || '').trim()).filter(Boolean));
+    reservedSlots = new Set();
+    blockedRangeCacheKey = cacheKey;
+    _saveBlockedKeysCache_(range, keys || []);
+  }catch(e){
+    const range = getPublicCalendarRange();
+    if (_loadBlockedKeysCache_(range)) {
+      return;
+    }
+    if (showToastOnFail) toast(e?.message || '通信エラー（空き枠取得）');
+    throw e;
+  }
 }
 
 async function ensureBlockedSlotsFresh(showToastOnFail=false, force=false){
-  await _primeBlockedSlotKeysLoad_(showToastOnFail, !!force);
+  const range = getPublicCalendarRange();
+  const cacheKey = `${range.start}__${range.end}`;
+  if (!force && blockedRangeCacheKey === cacheKey && blockedSlots && blockedSlots.size >= 0) return;
+  await refreshBlockedSlotKeys(showToastOnFail);
 }
 
 async function refreshConfigPublic(){
@@ -834,18 +795,22 @@ async function refreshData(showToastOnFail=false){
       _loadBootstrapCache_();
     }
 
-    const bootstrapPromise = _isPublicBootstrapReady_()
-      ? Promise.resolve(true)
-      : _primePublicBootstrapLoad_();
+    if (!publicBootstrapLoaded){
+      const bootRes = await gsRun('api_getPublicBootstrap');
+      if (!bootRes || !bootRes.isOk) throw new Error('bootstrap failed');
 
-    const blockedPromise = _primeBlockedSlotKeysLoad_(showToastOnFail, false);
+      const data = bootRes.data || {};
+      _applyBootstrapData_(data);
+      _saveBootstrapCache_(data);
+      publicBootstrapLoaded = true;
+    }
 
-    await Promise.all([bootstrapPromise, blockedPromise]);
+    await refreshBlockedSlotKeys(showToastOnFail);
   }catch(e){
     const bootRecovered = _loadBootstrapCache_();
     if (bootRecovered) {
       try{
-        await _primeBlockedSlotKeysLoad_(false, false);
+        await refreshBlockedSlotKeys(false);
       }catch(_){ }
       return;
     }

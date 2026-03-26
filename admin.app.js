@@ -29,73 +29,27 @@ async function __adminBootstrapSafe__(){
   }
 }
 
-const ADMIN_BOOTSTRAP_CACHE_KEY = 'chiba_care_taxi_admin_bootstrap_cache_v1';
-const ADMIN_BOOTSTRAP_CACHE_TTL_MS = 3 * 60 * 1000;
-
-function adminReadLocalJson(key){
-  try{
-    const raw = localStorage.getItem(String(key || ''));
-    if (!raw) return null;
-    return JSON.parse(raw);
-  }catch(_){
-    return null;
-  }
-}
-
-function adminWriteLocalJson(key, value){
-  try{
-    localStorage.setItem(String(key || ''), JSON.stringify(value));
-  }catch(_){ }
-}
-
-function adminIsFreshCache(entry, ttlMs){
-  if (!entry || !entry.savedAt) return false;
-  const age = Date.now() - Number(entry.savedAt || 0);
-  return age >= 0 && age <= Number(ttlMs || 0);
-}
-
-function adminApplyBootstrapData(data, renderConfig = true){
-  adminConfig = { ...ADMIN_DEFAULT_CONFIG, ...(data && data.config ? data.config : {}) };
-  adminMenuMaster = Array.isArray(data && data.menu_master) ? data.menu_master : [];
-  adminMenuKeyCatalog = Array.isArray(data && data.menu_key_catalog) ? data.menu_key_catalog : [];
-  adminMenuGroupCatalog = Array.isArray(data && data.menu_group_catalog) && data.menu_group_catalog.length ? data.menu_group_catalog : getAdminResolvedGroupCatalog();
-  adminAutoRuleCatalog = Array.isArray(data && data.auto_rule_catalog) ? data.auto_rule_catalog : [];
-  adminApplyDerivedState({ renderConfig: !!renderConfig });
-}
-
-function adminLoadBootstrapCache(renderConfig = true){
-  const entry = adminReadLocalJson(ADMIN_BOOTSTRAP_CACHE_KEY);
-  if (!adminIsFreshCache(entry, ADMIN_BOOTSTRAP_CACHE_TTL_MS)) return false;
-  if (!entry.data) return false;
-  adminApplyBootstrapData(entry.data, renderConfig);
-  return true;
-}
-
-function adminSaveBootstrapCache(data){
-  adminWriteLocalJson(ADMIN_BOOTSTRAP_CACHE_KEY, {
-    savedAt: Date.now(),
-    data: data || {}
-  });
-}
-
 
 async function adminRefreshAllData(){
-  const usedCache = adminLoadBootstrapCache(true);
-  const range = adminGetVisibleRange();
+  const res = await gsRun('api_getInitData');
+  const data = res.data || {};
 
-  const [bootRes, resRes, blockRes] = await Promise.all([
-    gsRun('api_getAdminBootstrap'),
-    gsRun('api_getReservationsRange', range),
-    gsRun('api_getBlocksRange', range)
-  ]);
+  adminConfig = { ...ADMIN_DEFAULT_CONFIG, ...(data.config || {}) };
+  adminReservations = Array.isArray(data.reservations) ? data.reservations : [];
+  adminBlocks = Array.isArray(data.blocks) ? data.blocks : [];
+  adminMenuMaster = Array.isArray(data.menu_master) ? data.menu_master : [];
+  adminMenuKeyCatalog = Array.isArray(data.menu_key_catalog) ? data.menu_key_catalog : [];
+  adminMenuGroupCatalog = Array.isArray(data.menu_group_catalog) && data.menu_group_catalog.length ? data.menu_group_catalog : getAdminResolvedGroupCatalog();
+  adminAutoRuleCatalog = Array.isArray(data.auto_rule_catalog) ? data.auto_rule_catalog : [];
 
-  const bootData = bootRes && bootRes.data ? bootRes.data : {};
-  adminApplyBootstrapData(bootData, !usedCache);
-  adminSaveBootstrapCache(bootData);
+  buildAdminBlockedSlots(adminBlocks);
+  buildAdminReservedSlots(adminReservations);
 
-  adminReservations = Array.isArray(resRes && resRes.data && resRes.data.reservations) ? resRes.data.reservations : [];
-  adminBlocks = Array.isArray(blockRes && blockRes.data && blockRes.data.blocks) ? blockRes.data.blocks : [];
-  adminApplyDerivedState({ renderConfig: false });
+  applyAdminConfigToForm();
+  renderAdminStats();
+  renderMenuAdminList();
+  renderAdminCalendar();
+  renderReservationTable();
 }
 
 
@@ -165,8 +119,12 @@ function adminApplyDerivedState(options = {}){
 async function adminRefreshBootstrapData(renderConfig = true){
   const res = await gsRun('api_getAdminBootstrap');
   const data = res && res.data ? res.data : {};
-  adminApplyBootstrapData(data, renderConfig);
-  adminSaveBootstrapCache(data);
+  adminConfig = { ...ADMIN_DEFAULT_CONFIG, ...(data.config || {}) };
+  adminMenuMaster = Array.isArray(data.menu_master) ? data.menu_master : [];
+  adminMenuKeyCatalog = Array.isArray(data.menu_key_catalog) ? data.menu_key_catalog : [];
+  adminMenuGroupCatalog = Array.isArray(data.menu_group_catalog) && data.menu_group_catalog.length ? data.menu_group_catalog : getAdminResolvedGroupCatalog();
+  adminAutoRuleCatalog = Array.isArray(data.auto_rule_catalog) ? data.auto_rule_catalog : [];
+  adminApplyDerivedState({ renderConfig });
 }
 
 async function adminRefreshVisibleWindow(){
@@ -184,9 +142,6 @@ async function adminRefreshVisibleWindow(){
 function adminClearPublicClientCache(){
   try{
     localStorage.removeItem('chiba_care_taxi_public_bootstrap_cache_v2');
-  }catch(_){ }
-  try{
-    localStorage.removeItem(ADMIN_BOOTSTRAP_CACHE_KEY);
   }catch(_){ }
   try{
     const keys = [];
