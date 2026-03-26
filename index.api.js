@@ -201,8 +201,6 @@ const gsRun = async (func, ...args) => {
       data = await _getJsonWithRetry(`${GAS_URL}?action=getConfigPublic`, 1, 20000);
     } else if (func === 'api_getPublicBootstrap') {
       data = await _getJsonWithRetry(`${GAS_URL}?action=getPublicBootstrap`, 1, 20000);
-    } else if (func === 'api_getPublicBootstrapLite') {
-      data = await _getJsonWithRetry(`${GAS_URL}?action=getPublicBootstrapLite`, 1, 15000);
     } else if (func === 'api_getBlockedSlotKeys') {
       const range = args[0] || {};
       const start = encodeURIComponent(String(range.start || ''));
@@ -242,11 +240,9 @@ const gsRun = async (func, ...args) => {
 
 
 const PUBLIC_BOOTSTRAP_CACHE_KEY = 'chiba_care_taxi_public_bootstrap_cache_v2';
-const PUBLIC_BOOTSTRAP_LITE_CACHE_KEY = 'chiba_care_taxi_public_bootstrap_lite_cache_v1';
 const PUBLIC_BLOCKED_CACHE_PREFIX = 'chiba_care_taxi_public_blocked_keys_v2__';
-const PUBLIC_BOOTSTRAP_CACHE_TTL_MS = 30 * 60 * 1000;
-const PUBLIC_BLOCKED_CACHE_TTL_MS = 10 * 60 * 1000;
-const PUBLIC_BLOCKED_STALE_REPAINT_WINDOW_MS = 60 * 60 * 1000;
+const PUBLIC_BOOTSTRAP_CACHE_TTL_MS = 5 * 60 * 1000;
+const PUBLIC_BLOCKED_CACHE_TTL_MS = 2 * 60 * 1000;
 
 function _readLocalJson_(key){
   try{
@@ -270,41 +266,18 @@ function _isFreshCache_(entry, ttlMs){
   return age >= 0 && age <= Number(ttlMs || 0);
 }
 
-function _applyBootstrapLiteData_(data){
-  config = { ...defaultConfig, ...(data && data.config ? data.config : config || {}) };
-  applyConfigToUI();
-}
-
 function _applyBootstrapData_(data){
-  _applyBootstrapLiteData_(data || {});
-  if (Array.isArray(data && data.menu_master)) {
-    menuMaster = data.menu_master;
-  }
-  if (Array.isArray(data && data.menu_key_catalog)) {
-    menuKeyCatalog = data.menu_key_catalog;
-  }
-  if (Array.isArray(data && data.menu_group_catalog) && data.menu_group_catalog.length) {
-    menuGroupCatalog = data.menu_group_catalog;
-  } else if (!Array.isArray(menuGroupCatalog) || !menuGroupCatalog.length) {
-    menuGroupCatalog = defaultMenuGroupCatalog;
-  }
-  if (Array.isArray(data && data.auto_rule_catalog)) {
-    autoRuleCatalog = data.auto_rule_catalog;
-  }
-  if (Array.isArray(menuMaster) && menuMaster.length) {
-    renderServiceSelectors();
-  }
+  config = { ...defaultConfig, ...(data.config || config || {}) };
+  menuMaster = Array.isArray(data.menu_master) ? data.menu_master : [];
+  menuKeyCatalog = Array.isArray(data.menu_key_catalog) ? data.menu_key_catalog : [];
+  menuGroupCatalog = Array.isArray(data.menu_group_catalog) && data.menu_group_catalog.length ? data.menu_group_catalog : defaultMenuGroupCatalog;
+  autoRuleCatalog = Array.isArray(data.auto_rule_catalog) ? data.auto_rule_catalog : [];
+  applyConfigToUI();
+  renderServiceSelectors();
 }
 
 function _saveBootstrapCache_(data){
   _writeLocalJson_(PUBLIC_BOOTSTRAP_CACHE_KEY, {
-    savedAt: Date.now(),
-    data: data || {}
-  });
-}
-
-function _saveBootstrapLiteCache_(data){
-  _writeLocalJson_(PUBLIC_BOOTSTRAP_LITE_CACHE_KEY, {
     savedAt: Date.now(),
     data: data || {}
   });
@@ -316,14 +289,6 @@ function _loadBootstrapCache_(){
   if (!entry.data) return false;
   _applyBootstrapData_(entry.data);
   publicBootstrapLoaded = true;
-  return true;
-}
-
-function _loadBootstrapLiteCache_(){
-  const entry = _readLocalJson_(PUBLIC_BOOTSTRAP_LITE_CACHE_KEY);
-  if (!_isFreshCache_(entry, PUBLIC_BOOTSTRAP_CACHE_TTL_MS)) return false;
-  if (!entry.data) return false;
-  _applyBootstrapLiteData_(entry.data);
   return true;
 }
 
@@ -349,47 +314,10 @@ function _loadBlockedKeysCache_(range){
   return true;
 }
 
-function _loadBlockedKeysCacheStale_(range, maxAgeMs){
-  const entry = _readLocalJson_(_blockedCacheKey_(range));
-  if (!entry || !entry.savedAt) return false;
-  const age = Date.now() - Number(entry.savedAt || 0);
-  if (!(age >= 0 && age <= Number(maxAgeMs || 0))) return false;
-  const keys = Array.isArray(entry.keys) ? entry.keys : [];
-  blockedSlots = new Set(keys.map(v => String(v || '').trim()).filter(Boolean));
-  reservedSlots = new Set();
-  blockedRangeCacheKey = `${range.start}__${range.end}`;
-  return true;
-}
-
-function prefetchBlockedSlotKeys(range){
-  try{
-    if (!range || !range.start || !range.end) return;
-    gsRun('api_getBlockedSlotKeys', range).then(function(res){
-      if (!res || !res.isOk) return;
-      const keys = Array.isArray(res.data?.slot_keys) ? res.data.slot_keys : (Array.isArray(res.data?.keys) ? res.data.keys : []);
-      _saveBlockedKeysCache_(range, keys || []);
-
-    try{
-      if (typeof getDatesRange === 'function') {
-        const dates = getDatesRange();
-        if (Array.isArray(dates) && dates.length) {
-          const span = dates.length;
-          const nextStart = new Date(dates[0]);
-          nextStart.setDate(nextStart.getDate() + span);
-          const nextEnd = new Date(nextStart);
-          nextEnd.setDate(nextStart.getDate() + span - 1);
-          prefetchBlockedSlotKeys({ start: ymdLocal(nextStart), end: ymdLocal(nextEnd) });
-        }
-      }
-    }catch(_){ }
-    }).catch(function(){});
-  }catch(_){ }
-}
-
 function hydratePublicCacheForFastPaint(){
-  const bootLoaded = _loadBootstrapCache_() || _loadBootstrapLiteCache_();
+  const bootLoaded = _loadBootstrapCache_();
   const range = getPublicCalendarRange();
-  const blockedLoaded = _loadBlockedKeysCache_(range) || _loadBlockedKeysCacheStale_(range, PUBLIC_BLOCKED_STALE_REPAINT_WINDOW_MS);
+  const blockedLoaded = _loadBlockedKeysCache_(range);
   return bootLoaded || blockedLoaded;
 }
 
@@ -503,7 +431,6 @@ function debounce(fn, ms){
 let blockedSlots = new Set();
 let reservedSlots = new Set();
 let publicBootstrapLoaded = false;
-let publicFullBootstrapPromise = null;
 let blockedRangeCacheKey = '';
 let selectedSlot = null;
 let config = {};
@@ -837,20 +764,6 @@ async function refreshBlockedSlotKeys(showToastOnFail=false){
     reservedSlots = new Set();
     blockedRangeCacheKey = cacheKey;
     _saveBlockedKeysCache_(range, keys || []);
-
-    try{
-      if (typeof getDatesRange === 'function') {
-        const dates = getDatesRange();
-        if (Array.isArray(dates) && dates.length) {
-          const span = dates.length;
-          const nextStart = new Date(dates[0]);
-          nextStart.setDate(nextStart.getDate() + span);
-          const nextEnd = new Date(nextStart);
-          nextEnd.setDate(nextStart.getDate() + span - 1);
-          prefetchBlockedSlotKeys({ start: ymdLocal(nextStart), end: ymdLocal(nextEnd) });
-        }
-      }
-    }catch(_){ }
   }catch(e){
     const range = getPublicCalendarRange();
     if (_loadBlockedKeysCache_(range)) {
@@ -868,46 +781,6 @@ async function ensureBlockedSlotsFresh(showToastOnFail=false, force=false){
   await refreshBlockedSlotKeys(showToastOnFail);
 }
 
-async function ensureFullPublicBootstrapLoaded(showToastOnFail=false){
-  if (publicBootstrapLoaded && Array.isArray(menuMaster) && menuMaster.length) return true;
-  if (publicFullBootstrapPromise) {
-    try{
-      await publicFullBootstrapPromise;
-      return true;
-    }catch(e){
-      if (showToastOnFail) toast(e?.message || '通信エラー（フォーム初期化）');
-      throw e;
-    }
-  }
-
-  publicFullBootstrapPromise = (async function(){
-    try{
-      const bootRes = await gsRun('api_getPublicBootstrap');
-      if (!bootRes || !bootRes.isOk) throw new Error('bootstrap failed');
-
-      const data = bootRes.data || {};
-      _applyBootstrapData_(data);
-      _saveBootstrapCache_(data);
-      publicBootstrapLoaded = true;
-      return true;
-    }catch(e){
-      const recovered = _loadBootstrapCache_();
-      if (recovered) return true;
-      throw e;
-    }finally{
-      publicFullBootstrapPromise = null;
-    }
-  })();
-
-  try{
-    await publicFullBootstrapPromise;
-    return true;
-  }catch(e){
-    if (showToastOnFail) toast(e?.message || '通信エラー（フォーム初期化）');
-    throw e;
-  }
-}
-
 async function refreshConfigPublic(){
   const res = await gsRun('api_getConfigPublic');
   if (res && res.isOk){
@@ -921,27 +794,20 @@ async function refreshData(showToastOnFail=false){
     if (!publicBootstrapLoaded) {
       _loadBootstrapCache_();
     }
-    if (!publicBootstrapLoaded) {
-      _loadBootstrapLiteCache_();
+
+    if (!publicBootstrapLoaded){
+      const bootRes = await gsRun('api_getPublicBootstrap');
+      if (!bootRes || !bootRes.isOk) throw new Error('bootstrap failed');
+
+      const data = bootRes.data || {};
+      _applyBootstrapData_(data);
+      _saveBootstrapCache_(data);
+      publicBootstrapLoaded = true;
     }
 
-    const needLiteBootstrap = !(config && Object.keys(config || {}).length);
-    const litePromise = needLiteBootstrap
-      ? gsRun('api_getPublicBootstrapLite').then((bootRes)=>{
-          if (!bootRes || !bootRes.isOk) throw new Error('bootstrap lite failed');
-          const data = bootRes.data || {};
-          _applyBootstrapLiteData_(data);
-          _saveBootstrapLiteCache_(data);
-          return true;
-        })
-      : Promise.resolve(true);
-
-    await Promise.all([
-      litePromise,
-      refreshBlockedSlotKeys(showToastOnFail)
-    ]);
+    await refreshBlockedSlotKeys(showToastOnFail);
   }catch(e){
-    const bootRecovered = _loadBootstrapCache_() || _loadBootstrapLiteCache_();
+    const bootRecovered = _loadBootstrapCache_();
     if (bootRecovered) {
       try{
         await refreshBlockedSlotKeys(false);
