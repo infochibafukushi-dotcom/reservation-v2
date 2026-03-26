@@ -46,23 +46,6 @@ function getStoredMenuGroupRequired(){
   return saved && typeof saved === 'object' && !Array.isArray(saved) ? saved : {};
 }
 
-function isMenuGroupRequired(group){
-  const key = String(group || '').trim();
-  if (!key) return false;
-  if (['price','custom','auto_set'].includes(key)) return false;
-  const required = getStoredMenuGroupRequired();
-  if (required[key] === undefined || required[key] === null || required[key] === '') return true;
-  return required[key] === true || String(required[key]) === '1' || String(required[key]).toUpperCase() === 'TRUE';
-}
-
-function setMenuGroupRequired(group, required){
-  const key = String(group || '').trim();
-  if (!key || ['price','custom','auto_set'].includes(key)) return;
-  const next = cloneMenuObject(getStoredMenuGroupRequired());
-  next[key] = !!required;
-  adminConfig.menu_group_required_json = JSON.stringify(next);
-}
-
 function isBaseMenuGroup(group){
   const key = String(group || '').trim();
   return getBaseMenuGroupCatalog().some(item => String(item && item.key || '').trim() === key);

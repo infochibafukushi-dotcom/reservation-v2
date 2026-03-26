@@ -252,32 +252,6 @@ function _normalizedKey_(s) {
   return String(s || '').trim().toLowerCase().replace(/\s+/g, '').replace(/[\-_]/g, '');
 }
 
-function _reservationHeaderAliases_() {
-  return {
-    reservation_id: ['reservation_id', 'reservationid', 'id', '予約id', '予約ID'],
-    reservation_datetime: ['reservation_datetime', 'reservationdatetime', '予約日時', 'datetime', 'date_time'],
-    usage_type: ['usage_type', 'usagetype', '区分', 'ご利用区分'],
-    customer_name: ['customer_name', 'customername', 'name', 'お名前', '名前'],
-    phone_number: ['phone_number', 'phonenumber', 'phone', 'tel', 'telephone', '連絡先', '電話番号'],
-    pickup_location: ['pickup_location', 'pickuplocation', 'pickup', 'お伺い先', 'お伺い場所', '迎車地', '出発地'],
-    destination: ['destination', '送迎先', '目的地'],
-    assistance_type: ['assistance_type', 'assistancetype', '介助内容'],
-    stair_assistance: ['stair_assistance', 'stairassistance', '階段介助'],
-    equipment_rental: ['equipment_rental', 'equipmentrental', 'equipment', '機材', '移動方法', 'move_type', 'movetype'],
-    stretcher_two_staff: ['stretcher_two_staff', 'stretchertwostaff', 'two_staff', 'twostaff', '2名体制', '二名体制'],
-    round_trip: ['round_trip', 'roundtrip', '往復', '往復送迎'],
-    notes: ['notes', 'note', '備考', 'お問い合わせ', 'お問い先'],
-    total_price: ['total_price', 'totalprice', 'price', '料金', '金額'],
-    status: ['status', 'ステータス'],
-    slot_date: ['slot_date', 'slotdate', 'date', '予約日', '日付'],
-    slot_hour: ['slot_hour', 'slothour', 'hour', '時', '予約時'],
-    slot_minute: ['slot_minute', 'slotminute', 'minute', '分'],
-    is_visible: ['is_visible', 'isvisible', 'visible', '表示'],
-    created_at: ['created_at', 'createdat', '作成日時'],
-    updated_at: ['updated_at', 'updatedat', '更新日時']
-  };
-}
-
 function _getCanonicalReservationKey_(key) {
   const norm = _normalizedKey_(key);
   if (!norm) return '';
@@ -291,77 +265,12 @@ function _getCanonicalReservationKey_(key) {
   return '';
 }
 
-function _buildReservationCanonicalObject_(obj) {
-  const src = obj || {};
-  const out = {};
-  for (const k in src) out[k] = src[k];
-
-  for (const k in src) {
-    const canonical = _getCanonicalReservationKey_(k);
-    if (!canonical) continue;
-    if (out[canonical] === undefined || out[canonical] === '') out[canonical] = src[k];
-  }
-
-  if ((out.slot_date === undefined || out.slot_date === '') && src.date !== undefined) out.slot_date = src.date;
-  if ((out.slot_hour === undefined || out.slot_hour === '') && src.hour !== undefined) out.slot_hour = src.hour;
-  if ((out.slot_minute === undefined || out.slot_minute === '') && src.minute !== undefined) out.slot_minute = src.minute;
-  if ((out.reservation_id === undefined || out.reservation_id === '') && src.id !== undefined) out.reservation_id = src.id;
-  if ((out.customer_name === undefined || out.customer_name === '') && src.name !== undefined) out.customer_name = src.name;
-  if ((out.phone_number === undefined || out.phone_number === '') && src.phone !== undefined) out.phone_number = src.phone;
-  if ((out.pickup_location === undefined || out.pickup_location === '') && src.pickup !== undefined) out.pickup_location = src.pickup;
-
-  if ((out.slot_date !== undefined && out.slot_date !== '') && (out.slot_hour !== undefined && out.slot_hour !== '')) {
-    const hh = String(Number(out.slot_hour || 0)).padStart(2, '0');
-    const mm = String(Number(out.slot_minute || 0)).padStart(2, '0');
-    if (out.reservation_datetime === undefined || out.reservation_datetime === '') {
-      out.reservation_datetime = String(out.slot_date) + ' ' + hh + ':' + mm;
-    }
-    if (out.date === undefined || out.date === '') out.date = out.slot_date;
-    if (out.hour === undefined || out.hour === '') out.hour = Number(out.slot_hour || 0);
-    if (out.minute === undefined || out.minute === '') out.minute = Number(out.slot_minute || 0);
-  }
-
-  if (out.reservation_id !== undefined && (out.id === undefined || out.id === '')) out.id = out.reservation_id;
-  if (out.customer_name !== undefined && (out.name === undefined || out.name === '')) out.name = out.customer_name;
-  if (out.phone_number !== undefined && (out.phone === undefined || out.phone === '')) out.phone = out.phone_number;
-  if (out.pickup_location !== undefined && (out.pickup === undefined || out.pickup === '')) out.pickup = out.pickup_location;
-
-  return out;
-}
-
 function _isReservationSheet_(sheet) {
   try {
     return !!sheet && String(sheet.getName() || '').trim() === String(SHEETS.RESERVATIONS || '').trim();
   } catch (e) {
     return false;
   }
-}
-
-function _ensureReservationSheetSchema_(sheet) {
-  if (!_isReservationSheet_(sheet)) return;
-
-  const required = [
-    'reservation_id', 'reservation_datetime', 'usage_type', 'customer_name', 'phone_number',
-    'pickup_location', 'destination', 'assistance_type', 'stair_assistance', 'equipment_rental',
-    'stretcher_two_staff', 'round_trip', 'notes', 'total_price', 'status',
-    'slot_date', 'slot_hour', 'slot_minute', 'is_visible', 'created_at', 'updated_at'
-  ];
-
-  const hm = _headerMap(sheet);
-  const headers = hm.headers.slice();
-  const existingNorms = new Set(headers.map(function(h) { return _normalizedKey_(h); }).filter(Boolean));
-  const toAdd = [];
-
-  required.forEach(function(h) {
-    const aliases = _reservationHeaderAliases_()[h] || [h];
-    const exists = aliases.some(function(a) { return existingNorms.has(_normalizedKey_(a)); });
-    if (!exists) toAdd.push(h);
-  });
-
-  if (!toAdd.length) return;
-
-  const startCol = Math.max(sheet.getLastColumn(), 0) + 1;
-  sheet.getRange(1, startCol, 1, toAdd.length).setValues([toAdd]);
 }
 
 
@@ -1922,7 +1831,6 @@ function _cachePutJson_(key, value, ttlSeconds) {
 }
 
 
-/***** reservation move_type schema patch start *****/
 function _reservationHeaderAliases_() {
   return {
     reservation_id: ['reservation_id', 'reservationid', 'id', '予約id', '予約ID'],
@@ -2010,4 +1918,3 @@ function _ensureReservationSheetSchema_(sheet) {
   const startCol = Math.max(sheet.getLastColumn(), 0) + 1;
   sheet.getRange(1, startCol, 1, toAdd.length).setValues([toAdd]);
 }
-/***** reservation move_type schema patch end *****/
