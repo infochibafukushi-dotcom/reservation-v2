@@ -404,14 +404,13 @@ function _readConfigSheetFast_() {
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return _clone_(DEFAULT_CONFIG);
 
-  const keys = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
-  const vals = sheet.getRange(2, 2, lastRow - 1, 1).getValues();
+  const values = sheet.getRange(2, 1, lastRow - 1, 2).getValues();
   const out = _clone_(DEFAULT_CONFIG);
 
-  for (var i = 0; i < keys.length; i++) {
-    const key = String(keys[i][0] || '').trim();
+  for (var i = 0; i < values.length; i++) {
+    const key = String(values[i][0] || '').trim();
     if (!key || key === 'key' || key === '項目') continue;
-    out[key] = _cellToPlain(vals[i][0]);
+    out[key] = _cellToPlain(values[i][1]);
   }
 
   out.slot_minutes = String(out.slot_minutes || '30');
@@ -702,6 +701,65 @@ function _upsertReservationBlocksBulk_(dateStr, hour, minute, slotsCount, reserv
   }
 }
 
+
+
+function _getFastSheetMatrix_(sheet) {
+  if (!sheet) return { hm: { headers: [], map: {} }, values: [], lastRow: 0, lastCol: 0 };
+  const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
+  if (lastRow < 2 || lastCol < 1) {
+    return { hm: _headerMap(sheet), values: [], lastRow: lastRow, lastCol: lastCol };
+  }
+  return {
+    hm: _headerMap(sheet),
+    values: sheet.getRange(2, 1, lastRow - 1, lastCol).getValues(),
+    lastRow: lastRow,
+    lastCol: lastCol
+  };
+}
+
+function _findFirstExistingColumnIndex_(map, aliases) {
+  const list = aliases || [];
+  for (var i = 0; i < list.length; i++) {
+    const key = String(list[i] || '');
+    if (map[key] != null) return map[key] - 1;
+  }
+  return -1;
+}
+
+function _collectObjectsInDateRangeFast_(sheet, dateAliases, start, end, canonicalizeReservation) {
+  const pack = _getFastSheetMatrix_(sheet);
+  if (!pack.values.length) return [];
+  const headers = pack.hm.headers;
+  const map = pack.hm.map;
+  const dateIdx = _findFirstExistingColumnIndex_(map, dateAliases);
+  if (dateIdx < 0) return [];
+
+  const out = [];
+  for (var r = 0; r < pack.values.length; r++) {
+    const row = pack.values[r];
+    const dateValue = _normalizeYMD(row[dateIdx]);
+    if (!dateValue || dateValue < start || dateValue > end) continue;
+
+    const obj = {};
+    for (var c = 0; c < headers.length; c++) {
+      const h = headers[c];
+      if (!h) continue;
+      const plain = _cellToPlain(row[c]);
+      obj[h] = plain;
+
+      const key2 = String(h).toLowerCase().replace(/\s+/g, '');
+      if (key2 && obj[key2] === undefined) obj[key2] = plain;
+
+      if (canonicalizeReservation) {
+        const canonical = _getCanonicalReservationKey_(h);
+        if (canonical && (obj[canonical] === undefined || obj[canonical] === '')) obj[canonical] = plain;
+      }
+    }
+    out.push(canonicalizeReservation ? _buildReservationCanonicalObject_(obj) : obj);
+  }
+  return out;
+}
 function _getBlockedSlotKeysInRange_(startDate, endDate) {
   const start = _normalizeYMD(startDate);
   const end = _normalizeYMD(endDate || startDate);
@@ -722,7 +780,7 @@ function _getBlockedSlotKeysInRange_(startDate, endDate) {
   const sheet = _sh(SHEETS.BLOCK);
   if (!sheet || sheet.getLastRow() < 2) {
     const emptyResult = { start: start, end: end, slot_keys: [] };
-    _cachePutJson_(cacheKey, emptyResult, 120);
+    _cachePutJson_(cacheKey, emptyResult, 600);
     return emptyResult;
   }
 
@@ -734,21 +792,33 @@ function _getBlockedSlotKeysInRange_(startDate, endDate) {
   const hourCol = map['block_hour'] ?? map['hour'] ?? map['slot_hour'] ?? null;
   const minuteCol = map['block_minute'] ?? map['minute'] ?? map['slot_minute'] ?? null;
 
+  if (!isBlockedCol) {
+    const emptyResult = { start: start, end: end, slot_keys: [] };
+    _cachePutJson_(cacheKey, emptyResult, 120);
+    return emptyResult;
+  }
+
   const rowCount = sheet.getLastRow() - 1;
-  const keyVals = keyCol ? sheet.getRange(2, keyCol, rowCount, 1).getValues() : [];
-  const blockedVals = isBlockedCol ? sheet.getRange(2, isBlockedCol, rowCount, 1).getValues() : [];
-  const dateVals = dateCol ? sheet.getRange(2, dateCol, rowCount, 1).getValues() : [];
-  const hourVals = hourCol ? sheet.getRange(2, hourCol, rowCount, 1).getValues() : [];
-  const minuteVals = minuteCol ? sheet.getRange(2, minuteCol, rowCount, 1).getValues() : [];
+  const neededCols = [keyCol, isBlockedCol, dateCol, hourCol, minuteCol].filter(function(v) { return Number(v) > 0; });
+  const minCol = Math.min.apply(null, neededCols);
+  const maxCol = Math.max.apply(null, neededCols);
+  const matrix = sheet.getRange(2, minCol, rowCount, maxCol - minCol + 1).getValues();
+
+  const keyIdx = keyCol ? (keyCol - minCol) : -1;
+  const blockedIdx = isBlockedCol ? (isBlockedCol - minCol) : -1;
+  const dateIdx = dateCol ? (dateCol - minCol) : -1;
+  const hourIdx = hourCol ? (hourCol - minCol) : -1;
+  const minuteIdx = minuteCol ? (minuteCol - minCol) : -1;
 
   const keySet = new Set();
 
-  for (var i = 0; i < rowCount; i++) {
-    var isBlocked = blockedVals.length ? _toBool(blockedVals[i][0]) : false;
+  for (var i = 0; i < matrix.length; i++) {
+    var row = matrix[i];
+    var isBlocked = blockedIdx >= 0 ? _toBool(row[blockedIdx]) : false;
     if (!isBlocked) continue;
 
-    var d = dateVals.length ? _normalizeYMD(dateVals[i][0]) : '';
-    var key = keyVals.length ? String(keyVals[i][0] || '').trim() : '';
+    var d = dateIdx >= 0 ? _normalizeYMD(row[dateIdx]) : '';
+    var key = keyIdx >= 0 ? String(row[keyIdx] || '').trim() : '';
     if (!d && key) {
       var km = key.match(/^(\d{4}-\d{2}-\d{2})-(\d{1,2})-(\d{1,2})$/);
       if (km) d = km[1];
@@ -756,8 +826,8 @@ function _getBlockedSlotKeysInRange_(startDate, endDate) {
     if (!d || d < start || d > end) continue;
 
     if (!key) {
-      var h = hourVals.length ? Number(hourVals[i][0]) : NaN;
-      var m = minuteVals.length ? Number(minuteVals[i][0] || 0) : 0;
+      var h = hourIdx >= 0 ? Number(row[hourIdx]) : NaN;
+      var m = minuteIdx >= 0 ? Number(row[minuteIdx] || 0) : 0;
       if (Number.isNaN(h) || Number.isNaN(m)) continue;
       key = d + '-' + h + '-' + m;
     }
@@ -765,7 +835,7 @@ function _getBlockedSlotKeysInRange_(startDate, endDate) {
   }
 
   const result = { start: start, end: end, slot_keys: Array.from(keySet) };
-  _cachePutJson_(cacheKey, result, 120);
+  _cachePutJson_(cacheKey, result, 600);
   return result;
 }
 
@@ -783,17 +853,22 @@ function _getReservationsInRange_(startDate, endDate) {
   const sheet = _sh(SHEETS.RESERVATIONS);
   if (!sheet || sheet.getLastRow() < 2) {
     const empty = { start: start, end: end, reservations: [] };
-    _cachePutJson_(cacheKey, empty, 60);
+    _cachePutJson_(cacheKey, empty, 300);
     return empty;
   }
 
-  const rows = _sheetToObjects(sheet).filter(function(r) {
-    const d = _normalizeYMD(r.slot_date || r.date || r.reservation_date || r.pickup_date || r.day || '');
-    return d && d >= start && d <= end;
-  });
+  if (_isReservationSheet_(sheet)) _ensureReservationSheetSchema_(sheet);
+
+  const rows = _collectObjectsInDateRangeFast_(
+    sheet,
+    ['slot_date', 'date', 'reservation_date', 'pickup_date', 'day', '予約日', '日付'],
+    start,
+    end,
+    true
+  );
 
   const result = { start: start, end: end, reservations: rows };
-  _cachePutJson_(cacheKey, result, 60);
+  _cachePutJson_(cacheKey, result, 300);
   return result;
 }
 
@@ -811,17 +886,20 @@ function _getBlocksInRange_(startDate, endDate) {
   const sheet = _sh(SHEETS.BLOCK);
   if (!sheet || sheet.getLastRow() < 2) {
     const empty = { start: start, end: end, blocks: [] };
-    _cachePutJson_(cacheKey, empty, 60);
+    _cachePutJson_(cacheKey, empty, 300);
     return empty;
   }
 
-  const rows = _sheetToObjects(sheet).filter(function(r) {
-    const d = _normalizeYMD(r.block_date || r.date || r.slot_date || '');
-    return d && d >= start && d <= end;
-  });
+  const rows = _collectObjectsInDateRangeFast_(
+    sheet,
+    ['block_date', 'date', 'slot_date', '日付', '予約日'],
+    start,
+    end,
+    false
+  );
 
   const result = { start: start, end: end, blocks: rows };
-  _cachePutJson_(cacheKey, result, 60);
+  _cachePutJson_(cacheKey, result, 300);
   return result;
 }
 
@@ -1918,7 +1996,10 @@ function _cacheGetJson_(key) {
 
 function _cachePutJson_(key, value, ttlSeconds) {
   const cache = CacheService.getScriptCache();
-  cache.put(String(key || ''), JSON.stringify(value), Number(ttlSeconds || 60));
+  var ttl = Number(ttlSeconds || 60);
+  if (!Number.isFinite(ttl) || ttl < 1) ttl = 60;
+  if (ttl > 21600) ttl = 21600;
+  cache.put(String(key || ''), JSON.stringify(value), ttl);
 }
 
 
