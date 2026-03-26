@@ -465,6 +465,7 @@ function debounce(fn, ms){
 let blockedSlots = new Set();
 let reservedSlots = new Set();
 let publicBootstrapLoaded = false;
+let publicFullBootstrapPromise = null;
 let blockedRangeCacheKey = '';
 let selectedSlot = null;
 let config = {};
@@ -817,19 +818,39 @@ async function ensureBlockedSlotsFresh(showToastOnFail=false, force=false){
 
 async function ensureFullPublicBootstrapLoaded(showToastOnFail=false){
   if (publicBootstrapLoaded && Array.isArray(menuMaster) && menuMaster.length) return true;
+  if (publicFullBootstrapPromise) {
+    try{
+      await publicFullBootstrapPromise;
+      return true;
+    }catch(e){
+      if (showToastOnFail) toast(e?.message || '通信エラー（フォーム初期化）');
+      throw e;
+    }
+  }
+
+  publicFullBootstrapPromise = (async function(){
+    try{
+      const bootRes = await gsRun('api_getPublicBootstrap');
+      if (!bootRes || !bootRes.isOk) throw new Error('bootstrap failed');
+
+      const data = bootRes.data || {};
+      _applyBootstrapData_(data);
+      _saveBootstrapCache_(data);
+      publicBootstrapLoaded = true;
+      return true;
+    }catch(e){
+      const recovered = _loadBootstrapCache_();
+      if (recovered) return true;
+      throw e;
+    }finally{
+      publicFullBootstrapPromise = null;
+    }
+  })();
 
   try{
-    const bootRes = await gsRun('api_getPublicBootstrap');
-    if (!bootRes || !bootRes.isOk) throw new Error('bootstrap failed');
-
-    const data = bootRes.data || {};
-    _applyBootstrapData_(data);
-    _saveBootstrapCache_(data);
-    publicBootstrapLoaded = true;
+    await publicFullBootstrapPromise;
     return true;
   }catch(e){
-    const recovered = _loadBootstrapCache_();
-    if (recovered) return true;
     if (showToastOnFail) toast(e?.message || '通信エラー（フォーム初期化）');
     throw e;
   }

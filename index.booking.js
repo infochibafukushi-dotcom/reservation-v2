@@ -690,7 +690,7 @@ async function init(){
     });
   });
 
-  document.getElementById('bookingForm').addEventListener('submit', submitBooking);
+  document.getElementById('bookingForm').addEventListener('submit', function(e){ return submitBooking(e); });
 
   window.addEventListener('resize', debounce(()=>{
     try{
@@ -1277,48 +1277,81 @@ submitBooking = async function(e){
   submitBtn.disabled = true;
   submitBtn.textContent = '予約中...';
 
-  const reservationId = formatDateForId(selectedSlot.date, selectedSlot.hour, selectedSlot.minute);
-  const total = calculatePrice();
-  const state = applyAutoSelections();
-  const resolved = state && state.selected ? state.selected : {};
-  const appliedPairs = state && state.appliedPairs ? state.appliedPairs : [];
-
-  const slotDateStr = ymdLocal(selectedSlot.date);
-  const stretcherTwoStaff = (
-    String(resolved.equipment || '') === 'EQUIP_STRETCHER_STAFF2' ||
-    appliedPairs.some(function(pair){ return String(pair.apply_key || '') === 'EQUIP_STRETCHER_STAFF2'; })
-  ) ? 'あり' : 'なし';
-
-  const moveTypeLabel = getMenuItemLabelByKeySafe(resolved.move_type, document.getElementById('moveType') ? document.getElementById('moveType').value : '');
-  const assistanceLabel = getMenuItemLabelByKeySafe(resolved.assistance, document.getElementById('assistanceType') ? document.getElementById('assistanceType').value : '');
-  const stairLabel = getMenuItemLabelByKeySafe(resolved.stair, document.getElementById('stairAssistance') ? document.getElementById('stairAssistance').value : '');
-  const equipmentLabel = getMenuItemLabelByKeySafe(resolved.equipment, document.getElementById('equipmentRental') ? document.getElementById('equipmentRental').value : '');
-  const roundTripLabel = getMenuItemLabelByKeySafe(resolved.round_trip, document.getElementById('roundTrip') ? document.getElementById('roundTrip').value : '');
-
-  const reservation = {
-    reservation_id: reservationId,
-    reservation_datetime: `${slotDateStr} ${String(selectedSlot.hour).padStart(2,'0')}:${String(selectedSlot.minute).padStart(2,'0')}`,
-    usage_type: document.getElementById('usageType').value,
-    customer_name: document.getElementById('customerName').value.trim(),
-    phone_number: document.getElementById('phoneNumber').value.trim(),
-    pickup_location: document.getElementById('pickupLocation').value.trim(),
-    destination: document.getElementById('destination').value.trim() || '',
-    move_type: moveTypeLabel,
-    assistance_type: assistanceLabel,
-    stair_assistance: stairLabel,
-    equipment_rental: equipmentLabel,
-    stretcher_two_staff: stretcherTwoStaff,
-    round_trip: roundTripLabel,
-    notes: document.getElementById('notes').value.trim() || '',
-    total_price: Number(total || 0),
-    status: '未対応',
-    slot_date: slotDateStr,
-    slot_hour: selectedSlot.hour,
-    slot_minute: selectedSlot.minute,
-    is_visible: true
-  };
-
   try{
+    await ensureFullPublicBootstrapLoaded(true);
+    const ready = await ensureBookingFormOptionsReady();
+    if (!ready){
+      throw new Error('フォーム読込中です。少し待ってからもう一度お試しください');
+    }
+
+    const usageTypeEl = document.getElementById('usageType');
+    const customerNameEl = document.getElementById('customerName');
+    const phoneNumberEl = document.getElementById('phoneNumber');
+    const pickupLocationEl = document.getElementById('pickupLocation');
+    const destinationEl = document.getElementById('destination');
+    const notesEl = document.getElementById('notes');
+    const moveTypeEl = document.getElementById('moveType');
+    const assistanceEl = document.getElementById('assistanceType');
+    const stairEl = document.getElementById('stairAssistance');
+    const equipmentEl = document.getElementById('equipmentRental');
+    const roundTripEl = document.getElementById('roundTrip');
+
+    if (!selectedSlot || !selectedSlot.date){
+      throw new Error('予約枠の情報がありません。もう一度お試しください');
+    }
+
+    const reservationId = formatDateForId(selectedSlot.date, selectedSlot.hour, selectedSlot.minute);
+    const total = calculatePrice();
+    const state = applyAutoSelections();
+    const resolved = state && state.selected ? state.selected : {};
+    const appliedPairs = state && state.appliedPairs ? state.appliedPairs : [];
+
+    const slotDateStr = ymdLocal(selectedSlot.date);
+    const stretcherTwoStaff = (
+      String(resolved.equipment || '') === 'EQUIP_STRETCHER_STAFF2' ||
+      appliedPairs.some(function(pair){ return String(pair.apply_key || '') === 'EQUIP_STRETCHER_STAFF2'; })
+    ) ? 'あり' : 'なし';
+
+    const usageType = usageTypeEl ? String(usageTypeEl.value || '').trim() : '';
+    const customerName = customerNameEl ? String(customerNameEl.value || '').trim() : '';
+    const phoneNumber = phoneNumberEl ? String(phoneNumberEl.value || '').trim() : '';
+    const pickupLocation = pickupLocationEl ? String(pickupLocationEl.value || '').trim() : '';
+    const destination = destinationEl ? String(destinationEl.value || '').trim() : '';
+    const notes = notesEl ? String(notesEl.value || '').trim() : '';
+
+    const moveTypeLabel = getMenuItemLabelByKeySafe(resolved.move_type, moveTypeEl ? moveTypeEl.value : '');
+    const assistanceLabel = getMenuItemLabelByKeySafe(resolved.assistance, assistanceEl ? assistanceEl.value : '');
+    const stairLabel = getMenuItemLabelByKeySafe(resolved.stair, stairEl ? stairEl.value : '');
+    const equipmentLabel = getMenuItemLabelByKeySafe(resolved.equipment, equipmentEl ? equipmentEl.value : '');
+    const roundTripLabel = getMenuItemLabelByKeySafe(resolved.round_trip, roundTripEl ? roundTripEl.value : '');
+
+    const reservation = {
+      reservation_id: reservationId,
+      id: reservationId,
+      reservation_datetime: `${slotDateStr} ${String(selectedSlot.hour).padStart(2,'0')}:${String(selectedSlot.minute).padStart(2,'0')}`,
+      usage_type: usageType,
+      customer_name: customerName,
+      name: customerName,
+      phone_number: phoneNumber,
+      phone: phoneNumber,
+      pickup_location: pickupLocation,
+      pickup: pickupLocation,
+      destination: destination || '',
+      move_type: moveTypeLabel,
+      assistance_type: assistanceLabel,
+      stair_assistance: stairLabel,
+      equipment_rental: equipmentLabel,
+      stretcher_two_staff: stretcherTwoStaff,
+      round_trip: roundTripLabel,
+      notes: notes || '',
+      total_price: Number(total || 0),
+      status: '未対応',
+      slot_date: slotDateStr,
+      slot_hour: selectedSlot.hour,
+      slot_minute: selectedSlot.minute,
+      is_visible: true
+    };
+
     await withLoading(async function(){
       await gsRun('api_createReservation', reservation);
     }, '予約中...');
@@ -1347,8 +1380,7 @@ submitBooking = async function(e){
     const errorDiv = document.createElement('div');
     errorDiv.className = 'booking-error bg-red-100 border-2 border-red-300 text-red-700 px-4 py-3 rounded-xl mb-4 font-medium';
     errorDiv.textContent = 'NG 予約に失敗しました。もう一度お試しください。';
-    const form = document.getElementById('bookingForm');
-    if (form) form.prepend(errorDiv);
+    document.getElementById('bookingForm').prepend(errorDiv);
   }
 };
 /* ===== reservation consistency patch end ===== */
