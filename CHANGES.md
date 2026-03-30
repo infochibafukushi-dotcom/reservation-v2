@@ -1,9 +1,7 @@
-# 速度改善の実施内容
+第2高速化版
 
-- Tailwind CDN を廃止し、`tailwind-lite.css` をローカル読込へ変更
-- Google Fonts を `Noto Sans JP` のみに整理
-- ロゴ既定URLを軽量な WebP (`https://raw.githubusercontent.com/infochibafukushi-dotcom/chiba-care-taxi-assets/main/logo/logo.webp`) に統一
-- 公開画面のロゴ preload / 画像 src を WebP に変更
-- 管理画面の初期化を二重実行から単一実行へ整理
-- 管理画面の初回ロードを `adminRefreshBootstrapData()` + `adminRefreshVisibleWindow()` に変更
-- 管理カレンダー操作後の全件再取得を、表示範囲のみ再取得へ変更
+- Google Fonts を削除し、システムフォントへ変更
+- tailwind-lite.css を HTML にインライン化して初回CSSリクエストを削減
+- 公開カレンダーの幅計算で clientWidth を読まないように変更
+- 公開カレンダーの grid 再計算を requestAnimationFrame 1回に整理
+- 公開初期化を即時描画 + バックグラウンド更新へ変更

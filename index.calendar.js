@@ -11,17 +11,23 @@ function getPublicStartOffset(){
 }
 
 function applyCalendarGridColumns(gridEl, daysCount){
+  if (!gridEl) return;
   const isMobile = window.matchMedia('(max-width: 640px)').matches;
   const timeCol = isMobile ? 44 : 60;
-  const sc = gridEl?.closest?.('.scroll-container') || gridEl?.parentElement;
-  const baseW = (sc && sc.clientWidth) ? sc.clientWidth : window.innerWidth;
-
   if (!isMobile){
-    const dayW = Math.max(110, Math.floor((baseW - timeCol) / Math.max(1, daysCount)));
-    gridEl.style.gridTemplateColumns = `${timeCol}px repeat(${daysCount}, ${dayW}px)`;
+    gridEl.style.gridTemplateColumns = `${timeCol}px repeat(${daysCount}, minmax(110px, 1fr))`;
   } else {
     gridEl.style.gridTemplateColumns = `${timeCol}px repeat(${daysCount}, minmax(62px, 1fr))`;
   }
+}
+
+let __publicCalendarResizeRaf = 0;
+function scheduleCalendarGridColumns(gridEl, daysCount){
+  if (__publicCalendarResizeRaf) cancelAnimationFrame(__publicCalendarResizeRaf);
+  __publicCalendarResizeRaf = requestAnimationFrame(()=>{
+    __publicCalendarResizeRaf = 0;
+    applyCalendarGridColumns(gridEl, daysCount);
+  });
 }
 
 function getDatesRange(){
@@ -225,10 +231,9 @@ function renderCalendar() {
   }
 
   grid.innerHTML = html;
-
-  applyCalendarGridColumns(grid, dates.length);
-  requestAnimationFrame(()=> applyCalendarGridColumns(grid, dates.length));
+  scheduleCalendarGridColumns(grid, dates.length);
 }
+
 
 function bindGridDelegation(){
   if (globalThis.hasBoundGridDelegation) return;

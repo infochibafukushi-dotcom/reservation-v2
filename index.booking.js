@@ -577,25 +577,18 @@ async function updateLogoPreview(){
   }
 }
 
-async function init(){
-  try{
+function queueInitialRefresh(){
+  const run = async ()=>{
     try{
-      hydratePublicCacheForFastPaint();
-    }catch(_){ }
-
-    bindGridDelegation();
-    renderCalendar();
-
-    await withLoading(async ()=>{
-      await refreshAllData(true);
+      await refreshAllData(false);
       renderCalendar();
-    }, '読み込み中...');
+    }catch(_){ }
 
     try{
       const warm = function(){
         try{
           ensureFullPublicBootstrapLoaded(false).catch(function(){});
-        }catch(_){}
+        }catch(_){ }
       };
       if (typeof requestIdleCallback === 'function'){
         requestIdleCallback(warm, { timeout: 1800 });
@@ -603,10 +596,33 @@ async function init(){
         setTimeout(warm, 1200);
       }
     }catch(_){ }
+  };
+
+  const schedule = ()=>{
+    if (typeof requestIdleCallback === 'function'){
+      requestIdleCallback(function(){ setTimeout(run, 0); }, { timeout: 1200 });
+    } else {
+      setTimeout(run, 180);
+    }
+  };
+
+  if (document.readyState === 'complete'){
+    schedule();
+  } else {
+    window.addEventListener('load', schedule, { once: true });
+  }
+}
+
+function init(){
+  try{
+    try{ hydratePublicCacheForFastPaint(); }catch(_){ }
+    bindGridDelegation();
+    renderCalendar();
+    queueInitialRefresh();
   }catch(e){
-    try{ showLoading(false); }catch(_){}
+    try{ showLoading(false); }catch(_){ }
     toast('初期化エラー: ' + (e?.message || e));
-    try{ renderCalendar(); }catch(_){}
+    try{ renderCalendar(); }catch(_){ }
   }
 }
 
