@@ -357,23 +357,7 @@ function hydratePublicCacheForFastPaint(){
   const bootLoaded = _loadBootstrapCache_() || _loadBootstrapLiteCache_();
   const range = getPublicCalendarRange();
   const blockedLoaded = _loadBlockedKeysCache_(range);
-  try{
-    window.__publicFastPaintState = {
-      range: range,
-      bootLoaded: !!bootLoaded,
-      blockedLoaded: !!blockedLoaded
-    };
-  }catch(_){ }
   return bootLoaded || blockedLoaded;
-}
-
-function hasPublicBlockedCacheForCurrentRange(){
-  try{
-    const range = getPublicCalendarRange();
-    return _loadBlockedKeysCache_(range);
-  }catch(_){
-    return false;
-  }
 }
 
 const TRIGGER_URL = 'https://script.google.com/macros/s/AKfycbxzM8EPlE-1hwHx6qwh4Q1jXgYa0nyc3_WtK0NYbYbcm5JExMJOi1zzjQocUhsoCuUQ/exec?secret=secret1';
@@ -497,6 +481,10 @@ let menuGroupCatalog = [];
 let autoRuleCatalog = [];
 let calendarDates = [];
 let hasBoundGridDelegation = false;
+
+let publicInitLitePrefetchPromise = null;
+let publicInitLitePrefetchRangeKey = '';
+let publicInitLitePrefetchData = null;
 
 const defaultConfig = {
   main_title: '介護タクシー予約',
@@ -776,6 +764,64 @@ function isSlotBlockedWithMinute(dateObj, hour, minute) {
 }
 
 
+
+function _publicInitRangeKey_(range){
+  const start = String(range && range.start || '').trim();
+  const end = String(range && range.end || '').trim();
+  return `${start}__${end}`;
+}
+
+function _clonePublicInitLitePacket_(packet){
+  try{
+    return JSON.parse(JSON.stringify(packet || null));
+  }catch(_){
+    return packet ? { range: { ...(packet.range || {}) }, data: { ...(packet.data || {}) } } : null;
+  }
+}
+
+function getPrefetchedPublicInitLiteForRange(range){
+  const key = _publicInitRangeKey_(range);
+  if (!key) return null;
+  if (publicInitLitePrefetchData && publicInitLitePrefetchRangeKey === key){
+    return _clonePublicInitLitePacket_(publicInitLitePrefetchData);
+  }
+  return null;
+}
+
+function prefetchPublicInitLiteForCurrentRange(force=false){
+  const range = getPublicCalendarRange();
+  const key = _publicInitRangeKey_(range);
+  if (!key) return Promise.resolve(null);
+
+  if (!force){
+    const cached = getPrefetchedPublicInitLiteForRange(range);
+    if (cached) return Promise.resolve(cached);
+    if (publicInitLitePrefetchPromise && publicInitLitePrefetchRangeKey === key){
+      return publicInitLitePrefetchPromise;
+    }
+  }
+
+  publicInitLitePrefetchRangeKey = key;
+  publicInitLitePrefetchPromise = (async function(){
+    const res = await gsRun('api_getPublicInitLite', range);
+    if (!res || !res.isOk) throw new Error('public init lite failed');
+
+    const packet = {
+      range: { ...(range || {}) },
+      data: res.data || {}
+    };
+    publicInitLitePrefetchData = _clonePublicInitLitePacket_(packet);
+    return _clonePublicInitLitePacket_(packet);
+  })();
+
+  return publicInitLitePrefetchPromise.finally(()=>{
+    if (publicInitLitePrefetchRangeKey === key){
+      publicInitLitePrefetchPromise = null;
+    }
+  });
+}
+
+
 function getPublicCalendarRange(){
   try{
     if (typeof getDatesRange === 'function'){
@@ -807,7 +853,11 @@ function getPublicCalendarRange(){
   };
 }
 
-function _applyPublicInitLiteResponse_(payload, range){
+function _applyPublicInitLiteResponse_(payload, range, options){
+  const opt = options && typeof options === 'object' ? options : {};
+  const prevBlockedSlots = blockedSlots instanceof Set ? new Set(Array.from(blockedSlots)) : new Set();
+  const prevBlockedRangeKey = String(blockedRangeCacheKey || '');
+
   const data = payload || {};
   _applyBootstrapLiteData_(data);
   _saveBootstrapLiteCache_({ config: data.config || {} });
@@ -821,6 +871,16 @@ function _applyPublicInitLiteResponse_(payload, range){
   };
   blockedRangeCacheKey = `${normalizedRange.start}__${normalizedRange.end}`;
   _saveBlockedKeysCache_(normalizedRange, keys || []);
+
+  if (opt.syncRenderedCalendar !== false && typeof patchRenderedCalendarBlockedStates === 'function'){
+    try{
+      patchRenderedCalendarBlockedStates({
+        previousBlockedSlots: prevBlockedSlots,
+        previousRangeKey: prevBlockedRangeKey,
+        nextRangeKey: blockedRangeCacheKey
+      });
+    }catch(_){ }
+  }
 }
 
 async function refreshBlockedSlotKeys(showToastOnFail=false){
@@ -911,10 +971,25 @@ async function refreshData(showToastOnFail=false){
     }
 
     const range = getPublicCalendarRange();
+    const rangeKey = _publicInitRangeKey_(range);
+    const prefetched = getPrefetchedPublicInitLiteForRange(range);
+    if (prefetched && prefetched.data){
+      _applyPublicInitLiteResponse_(prefetched.data || {}, prefetched.range || range, { syncRenderedCalendar: true });
+      return;
+    }
+
+    if (publicInitLitePrefetchPromise && publicInitLitePrefetchRangeKey === rangeKey){
+      const inflight = await publicInitLitePrefetchPromise;
+      if (inflight && inflight.data){
+        _applyPublicInitLiteResponse_(inflight.data || {}, inflight.range || range, { syncRenderedCalendar: true });
+        return;
+      }
+    }
+
     const initRes = await gsRun('api_getPublicInitLite', range);
     if (!initRes || !initRes.isOk) throw new Error('public init lite failed');
 
-    _applyPublicInitLiteResponse_(initRes.data || {}, range);
+    _applyPublicInitLiteResponse_(initRes.data || {}, range, { syncRenderedCalendar: true });
   }catch(e){
     const bootRecovered = _loadBootstrapCache_() || _loadBootstrapLiteCache_();
     const range = getPublicCalendarRange();

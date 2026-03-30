@@ -577,29 +577,22 @@ async function updateLogoPreview(){
 
 async function init(){
   try{
-    let blockedCacheReady = false;
+    try{
+      if (typeof prefetchPublicInitLiteForCurrentRange === 'function'){
+        prefetchPublicInitLiteForCurrentRange(false).catch(function(){});
+      }
+    }catch(_){ }
 
     try{
       hydratePublicCacheForFastPaint();
-      blockedCacheReady = !!(window.__publicFastPaintState && window.__publicFastPaintState.blockedLoaded);
     }catch(_){ }
 
     bindGridDelegation();
     renderCalendar();
 
-    try{
-      if (typeof setPublicCalendarLoading === 'function'){
-        setPublicCalendarLoading(!blockedCacheReady, blockedCacheReady ? '' : '空き状況を確認中...');
-      }
+    await withLoading(async ()=>{
       await refreshAllData(true);
-      renderCalendar();
-    }finally{
-      try{
-        if (typeof setPublicCalendarLoading === 'function'){
-          setPublicCalendarLoading(false);
-        }
-      }catch(_){ }
-    }
+    }, '読み込み中...');
 
     try{
       const warm = function(){
@@ -614,16 +607,11 @@ async function init(){
       }
     }catch(_){ }
   }catch(e){
-    try{
-      if (typeof setPublicCalendarLoading === 'function'){
-        setPublicCalendarLoading(false);
-      }
-    }catch(_){ }
+    try{ showLoading(false); }catch(_){}
     toast('初期化エラー: ' + (e?.message || e));
     try{ renderCalendar(); }catch(_){}
   }
 }
-
 
 (function bindUI(){
   let tapCount = 0;
