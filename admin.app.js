@@ -315,20 +315,16 @@ function openReservationDetail(index){
 }
 
 function collectLogoConfigPayload(){
-  const _rawLogoUrl = document.getElementById('cfgLogoImageUrl').value.trim();
-  const _normalizedLogoUrl = (! _rawLogoUrl || /raw\.githubusercontent\.com/i.test(_rawLogoUrl) || /logo\/logo\.png$/i.test(_rawLogoUrl))
-    ? 'assets/logo/logo.webp'
-    : _rawLogoUrl;
   return {
     logo_text: document.getElementById('cfgLogoText').value.trim(),
     logo_subtext: document.getElementById('cfgLogoSubtext').value.trim(),
-    logo_image_url: _normalizedLogoUrl,
+    logo_image_url: document.getElementById('cfgLogoImageUrl').value.trim(),
     logo_use_github_image: document.getElementById('cfgLogoUseGithubImage').value,
     github_username: document.getElementById('cfgGithubUsername').value.trim(),
     github_repo: document.getElementById('cfgGithubRepo').value.trim(),
     github_branch: document.getElementById('cfgGithubBranch').value.trim(),
     github_assets_base_path: document.getElementById('cfgGithubAssetsBasePath').value.trim(),
-    logo_github_path: (function(){ const v=document.getElementById('cfgLogoGithubPath').value.trim(); return (!v || /logo\/logo\.png$/i.test(v)) ? 'assets/logo/logo.webp' : v; })(),
+    logo_github_path: document.getElementById('cfgLogoGithubPath').value.trim(),
     github_token: document.getElementById('cfgGithubToken').value.trim(),
     phone_notify_text: document.getElementById('cfgPhoneNotifyText').value.trim()
   };
