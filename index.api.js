@@ -37,45 +37,62 @@ async function withLoading(fn, text){
 }
 
 
-function _appendCacheBust(url){
+const __GET_JSON_INFLIGHT__ = new Map();
+
+function _appendCacheBust(url, enabled = false){
+  if (!enabled) return String(url || '');
   const sep = String(url || '').includes('?') ? '&' : '?';
   return String(url || '') + sep + '_ts=' + Date.now() + '_' + Math.floor(Math.random() * 1000000);
 }
 
 async function _fetchJsonGet(url, timeoutMs = 20000){
-  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-  const timer = setTimeout(()=>{
-    try{
-      if (controller) controller.abort();
-    }catch(_){ }
-  }, timeoutMs);
+  const finalUrl = _appendCacheBust(url, false);
+  if (__GET_JSON_INFLIGHT__.has(finalUrl)) {
+    return __GET_JSON_INFLIGHT__.get(finalUrl);
+  }
 
+  const requestPromise = (async ()=>{
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timer = setTimeout(()=>{
+      try{
+        if (controller) controller.abort();
+      }catch(_){ }
+    }, timeoutMs);
+
+    try{
+      const res = await fetch(finalUrl, {
+        method: 'GET',
+        cache: 'default',
+        redirect: 'follow',
+        signal: controller ? controller.signal : undefined,
+        credentials: 'omit'
+      });
+
+      if (!res.ok) {
+        throw new Error('GET ' + res.status);
+      }
+
+      const text = await res.text();
+      try{
+        return JSON.parse(text);
+      }catch(_){
+        throw new Error('GET応答の解析に失敗しました');
+      }
+    }catch(err){
+      if (String(err && err.name || '') === 'AbortError') {
+        throw new Error('GET timeout');
+      }
+      throw err;
+    }finally{
+      clearTimeout(timer);
+    }
+  })();
+
+  __GET_JSON_INFLIGHT__.set(finalUrl, requestPromise);
   try{
-    const res = await fetch(_appendCacheBust(url), {
-      method: 'GET',
-      cache: 'no-store',
-      redirect: 'follow',
-      signal: controller ? controller.signal : undefined,
-      credentials: 'omit'
-    });
-
-    if (!res.ok) {
-      throw new Error('GET ' + res.status);
-    }
-
-    const text = await res.text();
-    try{
-      return JSON.parse(text);
-    }catch(_){
-      throw new Error('GET応答の解析に失敗しました');
-    }
-  }catch(err){
-    if (String(err && err.name || '') === 'AbortError') {
-      throw new Error('GET timeout');
-    }
-    throw err;
+    return await requestPromise;
   }finally{
-    clearTimeout(timer);
+    __GET_JSON_INFLIGHT__.delete(finalUrl);
   }
 }
 
@@ -115,27 +132,12 @@ function _jsonpCall(url, timeoutMs = 20000){
       reject(new Error('JSONP load error'));
     };
 
-    const baseUrl = _appendCacheBust(url);
+    const baseUrl = _appendCacheBust(url, false);
     const sep = baseUrl.includes('?') ? '&' : '?';
     script.src = baseUrl + sep + 'callback=' + encodeURIComponent(cbName);
     script.async = true;
     (document.head || document.body || document.documentElement).appendChild(script);
   });
-}
-
-async function _getJsonWithRetry(url, retryCount = 2, timeoutMs = 25000){
-  let lastError = null;
-  for (let i = 0; i <= retryCount; i++){
-    try{
-      return await _jsonpCall(url, timeoutMs);
-    }catch(err){
-      lastError = err;
-      if (i < retryCount){
-        await sleep(600 + (i * 500));
-      }
-    }
-  }
-  throw lastError || new Error('JSONP error');
 }
 
 async function _getJsonWithRetry(url, retryCount = 2, timeoutMs = 25000){
@@ -147,7 +149,7 @@ async function _getJsonWithRetry(url, retryCount = 2, timeoutMs = 25000){
     }catch(err){
       lastError = err;
       if (i < retryCount){
-        await sleep(600 + (i * 500));
+        await sleep(350 + (i * 250));
       }
     }
   }
@@ -158,14 +160,13 @@ async function _getJsonWithRetry(url, retryCount = 2, timeoutMs = 25000){
     }catch(err){
       lastError = err;
       if (i < retryCount){
-        await sleep(800 + (i * 700));
+        await sleep(500 + (i * 350));
       }
     }
   }
 
   throw lastError || new Error('通信エラー');
 }
-
 
 async function _postJson(action, payload){
   const res = await fetch(GAS_URL, {

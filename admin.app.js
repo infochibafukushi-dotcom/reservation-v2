@@ -18,14 +18,11 @@ function __adminShowSafe__(){
 
 async function __adminBootstrapSafe__(){
   try{
-    if (!checkAdminAuth()) return;
-    __adminShowSafe__();
-    await adminRefreshAllData();
-    __adminShowSafe__();
+    await initAdmin();
   }catch(err){
     console.error('admin bootstrap error', err);
     __adminShowSafe__();
-    try{ showToast('管理画面の初期化でエラーが発生しました'); }catch(_){ }
+    try{ toast(err?.message || '管理画面の初期化でエラーが発生しました'); }catch(_){ }
   }
 }
 
@@ -627,26 +624,41 @@ function bindUI(){
   }, 150));
 }
 
-async function initAdmin(){
-  if (!checkAdminAuth()) return;
+let __adminInitPromise = null;
+let __adminEventsBound = false;
 
-  bindPanelToggles();
-  bindMenuEvents();
-  bindReservationTableEvents();
-  bindAdminGridDelegation();
-  bindUI();
+async function initAdmin(){
+  if (__adminInitPromise) return __adminInitPromise;
+
+  __adminInitPromise = (async function(){
+    if (!checkAdminAuth()) return;
+
+    if (!__adminEventsBound){
+      bindPanelToggles();
+      bindMenuEvents();
+      bindReservationTableEvents();
+      bindAdminGridDelegation();
+      bindUI();
+      __adminEventsBound = true;
+    }
+
+    try{
+      await withLoading(async ()=>{
+        await adminRefreshBootstrapData(true);
+        await adminRefreshVisibleWindow();
+      }, '読み込み中...');
+    }catch(err){
+      toast(err?.message || '初期化に失敗しました');
+      throw err;
+    }
+  })();
 
   try{
-    await withLoading(async ()=>{
-      await adminRefreshAllData();
-    }, '読み込み中...');
-  }catch(err){
-    toast(err?.message || '初期化に失敗しました');
+    return await __adminInitPromise;
+  }finally{
+    __adminInitPromise = null;
   }
 }
-
-initAdmin();
-
 
 document.addEventListener('DOMContentLoaded', function(){
   __adminBootstrapSafe__();

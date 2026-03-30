@@ -294,7 +294,7 @@ function bindAdminGridDelegation(){
             hour: hour,
             minute: minute
           });
-          await adminRefreshAllData();
+          await adminRefreshVisibleWindow();
         }, '枠を更新中...');
       }
 
@@ -321,7 +321,7 @@ function bindAdminGridDelegation(){
             dateStr: dateStr,
             isBlocked: nextState
           });
-          await adminRefreshAllData();
+          await adminRefreshVisibleWindow();
         }, '日単位ブロック更新中...');
       }
 
@@ -348,7 +348,7 @@ function bindAdminGridDelegation(){
             dateStr: dateStr,
             isBlocked: nextState
           });
-          await adminRefreshAllData();
+          await adminRefreshVisibleWindow();
         }, '時間帯一括更新中...');
       }
     }catch(err){
