@@ -597,18 +597,16 @@ async function init(){
     }catch(_){ }
 
     bindGridDelegation();
-    renderCalendar();
+    try{ renderCalendarSkeleton('空き枠を読み込み中...'); }catch(_){ }
 
-    await withLoading(async ()=>{
-      await refreshAllData(true);
-      renderCalendar();
-    }, '読み込み中...');
+    await refreshAllData(true);
+    try{ renderCalendarDeferred(120); }catch(_){ try{ renderCalendar(); }catch(__){} }
 
     try{
       const warm = function(){
         try{
           ensureFullPublicBootstrapLoaded(false).catch(function(){});
-        }catch(_){}
+        }catch(_){ }
       };
       if (typeof requestIdleCallback === 'function'){
         requestIdleCallback(warm, { timeout: 1800 });
@@ -617,9 +615,9 @@ async function init(){
       }
     }catch(_){ }
   }catch(e){
-    try{ showLoading(false); }catch(_){}
+    try{ showLoading(false); }catch(_){ }
     toast('初期化エラー: ' + (e?.message || e));
-    try{ renderCalendar(); }catch(_){}
+    try{ renderCalendarDeferred(0); }catch(_){ try{ renderCalendar(); }catch(__){} }
   }
 }
 
