@@ -1,15 +1,58 @@
 if (typeof globalThis.hasBoundGridDelegation === 'undefined') globalThis.hasBoundGridDelegation = false;
 let publicCalendarPage = 0;
 let hasBoundPublicCalendarNav = false;
-let publicCalendarPendingInitialLoad = false;
+let publicCalendarLoading = false;
+let publicCalendarLoadingText = '';
 
-function setPublicCalendarPendingInitialLoad(flag){
-  publicCalendarPendingInitialLoad = !!flag;
+
+function setPublicCalendarLoading(flag, text='空き状況を確認中...'){
+  publicCalendarLoading = !!flag;
+  publicCalendarLoadingText = publicCalendarLoading ? String(text || '空き状況を確認中...') : '';
+  const el = document.getElementById('calendarInlineLoading');
+  const tx = document.getElementById('calendarInlineLoadingText');
+  const wrap = document.querySelector('#calendarView .card-soft.card-zero');
+  if (tx) tx.textContent = publicCalendarLoadingText || '空き状況を確認中...';
+  if (el){
+    if (publicCalendarLoading){
+      el.classList.remove('hidden');
+    } else {
+      el.classList.add('hidden');
+    }
+  }
+  if (wrap){
+    wrap.setAttribute('aria-busy', publicCalendarLoading ? 'true' : 'false');
+  }
+  syncPublicCalendarControlState();
 }
 
-function isPublicCalendarPendingInitialLoad(){
-  return !!publicCalendarPendingInitialLoad;
+function isPublicCalendarLoading(){
+  return !!publicCalendarLoading;
 }
+
+function syncPublicCalendarControlState(){
+  const info = getPublicCalendarPageInfo();
+  const loading = isPublicCalendarLoading();
+  const prevBtn = document.getElementById('publicPrevWeekBtn');
+  const nextBtn = document.getElementById('publicNextWeekBtn');
+  const toggleBtn = document.getElementById('toggleTimeView');
+
+  if (prevBtn){
+    prevBtn.disabled = loading || info.currentPage <= 0;
+    prevBtn.style.opacity = prevBtn.disabled ? '.55' : '';
+    prevBtn.style.cursor = prevBtn.disabled ? 'not-allowed' : '';
+  }
+  if (nextBtn){
+    nextBtn.disabled = loading || info.currentPage >= info.totalPages - 1;
+    nextBtn.style.opacity = nextBtn.disabled ? '.55' : '';
+    nextBtn.style.cursor = nextBtn.disabled ? 'not-allowed' : '';
+  }
+  if (toggleBtn){
+    toggleBtn.disabled = loading;
+    toggleBtn.style.opacity = toggleBtn.disabled ? '.75' : '';
+    toggleBtn.style.cursor = toggleBtn.disabled ? 'not-allowed' : '';
+  }
+}
+
 
 function getPublicDaysPerPage(){
   return Math.max(1, Number(config.days_per_page || 7));
@@ -90,15 +133,19 @@ function ensurePublicCalendarNav(){
     if (prevBtn){
       prevBtn.addEventListener('click', async ()=>{
         const info = getPublicCalendarPageInfo();
-        if (info.currentPage <= 0) return;
+        if (isPublicCalendarLoading() || info.currentPage <= 0) return;
+        const previousPage = publicCalendarPage;
         publicCalendarPage = info.currentPage - 1;
+        setPublicCalendarLoading(true, '前の週の空き状況を確認中...');
         try{
-          await withLoading(async ()=>{
-            await ensureBlockedSlotsFresh(false, true);
-            renderCalendar();
-          }, '前の週を表示中...');
+          await ensureBlockedSlotsFresh(false, true);
+          renderCalendar();
         }catch(err){
+          publicCalendarPage = previousPage;
+          syncPublicCalendarControlState();
           toast(err?.message || '表示更新に失敗しました');
+        }finally{
+          setPublicCalendarLoading(false);
         }
       });
     }
@@ -106,15 +153,19 @@ function ensurePublicCalendarNav(){
     if (nextBtn){
       nextBtn.addEventListener('click', async ()=>{
         const info = getPublicCalendarPageInfo();
-        if (info.currentPage >= info.totalPages - 1) return;
+        if (isPublicCalendarLoading() || info.currentPage >= info.totalPages - 1) return;
+        const previousPage = publicCalendarPage;
         publicCalendarPage = info.currentPage + 1;
+        setPublicCalendarLoading(true, '次の週の空き状況を確認中...');
         try{
-          await withLoading(async ()=>{
-            await ensureBlockedSlotsFresh(false, true);
-            renderCalendar();
-          }, '次の週を表示中...');
+          await ensureBlockedSlotsFresh(false, true);
+          renderCalendar();
         }catch(err){
+          publicCalendarPage = previousPage;
+          syncPublicCalendarControlState();
           toast(err?.message || '表示更新に失敗しました');
+        }finally{
+          setPublicCalendarLoading(false);
         }
       });
     }
@@ -122,20 +173,9 @@ function ensurePublicCalendarNav(){
     hasBoundPublicCalendarNav = true;
   }
 
-  const info = getPublicCalendarPageInfo();
-  const prevBtn = document.getElementById('publicPrevWeekBtn');
-  const nextBtn = document.getElementById('publicNextWeekBtn');
-  if (prevBtn){
-    prevBtn.disabled = info.currentPage <= 0;
-    prevBtn.style.opacity = info.currentPage <= 0 ? '0.45' : '1';
-    prevBtn.style.pointerEvents = info.currentPage <= 0 ? 'none' : '';
-  }
-  if (nextBtn){
-    nextBtn.disabled = info.currentPage >= info.totalPages - 1;
-    nextBtn.style.opacity = info.currentPage >= info.totalPages - 1 ? '0.45' : '1';
-    nextBtn.style.pointerEvents = info.currentPage >= info.totalPages - 1 ? 'none' : '';
-  }
+  syncPublicCalendarControlState();
 }
+
 
 function buildSlots(){
   const regularSlots = [];
@@ -178,8 +218,6 @@ function renderCalendar() {
   ensurePublicCalendarNav();
 
   const { regularSlots, extendedSlots } = buildSlots();
-  const isPending = isPublicCalendarPendingInitialLoad();
-  const placeholderCellStyle = 'background:linear-gradient(135deg,#eef2f7 0%,#e2e8f0 100%);color:#94a3b8;border:1px solid rgba(148,163,184,.28);border-radius:12px;font-weight:800;opacity:.88;cursor:default;pointer-events:none;';
 
   let html = '';
   html += '<div class="time-label sticky-corner">時間</div>';
@@ -192,10 +230,6 @@ function renderCalendar() {
   for (const slot of regularSlots){
     html += `<div class="time-label sticky-left">${slot.display}</div>`;
     for (let idx=0; idx<dates.length; idx++){
-      if (isPending){
-        html += `<div class="p-3 text-center text-lg font-bold rounded-lg transition" aria-hidden="true" style="${placeholderCellStyle}">…</div>`;
-        continue;
-      }
       const date = dates[idx];
       const blocked = isSlotBlockedWithMinute(date, slot.hour, slot.minute);
       const slotClass = blocked ? 'slot-unavailable' : 'slot-available';
@@ -224,10 +258,6 @@ function renderCalendar() {
     for (const slot of extendedSlots){
       html += `<div class="time-label sticky-left" style="background:linear-gradient(135deg,#cffafe 0%,#a5f3fc 100%);border:2px solid #06b6d4;color:#0e7490;font-weight:600;">${slot.display}</div>`;
       for (let idx=0; idx<dates.length; idx++){
-        if (isPending){
-          html += `<div class="p-3 text-center text-lg font-bold rounded-lg transition" aria-hidden="true" style="${placeholderCellStyle}">…</div>`;
-          continue;
-        }
         const date = dates[idx];
         const blocked = isSlotBlockedWithMinute(date, slot.hour, slot.minute);
         const slotClass = blocked ? 'slot-unavailable' : 'slot-alternate';
@@ -247,6 +277,7 @@ function renderCalendar() {
 
   applyCalendarGridColumns(grid, dates.length);
   requestAnimationFrame(()=> applyCalendarGridColumns(grid, dates.length));
+  syncPublicCalendarControlState();
 }
 
 function bindGridDelegation(){
@@ -262,6 +293,7 @@ function bindGridDelegation(){
     const action = el.dataset.action;
 
     if (action === 'slot'){
+      if (isPublicCalendarLoading()) return;
       const dateIdx = Number(el.dataset.dateIdx);
       const hour = Number(el.dataset.hour);
       const minute = Number(el.dataset.minute || 0);

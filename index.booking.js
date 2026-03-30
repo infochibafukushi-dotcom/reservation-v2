@@ -584,30 +584,28 @@ async function init(){
       blockedCacheReady = !!(window.__publicFastPaintState && window.__publicFastPaintState.blockedLoaded);
     }catch(_){ }
 
-    try{
-      if (typeof setPublicCalendarPendingInitialLoad === 'function') {
-        setPublicCalendarPendingInitialLoad(!blockedCacheReady);
-      }
-    }catch(_){ }
-
     bindGridDelegation();
     renderCalendar();
 
-    await withLoading(async ()=>{
+    try{
+      if (typeof setPublicCalendarLoading === 'function'){
+        setPublicCalendarLoading(!blockedCacheReady, blockedCacheReady ? '' : '空き状況を確認中...');
+      }
       await refreshAllData(true);
+      renderCalendar();
+    }finally{
       try{
-        if (typeof setPublicCalendarPendingInitialLoad === 'function') {
-          setPublicCalendarPendingInitialLoad(false);
+        if (typeof setPublicCalendarLoading === 'function'){
+          setPublicCalendarLoading(false);
         }
       }catch(_){ }
-      renderCalendar();
-    }, '読み込み中...');
+    }
 
     try{
       const warm = function(){
         try{
           ensureFullPublicBootstrapLoaded(false).catch(function(){});
-        }catch(_){ }
+        }catch(_){}
       };
       if (typeof requestIdleCallback === 'function'){
         requestIdleCallback(warm, { timeout: 1800 });
@@ -616,16 +614,16 @@ async function init(){
       }
     }catch(_){ }
   }catch(e){
-    try{ showLoading(false); }catch(_){ }
     try{
-      if (typeof setPublicCalendarPendingInitialLoad === 'function') {
-        setPublicCalendarPendingInitialLoad(false);
+      if (typeof setPublicCalendarLoading === 'function'){
+        setPublicCalendarLoading(false);
       }
     }catch(_){ }
     toast('初期化エラー: ' + (e?.message || e));
-    try{ renderCalendar(); }catch(_){ }
+    try{ renderCalendar(); }catch(_){}
   }
 }
+
 
 (function bindUI(){
   let tapCount = 0;
