@@ -6,14 +6,16 @@
   <title>介護タクシー予約</title>
 
   <meta http-equiv="x-dns-prefetch-control" content="on" />
-    <link rel="dns-prefetch" href="//fonts.googleapis.com" />
+  <link rel="dns-prefetch" href="//cdn.tailwindcss.com" />
+  <link rel="dns-prefetch" href="//fonts.googleapis.com" />
   <link rel="dns-prefetch" href="//fonts.gstatic.com" />
-    <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://cdn.tailwindcss.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="tailwind-lite.css">
+  <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" onload="this.onload=null;this.rel='stylesheet'">
   <noscript><link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet"></noscript>
-  <link rel="preload" as="image" href="assets/logo/logo.webp" fetchpriority="high">
+  <link rel="preload" as="image" href="https://raw.githubusercontent.com/infochibafukushi-dotcom/chiba-care-taxi-assets/main/logo.png" fetchpriority="high">
 
   <style>
     * { box-sizing: border-box; }
@@ -277,6 +279,14 @@
       }
     }
 
+
+    @media (min-width: 1024px){
+      #bookingModal .modal-content{
+        width:min(760px, calc(100vw - 64px)) !important;
+        max-width:760px !important;
+        margin:24px auto !important;
+      }
+    }
     .form-group{
       margin-bottom:0
     }
@@ -428,9 +438,11 @@
             <img
               id="adminLoginImg"
               alt="管理画面"
-              src="assets/logo/logo.webp"
+              src="https://raw.githubusercontent.com/infochibafukushi-dotcom/reservation-v2/main/logo/logo.webp"
               decoding="async"
               fetchpriority="high"
+              width="64"
+              height="64"
             >
           </button>
           <div>

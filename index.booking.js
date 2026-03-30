@@ -552,40 +552,31 @@ async function updateLogoPreview(){
   if (titleEl) titleEl.textContent = logoText;
   if (subEl) subEl.textContent = logoSubText;
 
-  const localLogoSrc = 'assets/logo/logo.webp';
-  let finalSrc = config.logo_image_url || localLogoSrc;
+  const safeLogoSrc = 'https://raw.githubusercontent.com/infochibafukushi-dotcom/reservation-v2/main/logo/logo.webp';
+  let finalSrc = String(config.logo_image_url || '').trim();
 
   const useDrive = String(config.logo_use_drive_image || '0') === '1';
   const driveFileId = String(config.logo_drive_file_id || '').trim();
 
-  const rawSrc = String(finalSrc || '').trim();
-  const shouldForceLocal =
-    !rawSrc ||
-    rawSrc.includes('raw.githubusercontent.com') ||
-    rawSrc.includes('/main/logo.png') ||
-    rawSrc.includes('/logo/logo.png') ||
-    rawSrc.includes('chiba-care-taxi-assets/main/logo.png');
-
-  if (shouldForceLocal) {
-    finalSrc = localLogoSrc;
-  } else if (useDrive && driveFileId) {
+  if (!finalSrc && useDrive && driveFileId) {
     try{
       const res = await gsRun('api_getDriveImageDataUrl', driveFileId);
       if (res && res.isOk && res.data && res.data.dataUrl) {
         finalSrc = res.data.dataUrl;
       }
-    }catch(_){}
+    }catch(_){
+    }
   }
 
   if (mainImg) {
-    mainImg.src = finalSrc || localLogoSrc;
+    mainImg.src = finalSrc || safeLogoSrc;
     mainImg.onerror = function(){
-      if (mainImg.dataset.logoFallbackTried === '1'){
+      if (mainImg.dataset.logoFallbackTried === '1') {
         mainImg.onerror = null;
         return;
       }
       mainImg.dataset.logoFallbackTried = '1';
-      mainImg.src = localLogoSrc;
+      mainImg.src = safeLogoSrc;
     };
   }
 }
