@@ -552,12 +552,23 @@ async function updateLogoPreview(){
   if (titleEl) titleEl.textContent = logoText;
   if (subEl) subEl.textContent = logoSubText;
 
-  let finalSrc = config.logo_image_url || 'https://raw.githubusercontent.com/infochibafukushi-dotcom/chiba-care-taxi-assets/main/logo.png';
+  const localLogoSrc = 'assets/logo/logo.webp';
+  let finalSrc = config.logo_image_url || localLogoSrc;
 
   const useDrive = String(config.logo_use_drive_image || '0') === '1';
   const driveFileId = String(config.logo_drive_file_id || '').trim();
 
-  if (!finalSrc && useDrive && driveFileId) {
+  const rawSrc = String(finalSrc || '').trim();
+  const shouldForceLocal =
+    !rawSrc ||
+    rawSrc.includes('raw.githubusercontent.com') ||
+    rawSrc.includes('/main/logo.png') ||
+    rawSrc.includes('/logo/logo.png') ||
+    rawSrc.includes('chiba-care-taxi-assets/main/logo.png');
+
+  if (shouldForceLocal) {
+    finalSrc = localLogoSrc;
+  } else if (useDrive && driveFileId) {
     try{
       const res = await gsRun('api_getDriveImageDataUrl', driveFileId);
       if (res && res.isOk && res.data && res.data.dataUrl) {
@@ -567,10 +578,14 @@ async function updateLogoPreview(){
   }
 
   if (mainImg) {
-    mainImg.src = finalSrc || 'https://raw.githubusercontent.com/infochibafukushi-dotcom/chiba-care-taxi-assets/main/logo.png';
+    mainImg.src = finalSrc || localLogoSrc;
     mainImg.onerror = function(){
-      mainImg.onerror = null;
-      mainImg.src = 'https://raw.githubusercontent.com/infochibafukushi-dotcom/chiba-care-taxi-assets/main/logo.png';
+      if (mainImg.dataset.logoFallbackTried === '1'){
+        mainImg.onerror = null;
+        return;
+      }
+      mainImg.dataset.logoFallbackTried = '1';
+      mainImg.src = localLogoSrc;
     };
   }
 }
