@@ -22,7 +22,7 @@ function applyAdminConfigToUI(){
   document.getElementById('cfgGithubRepo').value = adminConfig.github_repo || '';
   document.getElementById('cfgGithubBranch').value = adminConfig.github_branch || 'main';
   document.getElementById('cfgGithubAssetsBasePath').value = adminConfig.github_assets_base_path || '';
-  document.getElementById('cfgLogoGithubPath').value = adminConfig.logo_github_path || 'logo/logo.png';
+  document.getElementById('cfgLogoGithubPath').value = adminConfig.logo_github_path || 'logo/logo.webp';
   document.getElementById('cfgGithubToken').value = adminConfig.github_token && adminConfig.github_token !== '***' ? adminConfig.github_token : '';
   document.getElementById('cfgPhoneNotifyText').value = adminConfig.phone_notify_text || '';
   document.getElementById('cfgSameDayEnabled').value = String(adminConfig.same_day_enabled || '0');
@@ -40,11 +40,11 @@ function updateAdminLogoPreview(){
   text.textContent = adminConfig.logo_text || '介護タクシー予約';
   sub.textContent = adminConfig.logo_subtext || '丁寧・安全な送迎をご提供します';
 
-  let finalSrc = adminConfig.logo_image_url || 'https://raw.githubusercontent.com/infochibafukushi-dotcom/chiba-care-taxi-assets/main/logo.png';
+  let finalSrc = adminConfig.logo_image_url || 'https://raw.githubusercontent.com/infochibafukushi-dotcom/chiba-care-taxi-assets/main/logo/logo.webp';
   img.src = finalSrc;
   img.onerror = function(){
     img.onerror = null;
-    img.src = 'https://raw.githubusercontent.com/infochibafukushi-dotcom/chiba-care-taxi-assets/main/logo.png';
+    img.src = 'https://raw.githubusercontent.com/infochibafukushi-dotcom/chiba-care-taxi-assets/main/logo/logo.webp';
   };
 }
 

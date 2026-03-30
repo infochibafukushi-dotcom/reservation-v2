@@ -51,7 +51,7 @@ const DEFAULT_CONFIG = {
   logo_use_drive_image: '0',
   logo_drive_folder_id: '',
   logo_use_github_image: '1',
-  logo_github_path: 'logo/logo.png',
+  logo_github_path: 'logo/logo.webp',
 
   // ===== GitHub接続設定 =====
   github_username: '',
@@ -810,8 +810,8 @@ function api_getDriveImageDataUrl(fileId) {
  * ロゴ画像アップロード
  * DriveではなくGitHub保存を優先
  * payload = {
- *   file_name: 'logo.png',
- *   mime_type: 'image/png',
+ *   file_name: 'logo.webp',
+ *   mime_type: 'image/webp',
  *   base64_data: 'data:image/png;base64,....'
  * }
  */
@@ -823,8 +823,8 @@ function api_uploadLogoImage(payload) {
 
     const cfg = _getConfigMap_();
 
-    const fileName = String(payload.file_name || payload.filename || '').trim() || ('logo_' + Utilities.formatDate(new Date(), TZ, 'yyyyMMdd_HHmmss') + '.png');
-    let mimeType = String(payload.mime_type || payload.mimetype || 'image/png').trim() || 'image/png';
+    const fileName = String(payload.file_name || payload.filename || '').trim() || ('logo_' + Utilities.formatDate(new Date(), TZ, 'yyyyMMdd_HHmmss') + '.webp');
+    let mimeType = String(payload.mime_type || payload.mimetype || 'image/webp').trim() || 'image/webp';
     let base64Data = String(payload.base64_data || payload.base64 || '').trim();
 
     if (!base64Data) throw new Error('base64_data が空です');

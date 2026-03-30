@@ -1,3 +1,7 @@
+const ADMIN_DEFAULT_LOGO_URL = 'https://raw.githubusercontent.com/infochibafukushi-dotcom/chiba-care-taxi-assets/main/logo/logo.webp';
+let __adminInitPromise = null;
+let __adminUiBound = false;
+
 function checkAdminAuth(){
   const auth = sessionStorage.getItem('chiba_care_taxi_admin_auth');
   if (auth !== 'ok'){
@@ -17,16 +21,7 @@ function __adminShowSafe__(){
 }
 
 async function __adminBootstrapSafe__(){
-  try{
-    if (!checkAdminAuth()) return;
-    __adminShowSafe__();
-    await adminRefreshAllData();
-    __adminShowSafe__();
-  }catch(err){
-    console.error('admin bootstrap error', err);
-    __adminShowSafe__();
-    try{ showToast('管理画面の初期化でエラーが発生しました'); }catch(_){ }
-  }
+  return initAdmin();
 }
 
 
@@ -248,7 +243,7 @@ function applyAdminConfigToForm(){
   const img = document.getElementById('adminLogoPreview');
   const txt = document.getElementById('adminLogoPreviewText');
   const sub = document.getElementById('adminLogoPreviewSubtext');
-  img.src = adminConfig.logo_image_url || 'https://raw.githubusercontent.com/infochibafukushi-dotcom/chiba-care-taxi-assets/main/logo.png';
+  img.src = adminConfig.logo_image_url || ADMIN_DEFAULT_LOGO_URL;
   txt.textContent = adminConfig.logo_text || '介護タクシー予約';
   sub.textContent = adminConfig.logo_subtext || '丁寧・安全な送迎をご提供します';
 
@@ -735,26 +730,42 @@ function bindUI(){
 }
 
 async function initAdmin(){
-  if (!checkAdminAuth()) return;
+  if (__adminInitPromise) return __adminInitPromise;
 
-  bindPanelToggles();
-  bindMenuEvents();
-  bindReservationTableEvents();
-  bindAdminGridDelegation();
-  bindUI();
+  __adminInitPromise = (async ()=>{
+    if (!checkAdminAuth()) return false;
+
+    if (!__adminUiBound){
+      bindPanelToggles();
+      bindMenuEvents();
+      bindReservationTableEvents();
+      bindAdminGridDelegation();
+      bindUI();
+      __adminUiBound = true;
+    }
+
+    try{
+      await withLoading(async ()=>{
+        await adminRefreshBootstrapData(true);
+        await adminRefreshVisibleWindow();
+      }, '読み込み中...');
+      __adminShowSafe__();
+      return true;
+    }catch(err){
+      toast(err?.message || '初期化に失敗しました');
+      throw err;
+    }
+  })();
 
   try{
-    await withLoading(async ()=>{
-      await adminRefreshAllData();
-    }, '読み込み中...');
-  }catch(err){
-    toast(err?.message || '初期化に失敗しました');
+    return await __adminInitPromise;
+  }finally{
+    __adminInitPromise = null;
   }
 }
 
-initAdmin();
-
-
 document.addEventListener('DOMContentLoaded', function(){
-  __adminBootstrapSafe__();
+  initAdmin().catch(function(err){
+    console.error('admin init error', err);
+  });
 });
