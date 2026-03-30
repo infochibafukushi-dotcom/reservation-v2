@@ -195,7 +195,7 @@ function applyAdminConfigToForm(){
   document.getElementById('cfgGithubRepo').value = adminConfig.github_repo || '';
   document.getElementById('cfgGithubBranch').value = adminConfig.github_branch || 'main';
   document.getElementById('cfgGithubAssetsBasePath').value = adminConfig.github_assets_base_path || '';
-  document.getElementById('cfgLogoGithubPath').value = adminConfig.logo_github_path || '';
+  document.getElementById('cfgLogoGithubPath').value = normalizeLogoGithubPath(adminConfig.logo_github_path || '', adminConfig.github_assets_base_path || '');
   document.getElementById('cfgGithubToken').value = adminConfig.github_token || '';
   document.getElementById('cfgPhoneNotifyText').value = adminConfig.phone_notify_text || '';
 
@@ -314,7 +314,60 @@ function openReservationDetail(index){
   document.getElementById('detailModal').classList.remove('hidden');
 }
 
+
+function normalizeLogoGithubPath(pathValue, basePathValue){
+  const rawPath = String(pathValue || '').trim().replace(/\\/g, '/');
+  const rawBase = String(basePathValue || '').trim().replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+  let path = rawPath.replace(/^\/+|\/+$/g, '');
+
+  if (!path) return 'logo/logo.webp';
+
+  if (/^https?:\/\//i.test(path)){
+    try{
+      const url = new URL(path);
+      const parts = String(url.pathname || '').split('/').filter(Boolean);
+      const idx = parts.findIndex(v => v === 'main' || v === 'master');
+      if (idx >= 0 && parts.length > idx + 1){
+        path = parts.slice(idx + 1).join('/');
+      }
+    }catch(_){ }
+  }
+
+  path = path.replace(/^\.\//, '').replace(/\/+/g, '/');
+  path = path.replace(/^(?:assets\/)+/i, 'assets/');
+
+  if (rawBase){
+    const escapedBase = rawBase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const baseRe = new RegExp('^(?:' + escapedBase + '\\/)+', 'i');
+    path = path.replace(baseRe, '');
+    if (!path){
+      path = 'logo/logo.webp';
+    }
+  }
+
+  path = path.replace(/^\/+|\/+$/g, '');
+  if (!path) path = 'logo/logo.webp';
+
+  const lower = path.toLowerCase();
+  if (lower === 'assets' || lower === 'assets/logo' || lower === 'assets/logo/'){
+    path = 'logo/logo.webp';
+  }
+
+  path = path.replace(/^assets\/logo\/logo\.(png|jpg|jpeg|webp)$/i, 'logo/logo.webp');
+  path = path.replace(/^logo\/logo\.(png|jpg|jpeg)$/i, 'logo/logo.webp');
+  path = path.replace(/^logo\/logo\.webp$/i, 'logo/logo.webp');
+
+  return path;
+}
+
 function collectLogoConfigPayload(){
+  const githubAssetsBasePath = document.getElementById('cfgGithubAssetsBasePath').value.trim();
+  const logoGithubPath = normalizeLogoGithubPath(
+    document.getElementById('cfgLogoGithubPath').value.trim(),
+    githubAssetsBasePath
+  );
+  document.getElementById('cfgLogoGithubPath').value = logoGithubPath;
+
   return {
     logo_text: document.getElementById('cfgLogoText').value.trim(),
     logo_subtext: document.getElementById('cfgLogoSubtext').value.trim(),
@@ -323,8 +376,8 @@ function collectLogoConfigPayload(){
     github_username: document.getElementById('cfgGithubUsername').value.trim(),
     github_repo: document.getElementById('cfgGithubRepo').value.trim(),
     github_branch: document.getElementById('cfgGithubBranch').value.trim(),
-    github_assets_base_path: document.getElementById('cfgGithubAssetsBasePath').value.trim(),
-    logo_github_path: document.getElementById('cfgLogoGithubPath').value.trim(),
+    github_assets_base_path: githubAssetsBasePath,
+    logo_github_path: logoGithubPath,
     github_token: document.getElementById('cfgGithubToken').value.trim(),
     phone_notify_text: document.getElementById('cfgPhoneNotifyText').value.trim()
   };
@@ -460,7 +513,10 @@ async function uploadLogoFile(){
 
   if (res && res.data && res.data.raw_url){
     const rawUrl = String(res.data.raw_url || '');
-    const path = String(res.data.path || 'logo/logo.webp');
+    const path = normalizeLogoGithubPath(
+      String(res.data.path || 'logo/logo.webp'),
+      document.getElementById('cfgGithubAssetsBasePath').value.trim()
+    );
     document.getElementById('cfgLogoImageUrl').value = rawUrl;
     document.getElementById('cfgLogoGithubPath').value = path;
     document.getElementById('adminLogoPreview').src = rawUrl;
