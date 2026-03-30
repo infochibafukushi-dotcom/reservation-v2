@@ -13,10 +13,15 @@ function getPublicStartOffset(){
 function applyCalendarGridColumns(gridEl, daysCount){
   if (!gridEl) return;
   const isMobile = window.matchMedia('(max-width: 640px)').matches;
-  const timeCol = isMobile ? 44 : 60;
+  const timeCol = isMobile ? 44 : 64;
+
   if (!isMobile){
-    gridEl.style.gridTemplateColumns = `${timeCol}px repeat(${daysCount}, minmax(110px, 1fr))`;
+    gridEl.style.width = '100%';
+    gridEl.style.minWidth = '100%';
+    gridEl.style.gridTemplateColumns = `${timeCol}px repeat(${daysCount}, minmax(0, 1fr))`;
   } else {
+    gridEl.style.width = 'max-content';
+    gridEl.style.minWidth = '';
     gridEl.style.gridTemplateColumns = `${timeCol}px repeat(${daysCount}, minmax(62px, 1fr))`;
   }
 }

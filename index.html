@@ -101,6 +101,30 @@
       display:grid;
       gap:6px;
       width:max-content;
+      margin:0;
+    }
+
+    #calendarView{
+      max-width:1600px;
+      margin:0 auto;
+      padding:0 12px 12px;
+    }
+
+    #calendarView .card-soft{
+      width:100%;
+      overflow:hidden;
+    }
+
+    @media (min-width: 641px){
+      #calendarView .scroll-container{
+        width:100%;
+      }
+
+      #calendarGrid.calendar-grid{
+        width:100%;
+        min-width:100%;
+        margin:0 auto;
+      }
     }
     .calendar-grid > div{
       min-width:0;
@@ -417,6 +441,7 @@
       }
 
       #calendarView{
+        max-width:none !important;
         padding:0 !important;
       }
 
