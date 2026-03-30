@@ -40,11 +40,11 @@ function updateAdminLogoPreview(){
   text.textContent = adminConfig.logo_text || '介護タクシー予約';
   sub.textContent = adminConfig.logo_subtext || '丁寧・安全な送迎をご提供します';
 
-  let finalSrc = adminConfig.logo_image_url || 'https://raw.githubusercontent.com/infochibafukushi-dotcom/chiba-care-taxi-assets/main/logo.png';
+  let finalSrc = adminConfig.logo_image_url || './logo/logo.webp';
   img.src = finalSrc;
   img.onerror = function(){
     img.onerror = null;
-    img.src = 'https://raw.githubusercontent.com/infochibafukushi-dotcom/chiba-care-taxi-assets/main/logo.png';
+    img.src = './logo/logo.webp';
   };
 }
 
