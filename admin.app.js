@@ -179,6 +179,27 @@ function adminUpdateReservationLocal(payload){
   adminReservations = next;
 }
 
+const ADMIN_LOCAL_DEFAULT_LOGO_SRC = './logo/logo.webp';
+
+function isLegacyDefaultLogoUrl(url){
+  const value = String(url || '').trim();
+  if (!value) return false;
+  return value === 'https://raw.githubusercontent.com/infochibafukushi-dotcom/chiba-care-taxi-assets/main/logo.png'
+    || /https:\/\/raw\.githubusercontent\.com\/infochibafukushi-dotcom\/reservation-v2\/[^/]+\/logo\/logo\.png(?:[?#].*)?$/.test(value);
+}
+
+function normalizeLogoGithubPath(path){
+  const value = String(path || '').trim();
+  if (!value || value === 'logo/logo.png') return 'logo/logo.webp';
+  return value;
+}
+
+function getResolvedAdminLogoSrc(sourceConfig){
+  const candidate = String(sourceConfig && sourceConfig.logo_image_url || '').trim();
+  if (!candidate || isLegacyDefaultLogoUrl(candidate)) return ADMIN_LOCAL_DEFAULT_LOGO_SRC;
+  return candidate;
+}
+
 function renderAdminStats(){
   document.getElementById('totalReservations').textContent = String(adminReservations.length || 0);
   document.getElementById('pendingCount').textContent = String(adminReservations.filter(r => String(r.status || '未対応') === '未対応').length);
@@ -189,13 +210,13 @@ function renderAdminStats(){
 function applyAdminConfigToForm(){
   document.getElementById('cfgLogoText').value = adminConfig.logo_text || '';
   document.getElementById('cfgLogoSubtext').value = adminConfig.logo_subtext || '';
-  document.getElementById('cfgLogoImageUrl').value = adminConfig.logo_image_url || '';
+  document.getElementById('cfgLogoImageUrl').value = isLegacyDefaultLogoUrl(adminConfig.logo_image_url) ? '' : (adminConfig.logo_image_url || '');
   document.getElementById('cfgLogoUseGithubImage').value = String(adminConfig.logo_use_github_image || '1');
   document.getElementById('cfgGithubUsername').value = adminConfig.github_username || '';
   document.getElementById('cfgGithubRepo').value = adminConfig.github_repo || '';
   document.getElementById('cfgGithubBranch').value = adminConfig.github_branch || 'main';
   document.getElementById('cfgGithubAssetsBasePath').value = adminConfig.github_assets_base_path || '';
-  document.getElementById('cfgLogoGithubPath').value = adminConfig.logo_github_path || '';
+  document.getElementById('cfgLogoGithubPath').value = normalizeLogoGithubPath(adminConfig.logo_github_path || '');
   document.getElementById('cfgGithubToken').value = adminConfig.github_token || '';
   document.getElementById('cfgPhoneNotifyText').value = adminConfig.phone_notify_text || '';
 
@@ -248,7 +269,11 @@ function applyAdminConfigToForm(){
   const img = document.getElementById('adminLogoPreview');
   const txt = document.getElementById('adminLogoPreviewText');
   const sub = document.getElementById('adminLogoPreviewSubtext');
-  img.src = adminConfig.logo_image_url || './logo/logo.webp';
+  img.src = getResolvedAdminLogoSrc(adminConfig);
+  img.onerror = function(){
+    img.onerror = null;
+    img.src = ADMIN_LOCAL_DEFAULT_LOGO_SRC;
+  };
   txt.textContent = adminConfig.logo_text || '介護タクシー予約';
   sub.textContent = adminConfig.logo_subtext || '丁寧・安全な送迎をご提供します';
 
@@ -324,7 +349,7 @@ function collectLogoConfigPayload(){
     github_repo: document.getElementById('cfgGithubRepo').value.trim(),
     github_branch: document.getElementById('cfgGithubBranch').value.trim(),
     github_assets_base_path: document.getElementById('cfgGithubAssetsBasePath').value.trim(),
-    logo_github_path: document.getElementById('cfgLogoGithubPath').value.trim(),
+    logo_github_path: normalizeLogoGithubPath(document.getElementById('cfgLogoGithubPath').value.trim()),
     github_token: document.getElementById('cfgGithubToken').value.trim(),
     phone_notify_text: document.getElementById('cfgPhoneNotifyText').value.trim()
   };
