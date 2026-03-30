@@ -1,6 +1,15 @@
 if (typeof globalThis.hasBoundGridDelegation === 'undefined') globalThis.hasBoundGridDelegation = false;
 let publicCalendarPage = 0;
 let hasBoundPublicCalendarNav = false;
+let publicCalendarPendingInitialLoad = false;
+
+function setPublicCalendarPendingInitialLoad(flag){
+  publicCalendarPendingInitialLoad = !!flag;
+}
+
+function isPublicCalendarPendingInitialLoad(){
+  return !!publicCalendarPendingInitialLoad;
+}
 
 function getPublicDaysPerPage(){
   return Math.max(1, Number(config.days_per_page || 7));
@@ -11,28 +20,17 @@ function getPublicStartOffset(){
 }
 
 function applyCalendarGridColumns(gridEl, daysCount){
-  if (!gridEl) return;
   const isMobile = window.matchMedia('(max-width: 640px)').matches;
-  const timeCol = isMobile ? 44 : 64;
+  const timeCol = isMobile ? 44 : 60;
+  const sc = gridEl?.closest?.('.scroll-container') || gridEl?.parentElement;
+  const baseW = (sc && sc.clientWidth) ? sc.clientWidth : window.innerWidth;
 
   if (!isMobile){
-    gridEl.style.width = '100%';
-    gridEl.style.minWidth = '100%';
-    gridEl.style.gridTemplateColumns = `${timeCol}px repeat(${daysCount}, minmax(0, 1fr))`;
+    const dayW = Math.max(110, Math.floor((baseW - timeCol) / Math.max(1, daysCount)));
+    gridEl.style.gridTemplateColumns = `${timeCol}px repeat(${daysCount}, ${dayW}px)`;
   } else {
-    gridEl.style.width = 'max-content';
-    gridEl.style.minWidth = '';
     gridEl.style.gridTemplateColumns = `${timeCol}px repeat(${daysCount}, minmax(62px, 1fr))`;
   }
-}
-
-let __publicCalendarResizeRaf = 0;
-function scheduleCalendarGridColumns(gridEl, daysCount){
-  if (__publicCalendarResizeRaf) cancelAnimationFrame(__publicCalendarResizeRaf);
-  __publicCalendarResizeRaf = requestAnimationFrame(()=>{
-    __publicCalendarResizeRaf = 0;
-    applyCalendarGridColumns(gridEl, daysCount);
-  });
 }
 
 function getDatesRange(){
@@ -180,6 +178,8 @@ function renderCalendar() {
   ensurePublicCalendarNav();
 
   const { regularSlots, extendedSlots } = buildSlots();
+  const isPending = isPublicCalendarPendingInitialLoad();
+  const placeholderCellStyle = 'background:linear-gradient(135deg,#eef2f7 0%,#e2e8f0 100%);color:#94a3b8;border:1px solid rgba(148,163,184,.28);border-radius:12px;font-weight:800;opacity:.88;cursor:default;pointer-events:none;';
 
   let html = '';
   html += '<div class="time-label sticky-corner">時間</div>';
@@ -192,6 +192,10 @@ function renderCalendar() {
   for (const slot of regularSlots){
     html += `<div class="time-label sticky-left">${slot.display}</div>`;
     for (let idx=0; idx<dates.length; idx++){
+      if (isPending){
+        html += `<div class="p-3 text-center text-lg font-bold rounded-lg transition" aria-hidden="true" style="${placeholderCellStyle}">…</div>`;
+        continue;
+      }
       const date = dates[idx];
       const blocked = isSlotBlockedWithMinute(date, slot.hour, slot.minute);
       const slotClass = blocked ? 'slot-unavailable' : 'slot-available';
@@ -220,6 +224,10 @@ function renderCalendar() {
     for (const slot of extendedSlots){
       html += `<div class="time-label sticky-left" style="background:linear-gradient(135deg,#cffafe 0%,#a5f3fc 100%);border:2px solid #06b6d4;color:#0e7490;font-weight:600;">${slot.display}</div>`;
       for (let idx=0; idx<dates.length; idx++){
+        if (isPending){
+          html += `<div class="p-3 text-center text-lg font-bold rounded-lg transition" aria-hidden="true" style="${placeholderCellStyle}">…</div>`;
+          continue;
+        }
         const date = dates[idx];
         const blocked = isSlotBlockedWithMinute(date, slot.hour, slot.minute);
         const slotClass = blocked ? 'slot-unavailable' : 'slot-alternate';
@@ -236,9 +244,10 @@ function renderCalendar() {
   }
 
   grid.innerHTML = html;
-  scheduleCalendarGridColumns(grid, dates.length);
-}
 
+  applyCalendarGridColumns(grid, dates.length);
+  requestAnimationFrame(()=> applyCalendarGridColumns(grid, dates.length));
+}
 
 function bindGridDelegation(){
   if (globalThis.hasBoundGridDelegation) return;

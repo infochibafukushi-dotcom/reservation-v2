@@ -357,7 +357,23 @@ function hydratePublicCacheForFastPaint(){
   const bootLoaded = _loadBootstrapCache_() || _loadBootstrapLiteCache_();
   const range = getPublicCalendarRange();
   const blockedLoaded = _loadBlockedKeysCache_(range);
+  try{
+    window.__publicFastPaintState = {
+      range: range,
+      bootLoaded: !!bootLoaded,
+      blockedLoaded: !!blockedLoaded
+    };
+  }catch(_){ }
   return bootLoaded || blockedLoaded;
+}
+
+function hasPublicBlockedCacheForCurrentRange(){
+  try{
+    const range = getPublicCalendarRange();
+    return _loadBlockedKeysCache_(range);
+  }catch(_){
+    return false;
+  }
 }
 
 const TRIGGER_URL = 'https://script.google.com/macros/s/AKfycbxzM8EPlE-1hwHx6qwh4Q1jXgYa0nyc3_WtK0NYbYbcm5JExMJOi1zzjQocUhsoCuUQ/exec?secret=secret1';

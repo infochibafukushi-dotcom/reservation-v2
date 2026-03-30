@@ -552,7 +552,7 @@ async function updateLogoPreview(){
   if (titleEl) titleEl.textContent = logoText;
   if (subEl) subEl.textContent = logoSubText;
 
-  let finalSrc = config.logo_image_url || 'https://raw.githubusercontent.com/infochibafukushi-dotcom/reservation-v2/main/assets/assets/assets/logo/logo.webp';
+  let finalSrc = config.logo_image_url || 'https://raw.githubusercontent.com/infochibafukushi-dotcom/chiba-care-taxi-assets/main/logo.png';
 
   const useDrive = String(config.logo_use_drive_image || '0') === '1';
   const driveFileId = String(config.logo_drive_file_id || '').trim();
@@ -567,18 +567,27 @@ async function updateLogoPreview(){
   }
 
   if (mainImg) {
-    mainImg.src = finalSrc || 'https://raw.githubusercontent.com/infochibafukushi-dotcom/reservation-v2/main/assets/assets/assets/logo/logo.webp';
+    mainImg.src = finalSrc || 'https://raw.githubusercontent.com/infochibafukushi-dotcom/chiba-care-taxi-assets/main/logo.png';
     mainImg.onerror = function(){
       mainImg.onerror = null;
-      mainImg.src = 'https://raw.githubusercontent.com/infochibafukushi-dotcom/reservation-v2/main/assets/assets/assets/logo/logo.webp';
+      mainImg.src = 'https://raw.githubusercontent.com/infochibafukushi-dotcom/chiba-care-taxi-assets/main/logo.png';
     };
   }
 }
 
 async function init(){
   try{
+    let blockedCacheReady = false;
+
     try{
       hydratePublicCacheForFastPaint();
+      blockedCacheReady = !!(window.__publicFastPaintState && window.__publicFastPaintState.blockedLoaded);
+    }catch(_){ }
+
+    try{
+      if (typeof setPublicCalendarPendingInitialLoad === 'function') {
+        setPublicCalendarPendingInitialLoad(!blockedCacheReady);
+      }
     }catch(_){ }
 
     bindGridDelegation();
@@ -586,6 +595,11 @@ async function init(){
 
     await withLoading(async ()=>{
       await refreshAllData(true);
+      try{
+        if (typeof setPublicCalendarPendingInitialLoad === 'function') {
+          setPublicCalendarPendingInitialLoad(false);
+        }
+      }catch(_){ }
       renderCalendar();
     }, '読み込み中...');
 
@@ -593,7 +607,7 @@ async function init(){
       const warm = function(){
         try{
           ensureFullPublicBootstrapLoaded(false).catch(function(){});
-        }catch(_){}
+        }catch(_){ }
       };
       if (typeof requestIdleCallback === 'function'){
         requestIdleCallback(warm, { timeout: 1800 });
@@ -602,9 +616,14 @@ async function init(){
       }
     }catch(_){ }
   }catch(e){
-    try{ showLoading(false); }catch(_){}
+    try{ showLoading(false); }catch(_){ }
+    try{
+      if (typeof setPublicCalendarPendingInitialLoad === 'function') {
+        setPublicCalendarPendingInitialLoad(false);
+      }
+    }catch(_){ }
     toast('初期化エラー: ' + (e?.message || e));
-    try{ renderCalendar(); }catch(_){}
+    try{ renderCalendar(); }catch(_){ }
   }
 }
 
