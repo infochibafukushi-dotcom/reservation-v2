@@ -6,21 +6,14 @@
   <title>介護タクシー予約</title>
 
   <meta http-equiv="x-dns-prefetch-control" content="on" />
-  <link rel="dns-prefetch" href="//cdn.tailwindcss.com" />
-  <link rel="dns-prefetch" href="//fonts.googleapis.com" />
-  <link rel="dns-prefetch" href="//fonts.gstatic.com" />
-  <link rel="preconnect" href="https://cdn.tailwindcss.com" crossorigin>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" onload="this.onload=null;this.rel='stylesheet'">
-  <noscript><link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet"></noscript>
-  <link rel="preload" as="image" href="https://raw.githubusercontent.com/infochibafukushi-dotcom/chiba-care-taxi-assets/main/logo.png" fetchpriority="high">
+  <link rel="preload" as="style" href="tailwind-lite.css">
+  <link rel="stylesheet" href="tailwind-lite.css">
+  <link rel="preload" as="image" href="https://raw.githubusercontent.com/infochibafukushi-dotcom/reservation-v2/main/assets/assets/assets/logo/logo.webp" fetchpriority="high">
 
   <style>
     * { box-sizing: border-box; }
     html, body { height: 100%; margin: 0; }
-    body { font-family: 'Noto Sans JP','Quicksand',sans-serif; background: linear-gradient(135deg,#e8f5f9 0%,#f3e5f5 100%); }
+    body { font-family: system-ui,-apple-system,'Segoe UI',Roboto,'Hiragino Kaku Gothic ProN','Hiragino Sans','Yu Gothic UI','Yu Gothic',Meiryo,sans-serif; background: linear-gradient(135deg,#e8f5f9 0%,#f3e5f5 100%); }
 
     .cute-btn{
       border-radius:20px;
@@ -230,7 +223,7 @@
       border:2px solid #e5e7eb!important;
       padding:12px 16px!important;
       transition:all .3s;
-      font-family:'Noto Sans JP',sans-serif
+      font-family:system-ui,-apple-system,'Segoe UI',Roboto,'Hiragino Kaku Gothic ProN','Hiragino Sans','Yu Gothic UI','Yu Gothic',Meiryo,sans-serif
     }
 
     input:focus,select:focus,textarea:focus{
@@ -261,65 +254,11 @@
     .modal-content{
       background:#fff;
       border-radius:25px;
-      width:min(100%, calc(100vw - 24px));
       max-width:95%;
       max-height:90%;
       overflow-y:auto;
       box-shadow:0 25px 50px -12px rgba(0,0,0,.25);
       animation:slideUp .4s cubic-bezier(.34,1.56,.64,1)
-    }
-
-    @media (min-width: 641px){
-      #calendarView{
-        padding:0 14px 12px !important;
-      }
-
-      #calendarHeader{
-        margin-bottom:14px !important;
-        padding-top:14px !important;
-      }
-
-      #calendarView .card-soft.card-zero{
-        max-width:1380px;
-        margin:0 auto;
-      }
-
-      #calendarView .calendar-scroll{
-        max-height:calc(100vh - 248px);
-      }
-
-      #bookingModal .modal-content{
-        width:min(980px, calc(100vw - 72px));
-        max-width:min(980px, calc(100vw - 72px));
-        max-height:calc(100vh - 44px);
-        border-radius:22px;
-      }
-
-      #bookingModal .gradient-header{
-        padding:16px 22px;
-        margin-bottom:12px;
-        border-radius:22px 22px 0 0;
-      }
-
-      #bookingModal #formModalTitle{
-        font-size:28px;
-        line-height:1.2;
-      }
-
-      #bookingModal #selectedSlotInfo{
-        font-size:14px;
-        line-height:1.35;
-      }
-
-      #bookingModal #closeBooking{
-        width:38px;
-        height:38px;
-        font-size:28px;
-      }
-
-      #bookingModal #bookingForm{
-        padding:20px;
-      }
     }
 
     @keyframes slideUp{
@@ -484,7 +423,7 @@
             <img
               id="adminLoginImg"
               alt="管理画面"
-              src="https://raw.githubusercontent.com/infochibafukushi-dotcom/chiba-care-taxi-assets/main/logo.png"
+              src="https://raw.githubusercontent.com/infochibafukushi-dotcom/reservation-v2/main/assets/assets/assets/logo/logo.webp"
               decoding="async"
               fetchpriority="high"
             >

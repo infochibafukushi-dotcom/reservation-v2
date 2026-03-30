@@ -1,5 +1,3 @@
-const DEFAULT_LOGO_URL = 'https://raw.githubusercontent.com/infochibafukushi-dotcom/chiba-care-taxi-assets/main/logo/logo.webp';
-
 function buildSelectOptions(selectEl, items, includePlaceholder, placeholderText, formatter){
   if (!selectEl) return;
   let html = '';
@@ -554,7 +552,7 @@ async function updateLogoPreview(){
   if (titleEl) titleEl.textContent = logoText;
   if (subEl) subEl.textContent = logoSubText;
 
-  let finalSrc = config.logo_image_url || DEFAULT_LOGO_URL;
+  let finalSrc = config.logo_image_url || 'https://raw.githubusercontent.com/infochibafukushi-dotcom/reservation-v2/main/assets/assets/assets/logo/logo.webp';
 
   const useDrive = String(config.logo_use_drive_image || '0') === '1';
   const driveFileId = String(config.logo_drive_file_id || '').trim();
@@ -569,26 +567,33 @@ async function updateLogoPreview(){
   }
 
   if (mainImg) {
-    mainImg.src = finalSrc || DEFAULT_LOGO_URL;
+    mainImg.src = finalSrc || 'https://raw.githubusercontent.com/infochibafukushi-dotcom/reservation-v2/main/assets/assets/assets/logo/logo.webp';
     mainImg.onerror = function(){
       mainImg.onerror = null;
-      mainImg.src = DEFAULT_LOGO_URL;
+      mainImg.src = 'https://raw.githubusercontent.com/infochibafukushi-dotcom/reservation-v2/main/assets/assets/assets/logo/logo.webp';
     };
   }
 }
 
-function queueInitialRefresh(){
-  const run = async ()=>{
+async function init(){
+  try{
     try{
-      await refreshAllData(false);
-      renderCalendar();
+      hydratePublicCacheForFastPaint();
     }catch(_){ }
+
+    bindGridDelegation();
+    renderCalendar();
+
+    await withLoading(async ()=>{
+      await refreshAllData(true);
+      renderCalendar();
+    }, '読み込み中...');
 
     try{
       const warm = function(){
         try{
           ensureFullPublicBootstrapLoaded(false).catch(function(){});
-        }catch(_){ }
+        }catch(_){}
       };
       if (typeof requestIdleCallback === 'function'){
         requestIdleCallback(warm, { timeout: 1800 });
@@ -596,33 +601,10 @@ function queueInitialRefresh(){
         setTimeout(warm, 1200);
       }
     }catch(_){ }
-  };
-
-  const schedule = ()=>{
-    if (typeof requestIdleCallback === 'function'){
-      requestIdleCallback(function(){ setTimeout(run, 0); }, { timeout: 1200 });
-    } else {
-      setTimeout(run, 180);
-    }
-  };
-
-  if (document.readyState === 'complete'){
-    schedule();
-  } else {
-    window.addEventListener('load', schedule, { once: true });
-  }
-}
-
-function init(){
-  try{
-    try{ hydratePublicCacheForFastPaint(); }catch(_){ }
-    bindGridDelegation();
-    renderCalendar();
-    queueInitialRefresh();
   }catch(e){
-    try{ showLoading(false); }catch(_){ }
+    try{ showLoading(false); }catch(_){}
     toast('初期化エラー: ' + (e?.message || e));
-    try{ renderCalendar(); }catch(_){ }
+    try{ renderCalendar(); }catch(_){}
   }
 }
 
