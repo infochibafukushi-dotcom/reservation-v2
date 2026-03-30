@@ -384,6 +384,51 @@ function collectSameDayPayload(){
   };
 }
 
+async function resizeLogoFileToWebp(file, size = 128, quality = 0.78){
+  if (!file) throw new Error('ファイルを選択してください');
+
+  const objectUrl = URL.createObjectURL(file);
+  try{
+    const img = await new Promise((resolve, reject)=>{
+      const image = new Image();
+      image.onload = ()=> resolve(image);
+      image.onerror = ()=> reject(new Error('画像読込に失敗しました'));
+      image.src = objectUrl;
+    });
+
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+
+    const ctx = canvas.getContext('2d', { alpha: true });
+    if (!ctx) throw new Error('画像処理に失敗しました');
+
+    ctx.clearRect(0, 0, size, size);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+
+    const sw = Number(img.naturalWidth || img.width || 0);
+    const sh = Number(img.naturalHeight || img.height || 0);
+    if (!sw || !sh) throw new Error('画像サイズを取得できません');
+
+    const scale = Math.min(size / sw, size / sh);
+    const dw = Math.max(1, Math.round(sw * scale));
+    const dh = Math.max(1, Math.round(sh * scale));
+    const dx = Math.round((size - dw) / 2);
+    const dy = Math.round((size - dh) / 2);
+
+    ctx.drawImage(img, dx, dy, dw, dh);
+
+    const dataUrl = canvas.toDataURL('image/webp', quality);
+    if (!String(dataUrl || '').startsWith('data:image/webp')){
+      throw new Error('WebP変換に失敗しました');
+    }
+    return dataUrl;
+  } finally {
+    try{ URL.revokeObjectURL(objectUrl); }catch(_){ }
+  }
+}
+
 async function uploadLogoFile(){
   const fileInput = document.getElementById('logoFileInput');
   const file = fileInput.files && fileInput.files[0];
@@ -395,16 +440,14 @@ async function uploadLogoFile(){
     return;
   }
 
-  const base64Data = await new Promise((resolve, reject)=>{
-    const reader = new FileReader();
-    reader.onload = ()=> resolve(String(reader.result || ''));
-    reader.onerror = ()=> reject(new Error('画像読込に失敗しました'));
-    reader.readAsDataURL(file);
-  });
+  status.className = 'small-status';
+  status.textContent = '128×128 WebPに最適化中...';
+
+  const base64Data = await resizeLogoFileToWebp(file, 128, 0.78);
 
   const payload = {
-    file_name: file.name,
-    mime_type: file.type || 'image/png',
+    file_name: 'logo.webp',
+    mime_type: 'image/webp',
     base64_data: base64Data
   };
 
@@ -413,11 +456,19 @@ async function uploadLogoFile(){
   }, 'ロゴ画像アップロード中...');
 
   status.className = 'small-status ok';
-  status.textContent = 'アップロード完了';
+  status.textContent = 'アップロード完了（128×128 WebP）';
 
   if (res && res.data && res.data.raw_url){
-    document.getElementById('cfgLogoImageUrl').value = res.data.raw_url;
-    document.getElementById('adminLogoPreview').src = res.data.raw_url;
+    const rawUrl = String(res.data.raw_url || '');
+    const path = String(res.data.path || 'logo/logo.webp');
+    document.getElementById('cfgLogoImageUrl').value = rawUrl;
+    document.getElementById('cfgLogoGithubPath').value = path;
+    document.getElementById('adminLogoPreview').src = rawUrl;
+    try{
+      adminConfig.logo_image_url = rawUrl;
+      adminConfig.logo_github_path = path;
+      adminConfig.logo_use_github_image = '1';
+    }catch(_){ }
   }
 }
 
