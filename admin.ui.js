@@ -1,27 +1,6 @@
 // NOTE: このファイルは現在 admin.html から読み込んでいません。
 // 管理ロジック本体は admin.app.js / admin.menu.js / admin.calendar.js / admin.api.js に集約されています。
 
-const ADMIN_LOCAL_DEFAULT_LOGO_SRC = './logo/logo.webp';
-
-function isLegacyDefaultLogoUrl(url){
-  const value = String(url || '').trim();
-  if (!value) return false;
-  return value === 'https://raw.githubusercontent.com/infochibafukushi-dotcom/chiba-care-taxi-assets/main/logo.png'
-    || /https:\/\/raw\.githubusercontent\.com\/infochibafukushi-dotcom\/reservation-v2\/[^/]+\/logo\/logo\.png(?:[?#].*)?$/.test(value);
-}
-
-function normalizeLogoGithubPath(path){
-  const value = String(path || '').trim();
-  if (!value || value === 'logo/logo.png') return 'logo/logo.webp';
-  return value;
-}
-
-function getResolvedAdminLogoSrc(sourceConfig){
-  const candidate = String(sourceConfig && sourceConfig.logo_image_url || '').trim();
-  if (!candidate || isLegacyDefaultLogoUrl(candidate)) return ADMIN_LOCAL_DEFAULT_LOGO_SRC;
-  return candidate;
-}
-
 function ensureAdminAuth(){
   const auth = sessionStorage.getItem('chiba_care_taxi_admin_auth');
   if (auth === 'ok'){
@@ -37,13 +16,13 @@ function ensureAdminAuth(){
 function applyAdminConfigToUI(){
   document.getElementById('cfgLogoText').value = adminConfig.logo_text || '';
   document.getElementById('cfgLogoSubtext').value = adminConfig.logo_subtext || '';
-  document.getElementById('cfgLogoImageUrl').value = isLegacyDefaultLogoUrl(adminConfig.logo_image_url) ? '' : (adminConfig.logo_image_url || '');
+  document.getElementById('cfgLogoImageUrl').value = adminConfig.logo_image_url || '';
   document.getElementById('cfgLogoUseGithubImage').value = String(adminConfig.logo_use_github_image || '1');
   document.getElementById('cfgGithubUsername').value = adminConfig.github_username || '';
   document.getElementById('cfgGithubRepo').value = adminConfig.github_repo || '';
   document.getElementById('cfgGithubBranch').value = adminConfig.github_branch || 'main';
   document.getElementById('cfgGithubAssetsBasePath').value = adminConfig.github_assets_base_path || '';
-  document.getElementById('cfgLogoGithubPath').value = normalizeLogoGithubPath(adminConfig.logo_github_path || '');
+  document.getElementById('cfgLogoGithubPath').value = adminConfig.logo_github_path || 'logo/logo.png';
   document.getElementById('cfgGithubToken').value = adminConfig.github_token && adminConfig.github_token !== '***' ? adminConfig.github_token : '';
   document.getElementById('cfgPhoneNotifyText').value = adminConfig.phone_notify_text || '';
   document.getElementById('cfgSameDayEnabled').value = String(adminConfig.same_day_enabled || '0');
@@ -61,11 +40,11 @@ function updateAdminLogoPreview(){
   text.textContent = adminConfig.logo_text || '介護タクシー予約';
   sub.textContent = adminConfig.logo_subtext || '丁寧・安全な送迎をご提供します';
 
-  let finalSrc = getResolvedAdminLogoSrc(adminConfig);
+  let finalSrc = adminConfig.logo_image_url || 'https://raw.githubusercontent.com/infochibafukushi-dotcom/chiba-care-taxi-assets/main/logo.png';
   img.src = finalSrc;
   img.onerror = function(){
     img.onerror = null;
-    img.src = ADMIN_LOCAL_DEFAULT_LOGO_SRC;
+    img.src = 'https://raw.githubusercontent.com/infochibafukushi-dotcom/chiba-care-taxi-assets/main/logo.png';
   };
 }
 
@@ -405,7 +384,7 @@ async function saveLogoAndGithubConfig(){
     github_repo: document.getElementById('cfgGithubRepo').value.trim(),
     github_branch: document.getElementById('cfgGithubBranch').value.trim() || 'main',
     github_assets_base_path: document.getElementById('cfgGithubAssetsBasePath').value.trim(),
-    logo_github_path: normalizeLogoGithubPath(document.getElementById('cfgLogoGithubPath').value.trim()),
+    logo_github_path: document.getElementById('cfgLogoGithubPath').value.trim(),
     github_token: document.getElementById('cfgGithubToken').value.trim() || adminConfig.github_token || '',
     phone_notify_text: document.getElementById('cfgPhoneNotifyText').value.trim()
   };
@@ -447,7 +426,7 @@ async function uploadLogoImage(){
     github_repo: document.getElementById('cfgGithubRepo').value.trim(),
     github_branch: document.getElementById('cfgGithubBranch').value.trim() || 'main',
     github_assets_base_path: document.getElementById('cfgGithubAssetsBasePath').value.trim(),
-    logo_github_path: normalizeLogoGithubPath(document.getElementById('cfgLogoGithubPath').value.trim()) || `logo/${file.name}`,
+    logo_github_path: document.getElementById('cfgLogoGithubPath').value.trim() || `logo/${file.name}`,
     github_token: githubToken,
     logo_use_github_image: document.getElementById('cfgLogoUseGithubImage').value
   };

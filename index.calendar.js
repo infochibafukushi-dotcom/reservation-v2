@@ -1,31 +1,4 @@
 if (typeof globalThis.hasBoundGridDelegation === 'undefined') globalThis.hasBoundGridDelegation = false;
-let __publicCalendarDeferredTimer = null;
-
-function renderCalendarSkeleton(message){
-  const grid = document.getElementById('calendarGrid');
-  const dateRangeEl = document.getElementById('dateRange');
-  if (!grid || !dateRangeEl) return;
-
-  const dates = getDatesRange();
-  if (dates && dates.length){
-    dateRangeEl.textContent = `${formatDate(dates[0])} ～ ${formatDate(dates[dates.length-1])}`;
-  } else {
-    dateRangeEl.textContent = '';
-  }
-
-  grid.style.gridTemplateColumns = '1fr';
-  grid.innerHTML = `
-    <div style="min-width:100%;width:100%;min-height:420px;display:flex;align-items:center;justify-content:center;border-radius:16px;background:linear-gradient(135deg,#f8fafc 0%,#eef2ff 100%);color:#64748b;font-weight:700;letter-spacing:.02em;">${String(message || '空き枠を読み込み中...')}</div>
-  `;
-}
-
-function renderCalendarDeferred(delay){
-  const wait = Math.max(0, Number(delay || 120));
-  clearTimeout(__publicCalendarDeferredTimer);
-  __publicCalendarDeferredTimer = setTimeout(()=>{
-    try{ renderCalendar(); }catch(_){ }
-  }, wait);
-}
 let publicCalendarPage = 0;
 let hasBoundPublicCalendarNav = false;
 

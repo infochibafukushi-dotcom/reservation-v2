@@ -51,7 +51,7 @@ const DEFAULT_CONFIG = {
   logo_use_drive_image: '0',
   logo_drive_folder_id: '',
   logo_use_github_image: '1',
-  logo_github_path: 'logo/logo.webp',
+  logo_github_path: 'logo/logo.png',
 
   // ===== GitHub接続設定 =====
   github_username: '',
@@ -810,9 +810,9 @@ function api_getDriveImageDataUrl(fileId) {
  * ロゴ画像アップロード
  * DriveではなくGitHub保存を優先
  * payload = {
- *   file_name: 'logo.webp',
- *   mime_type: 'image/webp',
- *   base64_data: 'data:image/webp;base64,....'
+ *   file_name: 'logo.png',
+ *   mime_type: 'image/png',
+ *   base64_data: 'data:image/png;base64,....'
  * }
  */
 function api_uploadLogoImage(payload) {
