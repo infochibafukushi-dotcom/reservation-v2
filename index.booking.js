@@ -388,6 +388,39 @@ async function waitAndRefresh_(waitMs){
   await refreshAllData(true);
 }
 
+async function waitUntilSelectedSlotBlocked_(retryCount = 4){
+  if (!selectedSlot || typeof refreshAllData !== 'function') return;
+
+  const waits = [600, 1000, 1500, 2200, 3000];
+  for (let i = 0; i <= retryCount; i++){
+    try{
+      if (typeof isSlotBlockedWithMinute === 'function' &&
+          isSlotBlockedWithMinute(selectedSlot.date, selectedSlot.hour, selectedSlot.minute)) {
+        try{ renderCalendar(); }catch(_){}
+        return;
+      }
+    }catch(_){}
+
+    try{
+      await refreshAllData(false);
+    }catch(_){}
+
+    try{
+      if (typeof isSlotBlockedWithMinute === 'function' &&
+          isSlotBlockedWithMinute(selectedSlot.date, selectedSlot.hour, selectedSlot.minute)) {
+        try{ renderCalendar(); }catch(_){}
+        return;
+      }
+    }catch(_){}
+
+    if (i < retryCount){
+      await sleep(waits[Math.min(i, waits.length - 1)]);
+    }
+  }
+
+  try{ renderCalendar(); }catch(_){}
+}
+
 async function submitBooking(e){
   e.preventDefault();
 
@@ -446,7 +479,7 @@ async function submitBooking(e){
 
     try{
       await waitAndRefresh_(800);
-      renderCalendar();
+      await waitUntilSelectedSlotBlocked_(4);
     }catch(_){}
 
     submitBtn.disabled = false;
@@ -552,7 +585,7 @@ async function updateLogoPreview(){
   if (titleEl) titleEl.textContent = logoText;
   if (subEl) subEl.textContent = logoSubText;
 
-  let finalSrc = config.logo_image_url || 'https://raw.githubusercontent.com/infochibafukushi-dotcom/reservation-v2/main/assets/assets/assets/logo/logo.webp';
+  let finalSrc = config.logo_image_url || 'https://raw.githubusercontent.com/infochibafukushi-dotcom/chiba-care-taxi-assets/main/logo.png';
 
   const useDrive = String(config.logo_use_drive_image || '0') === '1';
   const driveFileId = String(config.logo_drive_file_id || '').trim();
@@ -567,10 +600,10 @@ async function updateLogoPreview(){
   }
 
   if (mainImg) {
-    mainImg.src = finalSrc || 'https://raw.githubusercontent.com/infochibafukushi-dotcom/reservation-v2/main/assets/assets/assets/logo/logo.webp';
+    mainImg.src = finalSrc || 'https://raw.githubusercontent.com/infochibafukushi-dotcom/chiba-care-taxi-assets/main/logo.png';
     mainImg.onerror = function(){
       mainImg.onerror = null;
-      mainImg.src = 'https://raw.githubusercontent.com/infochibafukushi-dotcom/reservation-v2/main/assets/assets/assets/logo/logo.webp';
+      mainImg.src = 'https://raw.githubusercontent.com/infochibafukushi-dotcom/chiba-care-taxi-assets/main/logo.png';
     };
   }
 }
