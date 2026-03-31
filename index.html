@@ -272,6 +272,55 @@
       }
     }
 
+
+    @media (min-width: 1024px){
+      #bookingModal{
+        padding:24px;
+      }
+      #bookingModal .modal-content{
+        width:min(920px, calc(100vw - 48px)) !important;
+        max-width:min(920px, calc(100vw - 48px)) !important;
+        max-height:calc(100vh - 48px) !important;
+        border-radius:22px;
+      }
+      #bookingModal .gradient-header{
+        padding:16px 20px;
+        border-radius:22px 22px 0 0;
+        margin-bottom:12px;
+        box-shadow:0 8px 20px rgba(16,185,129,.16);
+      }
+      #bookingModal #formModalTitle{
+        font-size:1.5rem;
+        line-height:1.2;
+      }
+      #bookingModal #closeBooking{
+        width:36px;
+        height:36px;
+        font-size:1.75rem;
+      }
+      #bookingModal #selectedSlotInfo{
+        font-size:.875rem;
+      }
+      #bookingModal form{
+        padding:20px;
+      }
+
+      #calendarView .card-soft.card-zero{
+        max-width:1480px;
+        margin-left:auto;
+        margin-right:auto;
+      }
+      #calendarView .scroll-container.card-zero-inner.calendar-scroll{
+        display:flex;
+        justify-content:center;
+      }
+      #calendarView .calendar-grid{
+        width:max-content !important;
+        margin-left:auto;
+        margin-right:auto;
+      }
+    }
+
     .form-group{
       margin-bottom:0
     }
