@@ -13,13 +13,12 @@ function getPublicStartOffset(){
 function applyCalendarGridColumns(gridEl, daysCount){
   const isMobile = window.matchMedia('(max-width: 640px)').matches;
   const timeCol = isMobile ? 44 : 60;
+  const normalizedDays = Math.max(1, Number(daysCount || 1));
 
   if (!isMobile){
-    const normalizedDays = Math.max(1, Number(daysCount || 1));
-    const dayW = normalizedDays <= 5 ? 118 : 112;
-    gridEl.style.gridTemplateColumns = `${timeCol}px repeat(${normalizedDays}, ${dayW}px)`;
+    gridEl.style.gridTemplateColumns = `${timeCol}px repeat(${normalizedDays}, minmax(112px, 1fr))`;
   } else {
-    gridEl.style.gridTemplateColumns = `${timeCol}px repeat(${daysCount}, minmax(62px, 1fr))`;
+    gridEl.style.gridTemplateColumns = `${timeCol}px repeat(${normalizedDays}, minmax(62px, 1fr))`;
   }
 }
 
@@ -169,17 +168,12 @@ function renderCalendar() {
 
   const { regularSlots, extendedSlots } = buildSlots();
 
-  const visibleSlotRows = regularSlots.length + (isExtendedView ? (1 + 1 + extendedSlots.length) : 0);
-  const estimatedRows = 1 + visibleSlotRows;
-  const rowHeight = 56;
-  grid.style.minHeight = `${estimatedRows * rowHeight}px`;
-
   let html = '';
   html += '<div class="time-label sticky-corner">時間</div>';
 
   dates.forEach((date, idx)=>{
     const isWeekend = (date.getDay() === 0 || date.getDay() === 6);
-    html += `<div class="date-header sticky-top ${isWeekend ? 'weekend' : ''}" data-date-idx="${idx}" data-date-ymd="${ymdLocal(date)}">${formatDate(date)}</div>`;
+    html += `<div class="date-header sticky-top ${isWeekend ? 'weekend' : ''}" data-date-idx="${idx}">${formatDate(date)}</div>`;
   });
 
   for (const slot of regularSlots){
@@ -192,9 +186,6 @@ function renderCalendar() {
       html += `<div class="${slotClass} p-3 text-center text-lg font-bold rounded-lg cursor-pointer transition"
                 data-action="slot"
                 data-date-idx="${idx}"
-                data-date-ymd="${ymdLocal(date)}"
-                data-slot-kind="regular"
-                data-slot-key="${ymdLocal(date)}_${String(slot.hour).padStart(2,'0')}_${String(slot.minute).padStart(2,'0')}"
                 data-hour="${slot.hour}"
                 data-minute="${slot.minute}">
                 ${blocked ? 'X' : '◎'}
@@ -210,7 +201,7 @@ function renderCalendar() {
       const isWeekend = (date.getDay() === 0 || date.getDay() === 6);
       html += `<div class="date-header ${isWeekend ? 'weekend' : ''}"
                 style="background:linear-gradient(135deg,#cffafe 0%,#a5f3fc 100%);border-color:#06b6d4;color:#0e7490;"
-                data-date-idx="${idx}" data-date-ymd="${ymdLocal(date)}">${formatDate(date)}</div>`;
+                data-date-idx="${idx}">${formatDate(date)}</div>`;
     });
 
     for (const slot of extendedSlots){
