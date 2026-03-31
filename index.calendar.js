@@ -13,16 +13,17 @@ function getPublicStartOffset(){
 function applyCalendarGridColumns(gridEl, daysCount){
   const isMobile = window.matchMedia('(max-width: 640px)').matches;
   const timeCol = isMobile ? 44 : 60;
-  const sc = gridEl?.closest?.('.scroll-container') || gridEl?.parentElement;
-  const baseW = (sc && sc.clientWidth) ? sc.clientWidth : window.innerWidth;
+  const baseW = window.innerWidth || document.documentElement.clientWidth || 390;
 
   if (!isMobile){
-    const dayW = Math.max(110, Math.floor((baseW - timeCol) / Math.max(1, daysCount)));
+    const containerW = Math.max(780, Math.min(1200, baseW - 64));
+    const dayW = Math.max(110, Math.floor((containerW - timeCol) / Math.max(1, daysCount)));
     gridEl.style.gridTemplateColumns = `${timeCol}px repeat(${daysCount}, ${dayW}px)`;
   } else {
     gridEl.style.gridTemplateColumns = `${timeCol}px repeat(${daysCount}, minmax(62px, 1fr))`;
   }
 }
+
 
 function updateRenderedSlotCellState(cellEl, blocked){
   if (!cellEl) return;
@@ -285,7 +286,6 @@ function renderCalendar() {
 
   grid.innerHTML = html;
 
-  applyCalendarGridColumns(grid, dates.length);
   requestAnimationFrame(()=> applyCalendarGridColumns(grid, dates.length));
 }
 

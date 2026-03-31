@@ -482,10 +482,6 @@ let autoRuleCatalog = [];
 let calendarDates = [];
 let hasBoundGridDelegation = false;
 
-let publicInitLitePrefetchPromise = null;
-let publicInitLitePrefetchRangeKey = '';
-let publicInitLitePrefetchData = null;
-
 const defaultConfig = {
   main_title: '介護タクシー予約',
   logo_text: '介護タクシー予約',
@@ -765,18 +761,23 @@ function isSlotBlockedWithMinute(dateObj, hour, minute) {
 
 
 
-function _publicInitRangeKey_(range){
-  const start = String(range && range.start || '').trim();
-  const end = String(range && range.end || '').trim();
-  return `${start}__${end}`;
-}
-
 function _clonePublicInitLitePacket_(packet){
   try{
     return JSON.parse(JSON.stringify(packet || null));
   }catch(_){
     return packet ? { range: { ...(packet.range || {}) }, data: { ...(packet.data || {}) } } : null;
   }
+}
+
+let publicInitLitePrefetchPromise = null;
+let publicInitLitePrefetchRangeKey = '';
+let publicInitLitePrefetchData = null;
+
+function _publicInitRangeKey_(range){
+  const start = String(range && range.start || '').trim();
+  const end = String(range && range.end || '').trim();
+  if (!start || !end) return '';
+  return `${start}__${end}`;
 }
 
 function getPrefetchedPublicInitLiteForRange(range){
@@ -820,7 +821,6 @@ function prefetchPublicInitLiteForCurrentRange(force=false){
     }
   });
 }
-
 
 function getPublicCalendarRange(){
   try{
@@ -971,25 +971,19 @@ async function refreshData(showToastOnFail=false){
     }
 
     const range = getPublicCalendarRange();
-    const rangeKey = _publicInitRangeKey_(range);
-    const prefetched = getPrefetchedPublicInitLiteForRange(range);
-    if (prefetched && prefetched.data){
-      _applyPublicInitLiteResponse_(prefetched.data || {}, prefetched.range || range, { syncRenderedCalendar: true });
-      return;
-    }
+    const prefetched = typeof getPrefetchedPublicInitLiteForRange === 'function'
+      ? getPrefetchedPublicInitLiteForRange(range)
+      : null;
 
-    if (publicInitLitePrefetchPromise && publicInitLitePrefetchRangeKey === rangeKey){
-      const inflight = await publicInitLitePrefetchPromise;
-      if (inflight && inflight.data){
-        _applyPublicInitLiteResponse_(inflight.data || {}, inflight.range || range, { syncRenderedCalendar: true });
-        return;
-      }
+    if (prefetched && prefetched.data) {
+      _applyPublicInitLiteResponse_(prefetched.data || {}, prefetched.range || range);
+      return;
     }
 
     const initRes = await gsRun('api_getPublicInitLite', range);
     if (!initRes || !initRes.isOk) throw new Error('public init lite failed');
 
-    _applyPublicInitLiteResponse_(initRes.data || {}, range, { syncRenderedCalendar: true });
+    _applyPublicInitLiteResponse_(initRes.data || {}, range);
   }catch(e){
     const bootRecovered = _loadBootstrapCache_() || _loadBootstrapLiteCache_();
     const range = getPublicCalendarRange();
