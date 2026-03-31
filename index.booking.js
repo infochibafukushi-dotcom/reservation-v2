@@ -578,12 +578,6 @@ async function updateLogoPreview(){
 async function init(){
   try{
     try{
-      if (typeof prefetchPublicInitLiteForCurrentRange === 'function'){
-        prefetchPublicInitLiteForCurrentRange(false).catch(function(){});
-      }
-    }catch(_){ }
-
-    try{
       hydratePublicCacheForFastPaint();
     }catch(_){ }
 
@@ -592,6 +586,7 @@ async function init(){
 
     await withLoading(async ()=>{
       await refreshAllData(true);
+      renderCalendar();
     }, '読み込み中...');
 
     try{
