@@ -254,23 +254,38 @@ async function prewarmBookingFormForFirstClick(){
 }
 
 async function openBookingForm(date, hour, minute=0){
+  selectedSlot = { date, hour, minute };
+  const modalEl = document.getElementById('bookingModal');
+  const infoEl = document.getElementById('selectedSlotInfo');
+  const submitBtn = document.getElementById('submitBooking');
+  if (infoEl){
+    infoEl.textContent = `${formatDate(date)} ${String(hour).padStart(2,'0')}:${String(minute).padStart(2,'0')} から（フォーム読込中...）`;
+  }
+  if (submitBtn){
+    submitBtn.disabled = true;
+  }
+  if (modalEl){
+    modalEl.classList.remove('hidden');
+  }
+
   try{
     await ensureFullPublicBootstrapLoaded(true);
   }catch(_){
     toast('フォーム読込中です。少し待ってからもう一度お試しください');
+    if (modalEl) modalEl.classList.add('hidden');
     return;
   }
 
   const ready = await ensureBookingFormOptionsReady();
   if (!ready){
     toast('フォーム読込中です。少し待ってからもう一度お試しください');
+    if (modalEl) modalEl.classList.add('hidden');
     return;
   }
 
-  selectedSlot = { date, hour, minute };
-  document.getElementById('selectedSlotInfo').textContent =
-    `${formatDate(date)} ${String(hour).padStart(2,'0')}:${String(minute).padStart(2,'0')} から`;
-  document.getElementById('bookingModal').classList.remove('hidden');
+  if (infoEl){
+    infoEl.textContent = `${formatDate(date)} ${String(hour).padStart(2,'0')}:${String(minute).padStart(2,'0')} から`;
+  }
   resetBookingForm();
   calculatePrice();
 }
