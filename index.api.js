@@ -2,6 +2,7 @@ const ADMIN_ICON_FILE_ID = '1a0QB8ei00w_lSfL4PnF_xuEFUC2JP6FW';
 const GAS_URL = "https://script.google.com/macros/s/AKfycbyFKoCd64H2d5E8ExCrPRwG_g4shqlgHefgQYZrJ6HVOY5t5lwRVZ3UaXfYXIqNkCra/exec";
 const ADMIN_PAGE_URL = "admin.html";
 const PUBLIC_API_KEY = '';
+const ADMIN_API_KEY = '';
 const PUBLIC_TRIGGER_KEY = '';
 
 function _withPublicApiKey(url){
@@ -9,6 +10,14 @@ function _withPublicApiKey(url){
   if (!key) return String(url || '');
   const sep = String(url || '').includes('?') ? '&' : '?';
   return String(url || '') + sep + 'api_key=' + encodeURIComponent(key);
+}
+
+function _resolveApiKeyForAction(action){
+  const act = String(action || '').trim();
+  if (act === 'verifyAdminPassword' || act === 'changeAdminPassword'){
+    return String(ADMIN_API_KEY || '').trim();
+  }
+  return String(PUBLIC_API_KEY || '').trim();
 }
 
 function toast(msg='通信エラー', ms=2200){
@@ -52,6 +61,7 @@ function _appendCacheBust(url){
 }
 
 async function _fetchJsonGet(url, timeoutMs = 20000){
+  const securedUrl = _withPublicApiKey(String(url || ''));
   const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
   const timer = setTimeout(()=>{
     try{
@@ -60,7 +70,7 @@ async function _fetchJsonGet(url, timeoutMs = 20000){
   }, timeoutMs);
 
   try{
-    const res = await fetch(_appendCacheBust(url), {
+    const res = await fetch(_appendCacheBust(securedUrl), {
       method: 'GET',
       cache: 'no-store',
       redirect: 'follow',
@@ -124,7 +134,8 @@ function _jsonpCall(url, timeoutMs = 20000){
       reject(new Error('JSONP load error'));
     };
 
-    const baseUrl = _appendCacheBust(url);
+    const securedUrl = _withPublicApiKey(String(url || ''));
+    const baseUrl = _appendCacheBust(securedUrl);
     const sep = baseUrl.includes('?') ? '&' : '?';
     script.src = baseUrl + sep + 'callback=' + encodeURIComponent(cbName);
     script.async = true;
@@ -177,6 +188,11 @@ async function _getJsonWithRetry(url, retryCount = 2, timeoutMs = 25000){
 
 
 async function _postJson(action, payload){
+  const apiKey = _resolveApiKeyForAction(action);
+  const payloadObj = (payload && typeof payload === 'object') ? Object.assign({}, payload) : {};
+  if (!Object.prototype.hasOwnProperty.call(payloadObj, 'api_key')){
+    payloadObj.api_key = apiKey;
+  }
   const res = await fetch(GAS_URL, {
     method: 'POST',
     headers: {
@@ -184,8 +200,8 @@ async function _postJson(action, payload){
     },
     body: JSON.stringify({
       action: action,
-      api_key: String(PUBLIC_API_KEY || '').trim(),
-      payload: payload || {}
+      api_key: apiKey,
+      payload: payloadObj
     })
   });
 

@@ -50,6 +50,7 @@ function _appendCacheBust(url){
 }
 
 async function _fetchJsonGet(url, timeoutMs = 20000){
+  const securedUrl = _withAdminApiKey(String(url || ''));
   const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
   const timer = setTimeout(()=>{
     try{
@@ -58,7 +59,7 @@ async function _fetchJsonGet(url, timeoutMs = 20000){
   }, timeoutMs);
 
   try{
-    const res = await fetch(_appendCacheBust(url), {
+    const res = await fetch(_appendCacheBust(securedUrl), {
       method: 'GET',
       cache: 'no-store',
       redirect: 'follow',
@@ -120,7 +121,8 @@ function _jsonpCall(url, timeoutMs = 20000){
       reject(new Error('JSONP load error'));
     };
 
-    const baseUrl = _appendCacheBust(url);
+    const securedUrl = _withAdminApiKey(String(url || ''));
+    const baseUrl = _appendCacheBust(securedUrl);
     const sep = baseUrl.includes('?') ? '&' : '?';
     script.src = baseUrl + sep + 'callback=' + encodeURIComponent(cbName);
     script.async = true;
@@ -173,13 +175,17 @@ async function _getJsonWithRetry(url, retryCount = 2, timeoutMs = 25000){
 
 
 async function _postJson(action, payload){
+  const payloadObj = (payload && typeof payload === 'object') ? Object.assign({}, payload) : {};
+  if (!Object.prototype.hasOwnProperty.call(payloadObj, 'api_key')){
+    payloadObj.api_key = String(ADMIN_API_KEY || '').trim();
+  }
   const res = await fetch(GAS_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify({
       action: action,
       api_key: String(ADMIN_API_KEY || '').trim(),
-      payload: payload || {}
+      payload: payloadObj
     })
   });
 

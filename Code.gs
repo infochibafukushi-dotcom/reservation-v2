@@ -36,8 +36,8 @@ const DEFAULT_CONFIG = {
   extended_start_h: '21',
   extended_end_h: '5',
   phone_notify_text: '090-6331-4289',
-  gas_notify_url: 'https://script.google.com/macros/s/AKfycbxzM8EPlE-1hwHx6qwh4Q1jXgYa0nyc3_WtK0NYbYbcm5JExMJOi1zzjQocUhsoCuUQ/exec?secret=secret1',
-  gas_notify_secret: 'secret1',
+  gas_notify_url: 'https://script.google.com/macros/s/AKfycbxzM8EPlE-1hwHx6qwh4Q1jXgYa0nyc3_WtK0NYbYbcm5JExMJOi1zzjQocUhsoCuUQ/exec',
+  gas_notify_secret: '',
   sheet_reservations: '予約内容',
   sheet_blocks: 'ブロック',
   lock_minutes: '5',
@@ -250,7 +250,10 @@ function _requireApiKeyForAction_(action, e, body){
   const requestKey = _extractApiKeyFromRequest_(e, body);
   if (_isAdminAction_(act)){
     const adminKey = _scriptProp_(SECURITY_PROP_KEYS.ADMIN_API_KEY, '');
-    if (adminKey && requestKey !== adminKey){
+    if (!adminKey){
+      throw new Error('ADMIN_API_KEY が未設定です');
+    }
+    if (requestKey !== adminKey){
       throw new Error('管理APIキーが不正です');
     }
     return;
@@ -258,7 +261,10 @@ function _requireApiKeyForAction_(action, e, body){
 
   if (_isPublicAction_(act)){
     const publicKey = _scriptProp_(SECURITY_PROP_KEYS.PUBLIC_API_KEY, '');
-    if (publicKey && requestKey !== publicKey){
+    if (!publicKey){
+      throw new Error('PUBLIC_API_KEY が未設定です');
+    }
+    if (requestKey !== publicKey){
       throw new Error('公開APIキーが不正です');
     }
   }
