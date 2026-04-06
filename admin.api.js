@@ -1,5 +1,13 @@
 const GAS_URL = "https://script.google.com/macros/s/AKfycbyFKoCd64H2d5E8ExCrPRwG_g4shqlgHefgQYZrJ6HVOY5t5lwRVZ3UaXfYXIqNkCra/exec";
 const PUBLIC_PAGE_URL = "index.html";
+const ADMIN_API_KEY = '';
+
+function _withAdminApiKey(url){
+  const key = String(ADMIN_API_KEY || '').trim();
+  if (!key) return String(url || '');
+  const sep = String(url || '').includes('?') ? '&' : '?';
+  return String(url || '') + sep + 'api_key=' + encodeURIComponent(key);
+}
 
 function toast(msg='通信エラー', ms=2200){
   const el = document.getElementById('toast');
@@ -42,6 +50,7 @@ function _appendCacheBust(url){
 }
 
 async function _fetchJsonGet(url, timeoutMs = 20000){
+  const securedUrl = _withAdminApiKey(String(url || ''));
   const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
   const timer = setTimeout(()=>{
     try{
@@ -50,7 +59,7 @@ async function _fetchJsonGet(url, timeoutMs = 20000){
   }, timeoutMs);
 
   try{
-    const res = await fetch(_appendCacheBust(url), {
+    const res = await fetch(_appendCacheBust(securedUrl), {
       method: 'GET',
       cache: 'no-store',
       redirect: 'follow',
@@ -112,7 +121,8 @@ function _jsonpCall(url, timeoutMs = 20000){
       reject(new Error('JSONP load error'));
     };
 
-    const baseUrl = _appendCacheBust(url);
+    const securedUrl = _withAdminApiKey(String(url || ''));
+    const baseUrl = _appendCacheBust(securedUrl);
     const sep = baseUrl.includes('?') ? '&' : '?';
     script.src = baseUrl + sep + 'callback=' + encodeURIComponent(cbName);
     script.async = true;
@@ -165,12 +175,17 @@ async function _getJsonWithRetry(url, retryCount = 2, timeoutMs = 25000){
 
 
 async function _postJson(action, payload){
+  const payloadObj = (payload && typeof payload === 'object') ? Object.assign({}, payload) : {};
+  if (!Object.prototype.hasOwnProperty.call(payloadObj, 'api_key')){
+    payloadObj.api_key = String(ADMIN_API_KEY || '').trim();
+  }
   const res = await fetch(GAS_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify({
       action: action,
-      payload: payload || {}
+      api_key: String(ADMIN_API_KEY || '').trim(),
+      payload: payloadObj
     })
   });
 
@@ -190,29 +205,29 @@ const gsRun = async (func, ...args) => {
   let data = null;
 
   if (func === 'api_getConfig') {
-    data = await _getJsonWithRetry(`${GAS_URL}?action=getConfig`, 1, 20000);
+    data = await _getJsonWithRetry(_withAdminApiKey(`${GAS_URL}?action=getConfig`), 1, 20000);
   } else if (func === 'api_getInitData') {
-    data = await _getJsonWithRetry(`${GAS_URL}?action=getInitData`, 1, 25000);
+    data = await _getJsonWithRetry(_withAdminApiKey(`${GAS_URL}?action=getInitData`), 1, 25000);
   } else if (func === 'api_getAdminBootstrap') {
-    data = await _getJsonWithRetry(`${GAS_URL}?action=getAdminBootstrap`, 1, 25000);
+    data = await _getJsonWithRetry(_withAdminApiKey(`${GAS_URL}?action=getAdminBootstrap`), 1, 25000);
   } else if (func === 'api_getReservationsRange') {
     const range = args[0] || {};
     const start = encodeURIComponent(String(range.start || ''));
     const end = encodeURIComponent(String(range.end || ''));
-    data = await _getJsonWithRetry(`${GAS_URL}?action=getReservationsRange&start=${start}&end=${end}`, 1, 25000);
+    data = await _getJsonWithRetry(_withAdminApiKey(`${GAS_URL}?action=getReservationsRange&start=${start}&end=${end}`), 1, 25000);
   } else if (func === 'api_getBlocksRange') {
     const range = args[0] || {};
     const start = encodeURIComponent(String(range.start || ''));
     const end = encodeURIComponent(String(range.end || ''));
-    data = await _getJsonWithRetry(`${GAS_URL}?action=getBlocksRange&start=${start}&end=${end}`, 1, 25000);
+    data = await _getJsonWithRetry(_withAdminApiKey(`${GAS_URL}?action=getBlocksRange&start=${start}&end=${end}`), 1, 25000);
   } else if (func === 'api_getMenuMaster') {
-    data = await _getJsonWithRetry(`${GAS_URL}?action=getMenuMaster`, 1, 20000);
+    data = await _getJsonWithRetry(_withAdminApiKey(`${GAS_URL}?action=getMenuMaster`), 1, 20000);
   } else if (func === 'api_getMenuKeyCatalog') {
-    data = await _getJsonWithRetry(`${GAS_URL}?action=getMenuKeyCatalog`, 1, 20000);
+    data = await _getJsonWithRetry(_withAdminApiKey(`${GAS_URL}?action=getMenuKeyCatalog`), 1, 20000);
   } else if (func === 'api_getMenuGroupCatalog') {
-    data = await _getJsonWithRetry(`${GAS_URL}?action=getMenuGroupCatalog`, 1, 20000);
+    data = await _getJsonWithRetry(_withAdminApiKey(`${GAS_URL}?action=getMenuGroupCatalog`), 1, 20000);
   } else if (func === 'api_getAutoRuleCatalog') {
-    data = await _getJsonWithRetry(`${GAS_URL}?action=getAutoRuleCatalog`, 1, 20000);
+    data = await _getJsonWithRetry(_withAdminApiKey(`${GAS_URL}?action=getAutoRuleCatalog`), 1, 20000);
   } else if (func === 'api_toggleBlock') {
     data = await _postJson('toggleBlock', args[0]);
   } else if (func === 'api_setRegularDayBlocked') {
