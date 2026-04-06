@@ -229,6 +229,30 @@ async function ensureBookingFormOptionsReady(){
   return hasBookingSelectOptionsReady();
 }
 
+let hasPrewarmedBookingFormForFirstClick = false;
+async function prewarmBookingFormForFirstClick(){
+  if (hasPrewarmedBookingFormForFirstClick) return true;
+
+  try{
+    await ensureFullPublicBootstrapLoaded(false);
+  }catch(_){ }
+
+  try{
+    if (!hasBookingSelectOptionsReady()){
+      renderServiceSelectors();
+    }
+  }catch(_){ }
+
+  if (!hasBookingSelectOptionsReady()){
+    try{
+      await ensureBookingFormOptionsReady();
+    }catch(_){ }
+  }
+
+  hasPrewarmedBookingFormForFirstClick = hasBookingSelectOptionsReady();
+  return hasPrewarmedBookingFormForFirstClick;
+}
+
 async function openBookingForm(date, hour, minute=0){
   try{
     await ensureFullPublicBootstrapLoaded(true);
@@ -626,6 +650,9 @@ async function init(){
       const warm = function(){
         try{
           ensureFullPublicBootstrapLoaded(false).catch(function(){});
+        }catch(_){}
+        try{
+          prewarmBookingFormForFirstClick().catch(function(){});
         }catch(_){}
       };
       if (typeof requestIdleCallback === 'function'){
@@ -1650,10 +1677,21 @@ submitBooking = async function(e){
   }
 
   function __finalNormalizeBookingState__(){
-    __finalSyncMoveTypeNote__();
-    __finalBuildAssistanceOptions__();
-    __finalSyncEquipment__();
-    __finalHideWarnings__();
+    if (__finalNormalizeBookingState__.__running) return;
+    __finalNormalizeBookingState__.__running = true;
+    try{
+      var steps = [
+        __finalSyncMoveTypeNote__,
+        __finalBuildAssistanceOptions__,
+        __finalSyncEquipment__,
+        __finalHideWarnings__
+      ];
+      steps.forEach(function(step){
+        try{ step(); }catch(_){}
+      });
+    } finally {
+      __finalNormalizeBookingState__.__running = false;
+    }
   }
 
   var __finalRenderServiceSelectorsBase__ = renderServiceSelectors;

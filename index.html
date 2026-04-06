@@ -141,11 +141,17 @@
 
     .calendar-scroll{
       max-height:600px;
+      min-height:600px;
+    }
+
+    #calendarView .calendar-scroll #calendarGrid{
+      min-height:600px;
     }
 
     @media (min-width: 641px){
       #calendarView .calendar-scroll{
         max-height: calc(100vh - 205px);
+        min-height: calc(100vh - 205px);
       }
     }
 
@@ -408,6 +414,11 @@
 
       #calendarView .scroll-container{
         max-height: calc(100vh - 172px) !important;
+        min-height: calc(100vh - 172px) !important;
+      }
+
+      #calendarView .calendar-scroll #calendarGrid{
+        min-height: calc(100vh - 172px) !important;
       }
 
       #selectedSlotInfo{
@@ -506,6 +517,7 @@
         </div>
 
         <div class="scroll-container card-zero-inner calendar-scroll">
+          <div id="calendarInlineLoading" class="hidden text-center text-slate-500 text-sm py-2">空き枠を読み込み中...</div>
           <div id="calendarGrid" class="calendar-grid"></div>
         </div>
       </div>
