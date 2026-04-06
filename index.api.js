@@ -1,6 +1,15 @@
 const ADMIN_ICON_FILE_ID = '1a0QB8ei00w_lSfL4PnF_xuEFUC2JP6FW';
 const GAS_URL = "https://script.google.com/macros/s/AKfycbyFKoCd64H2d5E8ExCrPRwG_g4shqlgHefgQYZrJ6HVOY5t5lwRVZ3UaXfYXIqNkCra/exec";
 const ADMIN_PAGE_URL = "admin.html";
+const PUBLIC_API_KEY = '';
+const PUBLIC_TRIGGER_KEY = '';
+
+function _withPublicApiKey(url){
+  const key = String(PUBLIC_API_KEY || '').trim();
+  if (!key) return String(url || '');
+  const sep = String(url || '').includes('?') ? '&' : '?';
+  return String(url || '') + sep + 'api_key=' + encodeURIComponent(key);
+}
 
 function toast(msg='通信エラー', ms=2200){
   const el = document.getElementById('toast');
@@ -175,6 +184,7 @@ async function _postJson(action, payload){
     },
     body: JSON.stringify({
       action: action,
+      api_key: String(PUBLIC_API_KEY || '').trim(),
       payload: payload || {}
     })
   });
@@ -196,36 +206,36 @@ const gsRun = async (func, ...args) => {
     let data;
 
     if (func === 'api_getConfig') {
-      data = await _getJsonWithRetry(`${GAS_URL}?action=getConfig`, 1, 20000);
+      data = await _getJsonWithRetry(_withPublicApiKey(`${GAS_URL}?action=getConfig`), 1, 20000);
     } else if (func === 'api_getConfigPublic') {
-      data = await _getJsonWithRetry(`${GAS_URL}?action=getConfigPublic`, 1, 20000);
+      data = await _getJsonWithRetry(_withPublicApiKey(`${GAS_URL}?action=getConfigPublic`), 1, 20000);
     } else if (func === 'api_getPublicBootstrap') {
-      data = await _getJsonWithRetry(`${GAS_URL}?action=getPublicBootstrap`, 1, 20000);
+      data = await _getJsonWithRetry(_withPublicApiKey(`${GAS_URL}?action=getPublicBootstrap`), 1, 20000);
     } else if (func === 'api_getPublicBootstrapLite') {
-      data = await _getJsonWithRetry(`${GAS_URL}?action=getPublicBootstrapLite`, 1, 15000);
+      data = await _getJsonWithRetry(_withPublicApiKey(`${GAS_URL}?action=getPublicBootstrapLite`), 1, 15000);
     } else if (func === 'api_getPublicInitLite') {
       const range = args[0] || {};
       const start = encodeURIComponent(String(range.start || ''));
       const end = encodeURIComponent(String(range.end || ''));
-      data = await _getJsonWithRetry(`${GAS_URL}?action=getPublicInitLite&start=${start}&end=${end}`, 1, 15000);
+      data = await _getJsonWithRetry(_withPublicApiKey(`${GAS_URL}?action=getPublicInitLite&start=${start}&end=${end}`), 1, 15000);
     } else if (func === 'api_getBlockedSlotKeys') {
       const range = args[0] || {};
       const start = encodeURIComponent(String(range.start || ''));
       const end = encodeURIComponent(String(range.end || ''));
-      data = await _getJsonWithRetry(`${GAS_URL}?action=getBlockedSlotKeys&start=${start}&end=${end}`, 1, 20000);
+      data = await _getJsonWithRetry(_withPublicApiKey(`${GAS_URL}?action=getBlockedSlotKeys&start=${start}&end=${end}`), 1, 20000);
     } else if (func === 'api_getInitData') {
-      data = await _getJsonWithRetry(`${GAS_URL}?action=getInitData`, 1, 25000);
+      data = await _getJsonWithRetry(_withPublicApiKey(`${GAS_URL}?action=getInitData`), 1, 25000);
     } else if (func === 'api_getMenuMaster') {
-      data = await _getJsonWithRetry(`${GAS_URL}?action=getMenuMaster`, 1, 20000);
+      data = await _getJsonWithRetry(_withPublicApiKey(`${GAS_URL}?action=getMenuMaster`), 1, 20000);
     } else if (func === 'api_getMenuKeyCatalog') {
-      data = await _getJsonWithRetry(`${GAS_URL}?action=getMenuKeyCatalog`, 1, 20000);
+      data = await _getJsonWithRetry(_withPublicApiKey(`${GAS_URL}?action=getMenuKeyCatalog`), 1, 20000);
     } else if (func === 'api_getMenuGroupCatalog') {
-      data = await _getJsonWithRetry(`${GAS_URL}?action=getMenuGroupCatalog`, 1, 20000);
+      data = await _getJsonWithRetry(_withPublicApiKey(`${GAS_URL}?action=getMenuGroupCatalog`), 1, 20000);
     } else if (func === 'api_getAutoRuleCatalog') {
-      data = await _getJsonWithRetry(`${GAS_URL}?action=getAutoRuleCatalog`, 1, 20000);
+      data = await _getJsonWithRetry(_withPublicApiKey(`${GAS_URL}?action=getAutoRuleCatalog`), 1, 20000);
     } else if (func === 'api_getDriveImageDataUrl') {
       const fileId = args[0];
-      data = await _getJsonWithRetry(`${GAS_URL}?action=getDriveImageDataUrl&fileId=${encodeURIComponent(fileId)}`, 1, 20000);
+      data = await _getJsonWithRetry(_withPublicApiKey(`${GAS_URL}?action=getDriveImageDataUrl&fileId=${encodeURIComponent(fileId)}`), 1, 20000);
     } else if (func === 'api_createReservation') {
       data = await _postJson('createReservation', args[0]);
     } else if (func === 'api_verifyAdminPassword') {
@@ -360,13 +370,17 @@ function hydratePublicCacheForFastPaint(){
   return bootLoaded || blockedLoaded;
 }
 
-const TRIGGER_URL = 'https://script.google.com/macros/s/AKfycbxzM8EPlE-1hwHx6qwh4Q1jXgYa0nyc3_WtK0NYbYbcm5JExMJOi1zzjQocUhsoCuUQ/exec?secret=secret1';
+const TRIGGER_URL = 'https://script.google.com/macros/s/AKfycbxzM8EPlE-1hwHx6qwh4Q1jXgYa0nyc3_WtK0NYbYbcm5JExMJOi1zzjQocUhsoCuUQ/exec';
 
 function fireTrigger(payload){
   try{
     if (!TRIGGER_URL) return;
+    const triggerKey = String(PUBLIC_TRIGGER_KEY || '').trim();
     const params = [];
     params.push('t=' + encodeURIComponent(String(Date.now())));
+    if (triggerKey){
+      params.push('secret=' + encodeURIComponent(triggerKey));
+    }
     Object.keys(payload || {}).forEach(key => {
       const val = payload[key] === undefined || payload[key] === null ? '' : String(payload[key]);
       params.push(encodeURIComponent(String(key)) + '=' + encodeURIComponent(val));
