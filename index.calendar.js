@@ -1,8 +1,6 @@
 if (typeof globalThis.hasBoundGridDelegation === 'undefined') globalThis.hasBoundGridDelegation = false;
 let publicCalendarPage = 0;
 let hasBoundPublicCalendarNav = false;
-let hasRenderedInitialCalendarFast = false;
-let deferredCalendarRenderTimer = null;
 
 function getPublicDaysPerPage(){
   return Math.max(1, Number(config.days_per_page || 7));
@@ -148,74 +146,72 @@ function buildSlots(){
   return { regularSlots, extendedSlots };
 }
 
-function setCalendarInlineLoading(visible, message){
-  const loadingEl = document.getElementById('calendarInlineLoading');
-  if (!loadingEl) return;
-  if (visible){
-    loadingEl.textContent = message || '空き枠を読み込み中...';
-    loadingEl.classList.remove('hidden');
-  } else {
-    loadingEl.classList.add('hidden');
-  }
-}
-
-function renderCalendar(options) {
-  const opt = options && typeof options === 'object' ? options : {};
+function renderCalendar() {
   const grid = document.getElementById('calendarGrid');
   const dateRangeEl = document.getElementById('dateRange');
   if (!grid || !dateRangeEl) return;
 
-  if (deferredCalendarRenderTimer){
-    clearTimeout(deferredCalendarRenderTimer);
-    deferredCalendarRenderTimer = null;
-  }
-
   ensurePublicCalendarNav();
 
   const dates = getDatesRange();
-  const fastDaysRaw = Number(config.initial_fast_days || 7);
-  const fastDays = Math.min(7, Math.max(5, Number.isFinite(fastDaysRaw) ? fastDaysRaw : 7));
-  const canUseFastInitial = (
-    opt.fastInitial !== false &&
-    !hasRenderedInitialCalendarFast &&
-    dates.length > fastDays
-  );
-  const visibleDates = canUseFastInitial ? dates.slice(0, fastDays) : dates;
-  calendarDates = visibleDates;
+  calendarDates = dates;
 
-  if (visibleDates.length === 0) {
+  if (dates.length === 0) {
     dateRangeEl.textContent = '';
     grid.innerHTML = '';
-    setCalendarInlineLoading(false);
     ensurePublicCalendarNav();
     return;
   }
 
-  dateRangeEl.textContent = `${formatDate(visibleDates[0])} ～ ${formatDate(visibleDates[visibleDates.length-1])}`;
+  dateRangeEl.textContent = `${formatDate(dates[0])} ～ ${formatDate(dates[dates.length-1])}`;
   ensurePublicCalendarNav();
 
   const { regularSlots, extendedSlots } = buildSlots();
-  let baseHtml = '';
-  baseHtml += '<div class="time-label sticky-corner">時間</div>';
-  visibleDates.forEach((date, idx)=>{
-    const isWeekend = (date.getDay() === 0 || date.getDay() === 6);
-    baseHtml += `<div class="date-header sticky-top ${isWeekend ? 'weekend' : ''}" data-date-idx="${idx}">${formatDate(date)}</div>`;
-  });
-  grid.innerHTML = baseHtml;
-  applyCalendarGridColumns(grid, visibleDates.length);
-  renderCalendar.__token = Number(renderCalendar.__token || 0) + 1;
-  const renderToken = renderCalendar.__token;
 
-  const chunkTasks = [];
-  regularSlots.forEach(function(slot){
-    chunkTasks.push(function(){
-      let chunkHtml = '';
-      chunkHtml += `<div class="time-label sticky-left">${slot.display}</div>`;
-      for (let idx=0; idx<visibleDates.length; idx++){
-        const date = visibleDates[idx];
+  let html = '';
+  html += '<div class="time-label sticky-corner">時間</div>';
+
+  dates.forEach((date, idx)=>{
+    const isWeekend = (date.getDay() === 0 || date.getDay() === 6);
+    html += `<div class="date-header sticky-top ${isWeekend ? 'weekend' : ''}" data-date-idx="${idx}">${formatDate(date)}</div>`;
+  });
+
+  for (const slot of regularSlots){
+    html += `<div class="time-label sticky-left">${slot.display}</div>`;
+    for (let idx=0; idx<dates.length; idx++){
+      const date = dates[idx];
+      const blocked = isSlotBlockedWithMinute(date, slot.hour, slot.minute);
+      const slotClass = blocked ? 'slot-unavailable' : 'slot-available';
+
+      html += `<div class="${slotClass} p-3 text-center text-lg font-bold rounded-lg cursor-pointer transition"
+                data-action="slot"
+                data-date-idx="${idx}"
+                data-hour="${slot.hour}"
+                data-minute="${slot.minute}">
+                ${blocked ? 'X' : '◎'}
+              </div>`;
+    }
+  }
+
+  const shouldShowExtended = isExtendedView;
+  if (shouldShowExtended){
+    html += '<div class="time-label sticky-left" style="font-weight:bold;background:linear-gradient(135deg,#cffafe 0%,#a5f3fc 100%);color:#0e7490;border:2px solid #06b6d4;">他時間</div>';
+
+    dates.forEach((date, idx)=>{
+      const isWeekend = (date.getDay() === 0 || date.getDay() === 6);
+      html += `<div class="date-header ${isWeekend ? 'weekend' : ''}"
+                style="background:linear-gradient(135deg,#cffafe 0%,#a5f3fc 100%);border-color:#06b6d4;color:#0e7490;"
+                data-date-idx="${idx}">${formatDate(date)}</div>`;
+    });
+
+    for (const slot of extendedSlots){
+      html += `<div class="time-label sticky-left" style="background:linear-gradient(135deg,#cffafe 0%,#a5f3fc 100%);border:2px solid #06b6d4;color:#0e7490;font-weight:600;">${slot.display}</div>`;
+      for (let idx=0; idx<dates.length; idx++){
+        const date = dates[idx];
         const blocked = isSlotBlockedWithMinute(date, slot.hour, slot.minute);
-        const slotClass = blocked ? 'slot-unavailable' : 'slot-available';
-        chunkHtml += `<div class="${slotClass} p-3 text-center text-lg font-bold rounded-lg cursor-pointer transition"
+        const slotClass = blocked ? 'slot-unavailable' : 'slot-alternate';
+
+        html += `<div class="${slotClass} p-3 text-center text-lg font-bold rounded-lg cursor-pointer transition"
                   data-action="slot"
                   data-date-idx="${idx}"
                   data-hour="${slot.hour}"
@@ -223,104 +219,12 @@ function renderCalendar(options) {
                   ${blocked ? 'X' : '◎'}
                 </div>`;
       }
-      return chunkHtml;
-    });
-  });
-
-  const shouldShowExtended = isExtendedView;
-  if (shouldShowExtended){
-    chunkTasks.push(function(){
-      let extHeadHtml = '';
-      extHeadHtml += '<div class="time-label sticky-left" style="font-weight:bold;background:linear-gradient(135deg,#cffafe 0%,#a5f3fc 100%);color:#0e7490;border:2px solid #06b6d4;">他時間</div>';
-      visibleDates.forEach((date, idx)=>{
-        const isWeekend = (date.getDay() === 0 || date.getDay() === 6);
-        extHeadHtml += `<div class="date-header ${isWeekend ? 'weekend' : ''}"
-                style="background:linear-gradient(135deg,#cffafe 0%,#a5f3fc 100%);border-color:#06b6d4;color:#0e7490;"
-                data-date-idx="${idx}">${formatDate(date)}</div>`;
-      });
-      return extHeadHtml;
-    });
-
-    extendedSlots.forEach(function(slot){
-      chunkTasks.push(function(){
-        let chunkHtml = '';
-        chunkHtml += `<div class="time-label sticky-left" style="background:linear-gradient(135deg,#cffafe 0%,#a5f3fc 100%);border:2px solid #06b6d4;color:#0e7490;font-weight:600;">${slot.display}</div>`;
-        for (let idx=0; idx<visibleDates.length; idx++){
-          const date = visibleDates[idx];
-          const blocked = isSlotBlockedWithMinute(date, slot.hour, slot.minute);
-          const slotClass = blocked ? 'slot-unavailable' : 'slot-alternate';
-          chunkHtml += `<div class="${slotClass} p-3 text-center text-lg font-bold rounded-lg cursor-pointer transition"
-                    data-action="slot"
-                    data-date-idx="${idx}"
-                    data-hour="${slot.hour}"
-                    data-minute="${slot.minute}">
-                    ${blocked ? 'X' : '◎'}
-                  </div>`;
-        }
-        return chunkHtml;
-      });
-    });
+    }
   }
 
-  const chunkSizeRaw = Number(config.calendar_render_chunk_size || 2);
-  const chunkSize = Math.max(1, Number.isFinite(chunkSizeRaw) ? Math.floor(chunkSizeRaw) : 2);
-  let cursor = 0;
+  grid.innerHTML = html;
 
-  const finalizeRender = function(){
-    if (renderCalendar.__token !== renderToken) return;
-    if (canUseFastInitial){
-      setCalendarInlineLoading(true, '空き枠を読み込み中...');
-      const scheduleDeferredRender = function(){
-        deferredCalendarRenderTimer = setTimeout(function(){
-          if (renderCalendar.__token !== renderToken) return;
-          deferredCalendarRenderTimer = null;
-          hasRenderedInitialCalendarFast = true;
-          renderCalendar({ fastInitial: false });
-          setCalendarInlineLoading(false);
-        }, 0);
-      };
-      if (typeof requestAnimationFrame === 'function'){
-        requestAnimationFrame(scheduleDeferredRender);
-      } else {
-        scheduleDeferredRender();
-      }
-    } else {
-      hasRenderedInitialCalendarFast = true;
-      setCalendarInlineLoading(false);
-    }
-  };
-
-  const renderChunk = function(){
-    if (renderCalendar.__token !== renderToken) return;
-    if (cursor >= chunkTasks.length){
-      finalizeRender();
-      return;
-    }
-    const end = Math.min(chunkTasks.length, cursor + chunkSize);
-    let appendHtml = '';
-    for (let i = cursor; i < end; i++){
-      appendHtml += chunkTasks[i]();
-    }
-    if (appendHtml){
-      grid.insertAdjacentHTML('beforeend', appendHtml);
-    }
-    cursor = end;
-    if (cursor < chunkTasks.length){
-      if (typeof requestAnimationFrame === 'function'){
-        requestAnimationFrame(renderChunk);
-      } else {
-        setTimeout(renderChunk, 0);
-      }
-    } else {
-      finalizeRender();
-    }
-  };
-
-  if (typeof requestAnimationFrame === 'function'){
-    requestAnimationFrame(renderChunk);
-  } else {
-    setTimeout(renderChunk, 0);
-  }
+  applyCalendarGridColumns(grid, dates.length);
 }
 
 function bindGridDelegation(){
@@ -330,20 +234,24 @@ function bindGridDelegation(){
   if (!grid) return;
 
   grid.addEventListener('click', async (ev)=>{
-    const el = ev.target && ev.target.closest ? ev.target.closest('[data-action="slot"]') : null;
+    const el = ev.target && ev.target.closest ? ev.target.closest('[data-action]') : null;
     if (!el) return;
 
-    const dateIdx = Number(el.dataset.dateIdx);
-    const hour = Number(el.dataset.hour);
-    const minute = Number(el.dataset.minute || 0);
+    const action = el.dataset.action;
 
-    const date = calendarDates[dateIdx];
-    if (!date) return;
+    if (action === 'slot'){
+      const dateIdx = Number(el.dataset.dateIdx);
+      const hour = Number(el.dataset.hour);
+      const minute = Number(el.dataset.minute || 0);
 
-    const blocked = isSlotBlockedWithMinute(date, hour, minute);
-    if (blocked) return;
+      const date = calendarDates[dateIdx];
+      if (!date) return;
 
-    await openBookingForm(date, hour, minute);
+      const blocked = isSlotBlockedWithMinute(date, hour, minute);
+      if (blocked) return;
+
+      await openBookingForm(date, hour, minute);
+    }
   }, { passive: false });
 
   globalThis.hasBoundGridDelegation = true;

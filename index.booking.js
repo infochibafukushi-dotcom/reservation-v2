@@ -229,63 +229,24 @@ async function ensureBookingFormOptionsReady(){
   return hasBookingSelectOptionsReady();
 }
 
-let hasPrewarmedBookingFormForFirstClick = false;
-async function prewarmBookingFormForFirstClick(){
-  if (hasPrewarmedBookingFormForFirstClick) return true;
-
-  try{
-    await ensureFullPublicBootstrapLoaded(false);
-  }catch(_){ }
-
-  try{
-    if (!hasBookingSelectOptionsReady()){
-      renderServiceSelectors();
-    }
-  }catch(_){ }
-
-  if (!hasBookingSelectOptionsReady()){
-    try{
-      await ensureBookingFormOptionsReady();
-    }catch(_){ }
-  }
-
-  hasPrewarmedBookingFormForFirstClick = hasBookingSelectOptionsReady();
-  return hasPrewarmedBookingFormForFirstClick;
-}
-
 async function openBookingForm(date, hour, minute=0){
-  selectedSlot = { date, hour, minute };
-  const modalEl = document.getElementById('bookingModal');
-  const infoEl = document.getElementById('selectedSlotInfo');
-  const submitBtn = document.getElementById('submitBooking');
-  if (infoEl){
-    infoEl.textContent = `${formatDate(date)} ${String(hour).padStart(2,'0')}:${String(minute).padStart(2,'0')} から（フォーム読込中...）`;
-  }
-  if (submitBtn){
-    submitBtn.disabled = true;
-  }
-  if (modalEl){
-    modalEl.classList.remove('hidden');
-  }
-
   try{
     await ensureFullPublicBootstrapLoaded(true);
   }catch(_){
     toast('フォーム読込中です。少し待ってからもう一度お試しください');
-    if (modalEl) modalEl.classList.add('hidden');
     return;
   }
 
   const ready = await ensureBookingFormOptionsReady();
   if (!ready){
     toast('フォーム読込中です。少し待ってからもう一度お試しください');
-    if (modalEl) modalEl.classList.add('hidden');
     return;
   }
 
-  if (infoEl){
-    infoEl.textContent = `${formatDate(date)} ${String(hour).padStart(2,'0')}:${String(minute).padStart(2,'0')} から`;
-  }
+  selectedSlot = { date, hour, minute };
+  document.getElementById('selectedSlotInfo').textContent =
+    `${formatDate(date)} ${String(hour).padStart(2,'0')}:${String(minute).padStart(2,'0')} から`;
+  document.getElementById('bookingModal').classList.remove('hidden');
   resetBookingForm();
   calculatePrice();
 }
@@ -665,9 +626,6 @@ async function init(){
       const warm = function(){
         try{
           ensureFullPublicBootstrapLoaded(false).catch(function(){});
-        }catch(_){}
-        try{
-          prewarmBookingFormForFirstClick().catch(function(){});
         }catch(_){}
       };
       if (typeof requestIdleCallback === 'function'){
@@ -1692,21 +1650,10 @@ submitBooking = async function(e){
   }
 
   function __finalNormalizeBookingState__(){
-    if (__finalNormalizeBookingState__.__running) return;
-    __finalNormalizeBookingState__.__running = true;
-    try{
-      var steps = [
-        __finalSyncMoveTypeNote__,
-        __finalBuildAssistanceOptions__,
-        __finalSyncEquipment__,
-        __finalHideWarnings__
-      ];
-      steps.forEach(function(step){
-        try{ step(); }catch(_){}
-      });
-    } finally {
-      __finalNormalizeBookingState__.__running = false;
-    }
+    __finalSyncMoveTypeNote__();
+    __finalBuildAssistanceOptions__();
+    __finalSyncEquipment__();
+    __finalHideWarnings__();
   }
 
   var __finalRenderServiceSelectorsBase__ = renderServiceSelectors;
