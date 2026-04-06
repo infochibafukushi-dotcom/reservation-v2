@@ -36,8 +36,8 @@ const DEFAULT_CONFIG = {
   extended_start_h: '21',
   extended_end_h: '5',
   phone_notify_text: '090-6331-4289',
-  gas_notify_url: 'https://script.google.com/macros/s/AKfycbxzM8EPlE-1hwHx6qwh4Q1jXgYa0nyc3_WtK0NYbYbcm5JExMJOi1zzjQocUhsoCuUQ/exec?secret=secret1',
-  gas_notify_secret: 'secret1',
+  gas_notify_url: 'https://script.google.com/macros/s/AKfycbxzM8EPlE-1hwHx6qwh4Q1jXgYa0nyc3_WtK0NYbYbcm5JExMJOi1zzjQocUhsoCuUQ/exec',
+  gas_notify_secret: '',
   sheet_reservations: '予約内容',
   sheet_blocks: 'ブロック',
   lock_minutes: '5',
@@ -175,6 +175,137 @@ const DEFAULT_CONFIG = {
   calendar_scroll_guide_text: '上下・左右にスクロールして、他の日付や時間を確認できます。'
 };
 
+const SECURITY_PROP_KEYS = {
+  PUBLIC_API_KEY: 'PUBLIC_API_KEY',
+  ADMIN_API_KEY: 'ADMIN_API_KEY',
+  NOTIFY_SHARED_SECRET: 'NOTIFY_SHARED_SECRET',
+  ADMIN_PASSWORD_HASH: 'ADMIN_PASSWORD_HASH',
+  RATE_LIMIT_RESERVATION_SECONDS: 'RATE_LIMIT_RESERVATION_SECONDS',
+  RATE_LIMIT_ADMIN_SECONDS: 'RATE_LIMIT_ADMIN_SECONDS'
+};
+
+const PUBLIC_ACTIONS = [
+  'getConfigPublic',
+  'getPublicBootstrap',
+  'getPublicBootstrapLite',
+  'getPublicInitLite',
+  'getBlockedSlotKeys',
+  'getDriveImageDataUrl',
+  'createReservation'
+];
+
+const ADMIN_ACTIONS = [
+  'getConfig','getAdminBootstrap','getReservationsRange','getBlocksRange','getInitData',
+  'getMenuMaster','getMenuKeyCatalog','getMenuGroupCatalog','getAutoRuleCatalog',
+  'updateReservation','releaseBlocksByReservation','toggleBlock','setRegularDayBlocked',
+  'setOtherTimeDayBlocked','setEntireDayBlocked','toggleEntireDay','blockEntireDay',
+  'saveConfig','saveMenuMaster','upsertMenuItem','toggleMenuItemVisible','uploadLogoImage',
+  'changeAdminPassword','verifyAdminPassword'
+];
+
+function _scriptProp_(key, fallback){
+  try{
+    const v = PropertiesService.getScriptProperties().getProperty(String(key || ''));
+    if (v === null || v === undefined || String(v).trim() === '') return fallback;
+    return String(v).trim();
+  }catch(_){
+    return fallback;
+  }
+}
+
+function _isSafeCallback_(callback){
+  const cb = String(callback || '').trim();
+  if (!cb) return true;
+  return /^[A-Za-z_$][0-9A-Za-z_$]*(\.[A-Za-z_$][0-9A-Za-z_$]*){0,4}$/.test(cb);
+}
+
+function _assertSafeCallback_(callback){
+  if (!_isSafeCallback_(callback)){
+    throw new Error('callback が不正です');
+  }
+}
+
+function _isPublicAction_(action){
+  return PUBLIC_ACTIONS.indexOf(String(action || '').trim()) >= 0;
+}
+
+function _isAdminAction_(action){
+  return ADMIN_ACTIONS.indexOf(String(action || '').trim()) >= 0;
+}
+
+function _extractApiKeyFromRequest_(e, body){
+  const qKey = String((e && e.parameter && (e.parameter.api_key || e.parameter.apiKey)) || '').trim();
+  if (qKey) return qKey;
+  const bKey = String((body && (body.api_key || body.apiKey)) || '').trim();
+  if (bKey) return bKey;
+  const pKey = String((body && body.payload && (body.payload.api_key || body.payload.apiKey)) || '').trim();
+  if (pKey) return pKey;
+  return '';
+}
+
+function _requireApiKeyForAction_(action, e, body){
+  const act = String(action || '').trim();
+  if (!act || act === 'ping') return;
+
+  const requestKey = _extractApiKeyFromRequest_(e, body);
+  if (_isAdminAction_(act)){
+    const adminKey = _scriptProp_(SECURITY_PROP_KEYS.ADMIN_API_KEY, '');
+    if (!adminKey){
+      throw new Error('ADMIN_API_KEY が未設定です');
+    }
+    if (requestKey !== adminKey){
+      throw new Error('管理APIキーが不正です');
+    }
+    return;
+  }
+
+  if (_isPublicAction_(act)){
+    const publicKey = _scriptProp_(SECURITY_PROP_KEYS.PUBLIC_API_KEY, '');
+    if (!publicKey){
+      throw new Error('PUBLIC_API_KEY が未設定です');
+    }
+    if (requestKey !== publicKey){
+      throw new Error('公開APIキーが不正です');
+    }
+  }
+}
+
+function _sha256Hex_(input){
+  const bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(input || ''), Utilities.Charset.UTF_8);
+  return bytes.map(function(b){
+    const v = (b + 256) % 256;
+    return ('0' + v.toString(16)).slice(-2);
+  }).join('');
+}
+
+function _verifyAdminPasswordWithFallback_(inputPassword, cfg){
+  const input = String(inputPassword || '').trim();
+  if (!input) return false;
+  const hash = _scriptProp_(SECURITY_PROP_KEYS.ADMIN_PASSWORD_HASH, '');
+  if (hash){
+    return _sha256Hex_(input) === String(hash).trim();
+  }
+  const plain = String((cfg && cfg.admin_password) || DEFAULT_CONFIG.admin_password || '').trim();
+  return input === plain;
+}
+
+function _setAdminPasswordHash_(newPassword){
+  const hash = _sha256Hex_(String(newPassword || '').trim());
+  PropertiesService.getScriptProperties().setProperty(SECURITY_PROP_KEYS.ADMIN_PASSWORD_HASH, hash);
+}
+
+function _checkRateLimit_(scopeKey, seconds){
+  const sec = Math.max(1, Number(seconds || 0));
+  if (!sec) return;
+  const cache = CacheService.getScriptCache();
+  const key = 'RL::' + String(scopeKey || '');
+  const hit = cache.get(key);
+  if (hit){
+    throw new Error('短時間での連続操作はできません。少し待ってから再試行してください。');
+  }
+  cache.put(key, String(Date.now()), sec);
+}
+
 // ===== Default Price Master =====
 const DEFAULT_PRICE_MASTER = [
   { key: 'BASE_FARE',               key_jp: '基本運賃',                 label: '運賃(初乗り)',                   price: 730,   note: '「から」表記',                     is_visible: true, sort_order: 10,  menu_group: 'price',      required_flag: false, auto_apply_group: '',           auto_apply_key: '' },
@@ -246,6 +377,8 @@ function doGet(e) {
   try {
     const action = String((e && e.parameter && e.parameter.action) || '').trim();
     const callback = String((e && e.parameter && e.parameter.callback) || '').trim();
+    _assertSafeCallback_(callback);
+    _requireApiKeyForAction_(action, e, null);
 
     let result;
 
@@ -379,6 +512,8 @@ function doPost(e) {
     const action = String(body.action || '').trim();
     const callback = String(body.callback || '').trim();
     const payload = body.payload || {};
+    _assertSafeCallback_(callback);
+    _requireApiKeyForAction_(action, e, body);
 
     let result;
 
@@ -472,7 +607,13 @@ function doPost(e) {
 
 function _respond_(obj, callback) {
   if (callback) {
-    const safeCallback = String(callback).replace(/[^\w$.]/g, '');
+    const safeCallback = String(callback || '').trim();
+    if (!_isSafeCallback_(safeCallback)){
+      const errObj = _ng(new Error('callback が不正です'));
+      return ContentService
+        .createTextOutput(JSON.stringify(errObj))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
     const js = safeCallback + '(' + JSON.stringify(obj) + ');';
     return ContentService
       .createTextOutput(js)
@@ -898,18 +1039,20 @@ function api_changeAdminPassword(payload) {
     const confirmPassword = String(payload.confirm_password || '').trim();
 
     const cfg = _getConfigMap_();
-    const nowPassword = String(cfg.admin_password || DEFAULT_CONFIG.admin_password || '').trim();
+    const adminRateSec = Number(_scriptProp_(SECURITY_PROP_KEYS.RATE_LIMIT_ADMIN_SECONDS, '3')) || 3;
+    _checkRateLimit_('ADMIN_CHANGE::' + _sha256Hex_(currentPassword || ''), adminRateSec);
 
     if (!currentPassword) throw new Error('現在のパスワードを入力してください');
     if (!newPassword) throw new Error('新しいパスワードを入力してください');
     if (!confirmPassword) throw new Error('確認用パスワードを入力してください');
-    if (currentPassword !== nowPassword) throw new Error('現在のパスワードが正しくありません');
+    if (!_verifyAdminPasswordWithFallback_(currentPassword, cfg)) throw new Error('現在のパスワードが正しくありません');
     if (newPassword !== confirmPassword) throw new Error('新しいパスワードと確認用パスワードが一致しません');
     if (newPassword.length < 4) throw new Error('新しいパスワードは4文字以上で入力してください');
 
     const before = _clone_(cfg);
-    cfg.admin_password = newPassword;
+    cfg.admin_password = cfg.admin_password || '';
     _upsertConfigMap_(cfg);
+    _setAdminPasswordHash_(newPassword);
 
     _logAdmin_(
       'CHANGE_ADMIN_PASSWORD',
@@ -933,11 +1076,18 @@ function api_verifyAdminPassword(payload) {
 
     const inputPassword = String(payload.password || '').trim();
     const cfg = _getConfigMap_();
-    const nowPassword = String(cfg.admin_password || DEFAULT_CONFIG.admin_password || '').trim();
+    const adminRateSec = Number(_scriptProp_(SECURITY_PROP_KEYS.RATE_LIMIT_ADMIN_SECONDS, '3')) || 3;
+    _checkRateLimit_('ADMIN_VERIFY::' + _sha256Hex_(inputPassword || ''), adminRateSec);
 
     if (!inputPassword) throw new Error('パスワードを入力してください');
 
-    const matched = (inputPassword === nowPassword);
+    const matched = _verifyAdminPasswordWithFallback_(inputPassword, cfg);
+
+    if (matched && !_scriptProp_(SECURITY_PROP_KEYS.ADMIN_PASSWORD_HASH, '')){
+      try{
+        _setAdminPasswordHash_(inputPassword);
+      }catch(_){ }
+    }
 
     _logAdmin_(
       'VERIFY_ADMIN_PASSWORD',
@@ -965,11 +1115,15 @@ function api_verifyAdminPassword(payload) {
 
 function _buildReservationNotifyUrl_(baseUrl, payload, secret) {
   var cleanUrl = String(baseUrl || '').trim();
+  cleanUrl = cleanUrl.replace(/([?&])secret=[^&]*(&?)/gi, function(_, p1, p2){
+    if (p1 === '?' && p2) return '?';
+    if (p1 === '&' && p2) return '&';
+    return '';
+  }).replace(/[?&]$/, '');
   var pairs = [];
-  var hasSecretInUrl = /(?:\?|&)secret=/.test(cleanUrl);
   var secretValue = String(secret || '').trim();
 
-  if (secretValue && !hasSecretInUrl) {
+  if (secretValue) {
     pairs.push('secret=' + encodeURIComponent(secretValue));
   }
 
@@ -987,7 +1141,10 @@ function _fireReservationNotify_(reservationObj) {
   try {
     var cfg = _getConfigMap_();
     var notifyUrl = String(cfg.gas_notify_url || DEFAULT_CONFIG.gas_notify_url || '').trim();
-    var notifySecret = String(cfg.gas_notify_secret || DEFAULT_CONFIG.gas_notify_secret || '').trim();
+    var notifySecret = String(_scriptProp_(SECURITY_PROP_KEYS.NOTIFY_SHARED_SECRET, '') || '').trim();
+    if (!notifySecret){
+      notifySecret = String(cfg.gas_notify_secret || DEFAULT_CONFIG.gas_notify_secret || '').trim();
+    }
     if (!notifyUrl) return;
 
     var payload = {
@@ -1032,6 +1189,12 @@ function api_createReservation(obj) {
 
     const rid = String((obj && obj.reservation_id) || '').trim();
     if (!rid) throw new Error('reservation_id がありません');
+
+    const rateSec = Number(_scriptProp_(SECURITY_PROP_KEYS.RATE_LIMIT_RESERVATION_SECONDS, '15')) || 15;
+    const phoneKey = String((obj && (obj.phone_number || obj.phone || '')) || '').replace(/[^\d]/g, '');
+    const slotKey = String((obj && obj.slot_date) || '') + '|' + String((obj && obj.slot_hour) || '') + '|' + String((obj && obj.slot_minute) || '');
+    const rateKey = phoneKey ? ('RESV_PHONE::' + phoneKey + '::' + slotKey) : ('RESV_RID::' + rid + '::' + slotKey);
+    _checkRateLimit_(rateKey, rateSec);
 
     const dateStr = String(obj.slot_date || '').trim();
     const hour = Number(obj.slot_hour);
