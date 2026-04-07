@@ -732,7 +732,9 @@ async function init(){
   }, 150));
 })();
 
-init();
+document.addEventListener('DOMContentLoaded', function(){
+  init();
+});
 
 
 /* ===== move_type live patch ===== */
