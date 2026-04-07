@@ -492,15 +492,6 @@ async function submitBooking(e){
     document.getElementById('completeModal').classList.remove('hidden');
 
     fireTrigger(reservation);
-    try{
-      const __notifyUrl = 'https://script.google.com/macros/s/AKfycbxzM8EPlE-1hwHx6qwh4Q1jXgYa0nyc3_WtK0NYbYbcm5JExMJOi1zzjQocUhsoCuUQ/exec?secret=secret1&t=' + encodeURIComponent(String(Date.now()));
-      try{ fetch(__notifyUrl, { method:'GET', mode:'no-cors', cache:'no-store', keepalive:true }).catch(()=>{}); }catch(_){ }
-      try{
-        const __notifyImg = new Image();
-        __notifyImg.referrerPolicy = 'no-referrer';
-        __notifyImg.src = __notifyUrl;
-      }catch(_){ }
-    }catch(_){ }
 
     try{
       await waitAndRefresh_(800);
@@ -641,7 +632,26 @@ async function init(){
     }catch(_){ }
 
     bindGridDelegation();
-    renderCalendar();
+    if (document.getElementById('calendarGrid')?.dataset.initialRenderDone !== '1'){
+      renderCalendar();
+      document.getElementById('calendarGrid').dataset.initialRenderDone = '1';
+    }
+
+    try{
+      hydratePublicCacheForFastPaint();
+    }catch(_){ }
+
+    let preRefreshRenderKey = '';
+    try{
+      const preDates = typeof getDatesRange === 'function' ? getDatesRange() : [];
+      preRefreshRenderKey = Array.isArray(preDates) && preDates.length
+        ? `${ymdLocal(preDates[0])}__${ymdLocal(preDates[preDates.length - 1])}__${preDates.length}__${isExtendedView ? '1' : '0'}`
+        : '';
+    }catch(_){ }
+
+    try{
+      hydratePublicCacheForFastPaint();
+    }catch(_){ }
 
     try{
       hydratePublicCacheForFastPaint();
