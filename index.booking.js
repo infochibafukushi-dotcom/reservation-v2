@@ -6,6 +6,8 @@ function onBookingDomReady(callback){
   }
 }
 
+let hasRequestedInitialCalendarPaint = false;
+
 function buildSelectOptions(selectEl, items, includePlaceholder, placeholderText, formatter){
   if (!selectEl) return;
   let html = '';
@@ -629,7 +631,16 @@ async function init(){
     }catch(_){ }
 
     bindGridDelegation();
-    renderCalendar();
+    if (!hasRequestedInitialCalendarPaint){
+      hasRequestedInitialCalendarPaint = true;
+      requestAnimationFrame(()=>{
+        renderCalendar();
+      });
+    }
+
+    try{
+      hydratePublicCacheForFastPaint();
+    }catch(_){ }
 
     try{
       hydratePublicCacheForFastPaint();
