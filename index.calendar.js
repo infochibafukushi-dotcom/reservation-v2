@@ -256,3 +256,15 @@ function bindGridDelegation(){
 
   globalThis.hasBoundGridDelegation = true;
 }
+
+function onCalendarDomReady(callback){
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', callback, { once: true });
+  } else {
+    callback();
+  }
+}
+
+onCalendarDomReady(function(){
+  bindGridDelegation();
+});
