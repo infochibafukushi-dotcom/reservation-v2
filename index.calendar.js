@@ -146,10 +146,32 @@ function buildSlots(){
   return { regularSlots, extendedSlots };
 }
 
+function getCalendarEstimatedMinHeight(){
+  const regularRows = 32; // 時間ヘッダー1行 + 通常時間31行
+  const extendedRows = 18; // 他時間ヘッダー1行 + 他時間17行
+  const regularRowHeight = 56;
+  const extendedRowHeight = 52;
+
+  return (regularRows * regularRowHeight) + (isExtendedView ? (extendedRows * extendedRowHeight) : 0);
+}
+
+function reserveCalendarLayoutHeight(gridEl){
+  if (!gridEl) return;
+
+  const nextMinHeight = getCalendarEstimatedMinHeight();
+  const prevMinHeight = Number(gridEl.dataset.reservedMinHeight || 0);
+  const stableMinHeight = Math.max(prevMinHeight, nextMinHeight);
+
+  gridEl.dataset.reservedMinHeight = String(stableMinHeight);
+  gridEl.style.minHeight = `${stableMinHeight}px`;
+}
+
 function renderCalendar() {
   const grid = document.getElementById('calendarGrid');
   const dateRangeEl = document.getElementById('dateRange');
   if (!grid || !dateRangeEl) return;
+
+  reserveCalendarLayoutHeight(grid);
 
   ensurePublicCalendarNav();
 
@@ -159,12 +181,10 @@ function renderCalendar() {
   if (dates.length === 0) {
     dateRangeEl.textContent = '';
     grid.innerHTML = '';
-    ensurePublicCalendarNav();
     return;
   }
 
   dateRangeEl.textContent = `${formatDate(dates[0])} ～ ${formatDate(dates[dates.length-1])}`;
-  ensurePublicCalendarNav();
 
   const { regularSlots, extendedSlots } = buildSlots();
 
@@ -185,6 +205,7 @@ function renderCalendar() {
 
       html += `<div class="${slotClass} p-3 text-center text-lg font-bold rounded-lg cursor-pointer transition"
                 data-action="slot"
+                data-base-slot-class="slot-available"
                 data-date-idx="${idx}"
                 data-hour="${slot.hour}"
                 data-minute="${slot.minute}">
@@ -213,6 +234,7 @@ function renderCalendar() {
 
         html += `<div class="${slotClass} p-3 text-center text-lg font-bold rounded-lg cursor-pointer transition"
                   data-action="slot"
+                  data-base-slot-class="slot-alternate"
                   data-date-idx="${idx}"
                   data-hour="${slot.hour}"
                   data-minute="${slot.minute}">
@@ -225,6 +247,40 @@ function renderCalendar() {
   grid.innerHTML = html;
 
   applyCalendarGridColumns(grid, dates.length);
+}
+
+function patchRenderedCalendarBlockedStates(){
+  const grid = document.getElementById('calendarGrid');
+  if (!grid || !calendarDates || !calendarDates.length) return;
+
+  const slotEls = grid.querySelectorAll('[data-action="slot"]');
+  if (!slotEls || !slotEls.length) return;
+
+  slotEls.forEach((el)=>{
+    const dateIdx = Number(el.dataset.dateIdx);
+    const hour = Number(el.dataset.hour);
+    const minute = Number(el.dataset.minute || 0);
+    const date = calendarDates[dateIdx];
+    if (!date) return;
+
+    const blocked = isSlotBlockedWithMinute(date, hour, minute);
+    if (blocked){
+      el.classList.remove('slot-available', 'slot-alternate');
+      el.classList.add('slot-unavailable');
+      el.textContent = 'X';
+      return;
+    }
+
+    const baseSlotClass = String(el.dataset.baseSlotClass || 'slot-available');
+    if (baseSlotClass === 'slot-alternate'){
+      el.classList.remove('slot-unavailable', 'slot-available');
+      el.classList.add('slot-alternate');
+    } else {
+      el.classList.remove('slot-unavailable', 'slot-alternate');
+      el.classList.add('slot-available');
+    }
+    el.textContent = '◎';
+  });
 }
 
 function bindGridDelegation(){
@@ -256,3 +312,17 @@ function bindGridDelegation(){
 
   globalThis.hasBoundGridDelegation = true;
 }
+
+function onCalendarDomReady(callback){
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', callback, { once: true });
+  } else {
+    callback();
+  }
+}
+
+onCalendarDomReady(function(){
+  const grid = document.getElementById('calendarGrid');
+  reserveCalendarLayoutHeight(grid);
+  bindGridDelegation();
+});
