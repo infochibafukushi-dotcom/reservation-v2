@@ -208,6 +208,7 @@ function renderCalendar() {
 
       html += `<div class="${slotClass} p-3 text-center text-lg font-bold rounded-lg cursor-pointer transition"
                 data-action="slot"
+                data-base-slot-class="slot-available"
                 data-date-idx="${idx}"
                 data-hour="${slot.hour}"
                 data-minute="${slot.minute}">
@@ -236,6 +237,7 @@ function renderCalendar() {
 
         html += `<div class="${slotClass} p-3 text-center text-lg font-bold rounded-lg cursor-pointer transition"
                   data-action="slot"
+                  data-base-slot-class="slot-alternate"
                   data-date-idx="${idx}"
                   data-hour="${slot.hour}"
                   data-minute="${slot.minute}">
@@ -284,6 +286,40 @@ function renderCalendar() {
       });
     }
   }
+}
+
+function patchRenderedCalendarBlockedStates(){
+  const grid = document.getElementById('calendarGrid');
+  if (!grid || !calendarDates || !calendarDates.length) return;
+
+  const slotEls = grid.querySelectorAll('[data-action="slot"]');
+  if (!slotEls || !slotEls.length) return;
+
+  slotEls.forEach((el)=>{
+    const dateIdx = Number(el.dataset.dateIdx);
+    const hour = Number(el.dataset.hour);
+    const minute = Number(el.dataset.minute || 0);
+    const date = calendarDates[dateIdx];
+    if (!date) return;
+
+    const blocked = isSlotBlockedWithMinute(date, hour, minute);
+    if (blocked){
+      el.classList.remove('slot-available', 'slot-alternate');
+      el.classList.add('slot-unavailable');
+      el.textContent = 'X';
+      return;
+    }
+
+    const baseSlotClass = String(el.dataset.baseSlotClass || 'slot-available');
+    if (baseSlotClass === 'slot-alternate'){
+      el.classList.remove('slot-unavailable', 'slot-available');
+      el.classList.add('slot-alternate');
+    } else {
+      el.classList.remove('slot-unavailable', 'slot-alternate');
+      el.classList.add('slot-available');
+    }
+    el.textContent = '◎';
+  });
 }
 
 function bindGridDelegation(){
