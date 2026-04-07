@@ -146,10 +146,32 @@ function buildSlots(){
   return { regularSlots, extendedSlots };
 }
 
+function getCalendarEstimatedMinHeight(){
+  const regularRows = 32; // 時間ヘッダー1行 + 通常時間31行
+  const extendedRows = 18; // 他時間ヘッダー1行 + 他時間17行
+  const regularRowHeight = 56;
+  const extendedRowHeight = 52;
+
+  return (regularRows * regularRowHeight) + (isExtendedView ? (extendedRows * extendedRowHeight) : 0);
+}
+
+function reserveCalendarLayoutHeight(gridEl){
+  if (!gridEl) return;
+
+  const nextMinHeight = getCalendarEstimatedMinHeight();
+  const prevMinHeight = Number(gridEl.dataset.reservedMinHeight || 0);
+  const stableMinHeight = Math.max(prevMinHeight, nextMinHeight);
+
+  gridEl.dataset.reservedMinHeight = String(stableMinHeight);
+  gridEl.style.minHeight = `${stableMinHeight}px`;
+}
+
 function renderCalendar() {
   const grid = document.getElementById('calendarGrid');
   const dateRangeEl = document.getElementById('dateRange');
   if (!grid || !dateRangeEl) return;
+
+  reserveCalendarLayoutHeight(grid);
 
   ensurePublicCalendarNav();
 
@@ -159,12 +181,10 @@ function renderCalendar() {
   if (dates.length === 0) {
     dateRangeEl.textContent = '';
     grid.innerHTML = '';
-    ensurePublicCalendarNav();
     return;
   }
 
   dateRangeEl.textContent = `${formatDate(dates[0])} ～ ${formatDate(dates[dates.length-1])}`;
-  ensurePublicCalendarNav();
 
   const { regularSlots, extendedSlots } = buildSlots();
 
@@ -256,3 +276,17 @@ function bindGridDelegation(){
 
   globalThis.hasBoundGridDelegation = true;
 }
+
+function onCalendarDomReady(callback){
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', callback, { once: true });
+  } else {
+    callback();
+  }
+}
+
+onCalendarDomReady(function(){
+  const grid = document.getElementById('calendarGrid');
+  reserveCalendarLayoutHeight(grid);
+  bindGridDelegation();
+});
