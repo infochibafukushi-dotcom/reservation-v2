@@ -6,8 +6,6 @@ function onBookingDomReady(callback){
   }
 }
 
-let hasRequestedInitialCalendarPaint = false;
-
 function buildSelectOptions(selectEl, items, includePlaceholder, placeholderText, formatter){
   if (!selectEl) return;
   let html = '';
@@ -631,28 +629,10 @@ async function init(){
     }catch(_){ }
 
     bindGridDelegation();
-    if (!hasRequestedInitialCalendarPaint){
-      hasRequestedInitialCalendarPaint = true;
-      requestAnimationFrame(()=>{
-        renderCalendar();
-      });
+    if (document.getElementById('calendarGrid')?.dataset.initialRenderDone !== '1'){
+      renderCalendar();
+      document.getElementById('calendarGrid').dataset.initialRenderDone = '1';
     }
-
-    try{
-      hydratePublicCacheForFastPaint();
-    }catch(_){ }
-
-    try{
-      hydratePublicCacheForFastPaint();
-    }catch(_){ }
-
-    try{
-      hydratePublicCacheForFastPaint();
-    }catch(_){ }
-
-    try{
-      hydratePublicCacheForFastPaint();
-    }catch(_){ }
 
     try{
       hydratePublicCacheForFastPaint();
@@ -679,6 +659,10 @@ async function init(){
 
       const hasRenderedCells = !!document.querySelector('#calendarGrid [data-action="slot"]');
       const shouldFullRerender = !hasRenderedCells || preRefreshRenderKey !== postRefreshRenderKey;
+      if (document.getElementById('calendarGrid')?.dataset.initialRenderDone === '1') return;
+      if (shouldFullRerender){
+        renderCalendar();
+        document.getElementById('calendarGrid').dataset.initialRenderDone = '1';
       if (shouldFullRerender){
         renderCalendar();
       } else if (typeof patchRenderedCalendarBlockedStates === 'function'){
