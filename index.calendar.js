@@ -183,12 +183,10 @@ function renderCalendar() {
   if (dates.length === 0) {
     dateRangeEl.textContent = '';
     grid.innerHTML = '';
-    ensurePublicCalendarNav();
     return;
   }
 
   dateRangeEl.textContent = `${formatDate(dates[0])} ～ ${formatDate(dates[dates.length-1])}`;
-  ensurePublicCalendarNav();
 
   const { regularSlots, extendedSlots } = buildSlots();
   const isInitialLightweightRender = !hasRenderedInitialCalendar;

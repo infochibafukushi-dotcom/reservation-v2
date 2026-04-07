@@ -650,6 +650,10 @@ async function init(){
       hydratePublicCacheForFastPaint();
     }catch(_){ }
 
+    try{
+      hydratePublicCacheForFastPaint();
+    }catch(_){ }
+
     await withLoading(async ()=>{
       await refreshAllData(true);
     }, '読み込み中...');
@@ -669,7 +673,6 @@ async function init(){
   }catch(e){
     try{ showLoading(false); }catch(_){}
     toast('初期化エラー: ' + (e?.message || e));
-    try{ renderCalendar(); }catch(_){}
   }
 }
 
@@ -927,12 +930,6 @@ applyAutoSelections = function(){
   }
 
   return state;
-};
-
-const _calculatePriceOriginal = calculatePrice;
-calculatePrice = function(){
-  const total = _calculatePriceOriginal();
-  return total;
 };
 
 const _resetBookingFormOriginal = resetBookingForm;
