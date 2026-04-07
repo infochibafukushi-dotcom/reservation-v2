@@ -1,3 +1,11 @@
+function onBookingDomReady(callback){
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', callback, { once: true });
+  } else {
+    callback();
+  }
+}
+
 function buildSelectOptions(selectEl, items, includePlaceholder, placeholderText, formatter){
   if (!selectEl) return;
   let html = '';
@@ -614,6 +622,11 @@ async function init(){
       hydratePublicCacheForFastPaint();
     }catch(_){ }
 
+    try{
+      const grid = document.getElementById('calendarGrid');
+      reserveCalendarLayoutHeight(grid);
+    }catch(_){ }
+
     bindGridDelegation();
     renderCalendar();
 
@@ -732,7 +745,7 @@ async function init(){
   }, 150));
 })();
 
-document.addEventListener('DOMContentLoaded', function(){
+onBookingDomReady(function(){
   init();
 });
 
@@ -915,7 +928,7 @@ resetBookingForm = function(){
   if (noteEl) noteEl.textContent = config.form_move_type_help_text || defaultConfig.form_move_type_help_text || '最初に移動方法をお選びください';
 };
 
-document.addEventListener('DOMContentLoaded', function(){
+onBookingDomReady(function(){
   const moveTypeEl = document.getElementById('moveType');
   if (moveTypeEl && !moveTypeEl.dataset.boundMoveType){
     moveTypeEl.dataset.boundMoveType = '1';
@@ -1042,7 +1055,7 @@ resetBookingForm = function(){
   return result;
 };
 
-document.addEventListener('DOMContentLoaded', function(){
+onBookingDomReady(function(){
   [
     'privacyAgreement','usageType','customerName','phoneNumber','pickupLocation',
     'moveType','assistanceType','stairAssistance','equipmentRental','roundTrip'
@@ -1691,7 +1704,7 @@ submitBooking = async function(e){
     try{ updateSubmitButton(); }catch(_){}
   }
 
-  document.addEventListener('DOMContentLoaded', function(){
+  onBookingDomReady(function(){
     __finalNormalizeBookingState__();
     try{ calculatePrice(); }catch(_){}
 
