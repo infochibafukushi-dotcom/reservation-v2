@@ -638,10 +638,32 @@ async function init(){
       hydratePublicCacheForFastPaint();
     }catch(_){ }
 
+    let preRefreshRenderKey = '';
+    try{
+      const preDates = typeof getDatesRange === 'function' ? getDatesRange() : [];
+      preRefreshRenderKey = Array.isArray(preDates) && preDates.length
+        ? `${ymdLocal(preDates[0])}__${ymdLocal(preDates[preDates.length - 1])}__${preDates.length}__${isExtendedView ? '1' : '0'}`
+        : '';
+    }catch(_){ }
+
     await withLoading(async ()=>{
       await refreshAllData(true);
-      renderCalendar();
-      if (typeof patchRenderedCalendarBlockedStates === 'function'){
+
+      let postRefreshRenderKey = '';
+      try{
+        const postDates = typeof getDatesRange === 'function' ? getDatesRange() : [];
+        postRefreshRenderKey = Array.isArray(postDates) && postDates.length
+          ? `${ymdLocal(postDates[0])}__${ymdLocal(postDates[postDates.length - 1])}__${postDates.length}__${isExtendedView ? '1' : '0'}`
+          : '';
+      }catch(_){ }
+
+      const hasRenderedCells = !!document.querySelector('#calendarGrid [data-action="slot"]');
+      const shouldFullRerender = !hasRenderedCells || preRefreshRenderKey !== postRefreshRenderKey;
+      if (document.getElementById('calendarGrid')?.dataset.initialRenderDone === '1' && hasRenderedCells && !shouldFullRerender && typeof patchRenderedCalendarBlockedStates !== 'function') return;
+      if (shouldFullRerender){
+        renderCalendar();
+        document.getElementById('calendarGrid').dataset.initialRenderDone = '1';
+      } else if (typeof patchRenderedCalendarBlockedStates === 'function'){
         patchRenderedCalendarBlockedStates();
       }
     }, '読み込み中...');
