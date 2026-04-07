@@ -659,7 +659,7 @@ async function init(){
 
       const hasRenderedCells = !!document.querySelector('#calendarGrid [data-action="slot"]');
       const shouldFullRerender = !hasRenderedCells || preRefreshRenderKey !== postRefreshRenderKey;
-      if (document.getElementById('calendarGrid')?.dataset.initialRenderDone === '1' && hasRenderedCells) return;
+      if (document.getElementById('calendarGrid')?.dataset.initialRenderDone === '1' && hasRenderedCells && !shouldFullRerender && typeof patchRenderedCalendarBlockedStates !== 'function') return;
       if (shouldFullRerender){
         renderCalendar();
         document.getElementById('calendarGrid').dataset.initialRenderDone = '1';
