@@ -622,6 +622,11 @@ async function init(){
       hydratePublicCacheForFastPaint();
     }catch(_){ }
 
+    try{
+      const grid = document.getElementById('calendarGrid');
+      reserveCalendarLayoutHeight(grid);
+    }catch(_){ }
+
     bindGridDelegation();
     renderCalendar();
 
