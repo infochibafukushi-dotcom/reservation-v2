@@ -619,7 +619,8 @@ async function updateLogoPreview(){
 async function init(){
   try{
     try{
-      hydratePublicCacheForFastPaint();
+      const grid = document.getElementById('calendarGrid');
+      reserveCalendarLayoutHeight(grid);
     }catch(_){ }
 
     try{
@@ -630,9 +631,12 @@ async function init(){
     bindGridDelegation();
     renderCalendar();
 
+    try{
+      hydratePublicCacheForFastPaint();
+    }catch(_){ }
+
     await withLoading(async ()=>{
       await refreshAllData(true);
-      renderCalendar();
     }, '読み込み中...');
 
     try{
