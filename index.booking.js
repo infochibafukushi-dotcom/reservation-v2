@@ -659,12 +659,10 @@ async function init(){
 
       const hasRenderedCells = !!document.querySelector('#calendarGrid [data-action="slot"]');
       const shouldFullRerender = !hasRenderedCells || preRefreshRenderKey !== postRefreshRenderKey;
-      if (document.getElementById('calendarGrid')?.dataset.initialRenderDone === '1') return;
+      if (document.getElementById('calendarGrid')?.dataset.initialRenderDone === '1' && hasRenderedCells) return;
       if (shouldFullRerender){
         renderCalendar();
         document.getElementById('calendarGrid').dataset.initialRenderDone = '1';
-      if (shouldFullRerender){
-        renderCalendar();
       } else if (typeof patchRenderedCalendarBlockedStates === 'function'){
         patchRenderedCalendarBlockedStates();
       }
