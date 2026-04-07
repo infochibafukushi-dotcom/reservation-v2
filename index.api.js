@@ -1,8 +1,8 @@
 const ADMIN_ICON_FILE_ID = '1a0QB8ei00w_lSfL4PnF_xuEFUC2JP6FW';
 const GAS_URL = "https://script.google.com/macros/s/AKfycbyFKoCd64H2d5E8ExCrPRwG_g4shqlgHefgQYZrJ6HVOY5t5lwRVZ3UaXfYXIqNkCra/exec";
 const ADMIN_PAGE_URL = "admin.html";
-const PUBLIC_API_KEY = 'public_key_123';
-const ADMIN_API_KEY = 'admin_key_123';
+const PUBLIC_API_KEY = 'pK9!x3Lm@7Qv#2Rz8T5aC1Wf';
+const ADMIN_API_KEY = 'A7#Zp2Vr!4Lm9Qx@8Kc5T3Nd';
 const PUBLIC_TRIGGER_KEY = '';
 
 function _withPublicApiKey(url){

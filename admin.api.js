@@ -1,6 +1,6 @@
 const GAS_URL = "https://script.google.com/macros/s/AKfycbyFKoCd64H2d5E8ExCrPRwG_g4shqlgHefgQYZrJ6HVOY5t5lwRVZ3UaXfYXIqNkCra/exec";
 const PUBLIC_PAGE_URL = "index.html";
-const ADMIN_API_KEY = 'admin_key_123';
+const ADMIN_API_KEY = 'A7#Zp2Vr!4Lm9Qx@8Kc5T3Nd';
 
 function _withAdminApiKey(url){
   const key = String(ADMIN_API_KEY || '').trim();
