@@ -663,6 +663,8 @@ async function init(){
       if (shouldFullRerender){
         renderCalendar();
         document.getElementById('calendarGrid').dataset.initialRenderDone = '1';
+      if (shouldFullRerender){
+        renderCalendar();
       } else if (typeof patchRenderedCalendarBlockedStates === 'function'){
         patchRenderedCalendarBlockedStates();
       }
