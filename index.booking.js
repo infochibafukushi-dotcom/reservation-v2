@@ -637,6 +637,7 @@ async function init(){
 
     await withLoading(async ()=>{
       await refreshAllData(true);
+      renderCalendar();
     }, '読み込み中...');
 
     try{
