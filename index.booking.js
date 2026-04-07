@@ -488,7 +488,7 @@ async function submitBooking(e){
     document.getElementById('bookingModal').classList.add('hidden');
     document.getElementById('completeModal').classList.remove('hidden');
 
-    // LINE通知の重複防止: クライアント側 fireTrigger は停止
+    fireTrigger(reservation);
 
     try{
       await waitAndRefresh_(800);
@@ -1433,6 +1433,8 @@ submitBooking = async function(e){
     document.getElementById('reservationId').textContent = reservationId;
     document.getElementById('bookingModal').classList.add('hidden');
     document.getElementById('completeModal').classList.remove('hidden');
+
+    fireTrigger(reservation);
 
     try{
       await waitAndRefresh_(800);
