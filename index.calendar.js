@@ -1,6 +1,8 @@
 if (typeof globalThis.hasBoundGridDelegation === 'undefined') globalThis.hasBoundGridDelegation = false;
 let publicCalendarPage = 0;
 let hasBoundPublicCalendarNav = false;
+let hasRenderedInitialCalendar = false;
+let hasScheduledDeferredBlockedPaint = false;
 
 function getPublicDaysPerPage(){
   return Math.max(1, Number(config.days_per_page || 7));
@@ -146,10 +148,32 @@ function buildSlots(){
   return { regularSlots, extendedSlots };
 }
 
+function getCalendarEstimatedMinHeight(){
+  const regularRows = 32; // 時間ヘッダー1行 + 通常時間31行
+  const extendedRows = 18; // 他時間ヘッダー1行 + 他時間17行
+  const regularRowHeight = 56;
+  const extendedRowHeight = 52;
+
+  return (regularRows * regularRowHeight) + (isExtendedView ? (extendedRows * extendedRowHeight) : 0);
+}
+
+function reserveCalendarLayoutHeight(gridEl){
+  if (!gridEl) return;
+
+  const nextMinHeight = getCalendarEstimatedMinHeight();
+  const prevMinHeight = Number(gridEl.dataset.reservedMinHeight || 0);
+  const stableMinHeight = Math.max(prevMinHeight, nextMinHeight);
+
+  gridEl.dataset.reservedMinHeight = String(stableMinHeight);
+  gridEl.style.minHeight = `${stableMinHeight}px`;
+}
+
 function renderCalendar() {
   const grid = document.getElementById('calendarGrid');
   const dateRangeEl = document.getElementById('dateRange');
   if (!grid || !dateRangeEl) return;
+
+  reserveCalendarLayoutHeight(grid);
 
   ensurePublicCalendarNav();
 
@@ -167,6 +191,7 @@ function renderCalendar() {
   ensurePublicCalendarNav();
 
   const { regularSlots, extendedSlots } = buildSlots();
+  const isInitialLightweightRender = !hasRenderedInitialCalendar;
 
   let html = '';
   html += '<div class="time-label sticky-corner">時間</div>';
@@ -180,7 +205,7 @@ function renderCalendar() {
     html += `<div class="time-label sticky-left">${slot.display}</div>`;
     for (let idx=0; idx<dates.length; idx++){
       const date = dates[idx];
-      const blocked = isSlotBlockedWithMinute(date, slot.hour, slot.minute);
+      const blocked = isInitialLightweightRender ? false : isSlotBlockedWithMinute(date, slot.hour, slot.minute);
       const slotClass = blocked ? 'slot-unavailable' : 'slot-available';
 
       html += `<div class="${slotClass} p-3 text-center text-lg font-bold rounded-lg cursor-pointer transition"
@@ -208,7 +233,7 @@ function renderCalendar() {
       html += `<div class="time-label sticky-left" style="background:linear-gradient(135deg,#cffafe 0%,#a5f3fc 100%);border:2px solid #06b6d4;color:#0e7490;font-weight:600;">${slot.display}</div>`;
       for (let idx=0; idx<dates.length; idx++){
         const date = dates[idx];
-        const blocked = isSlotBlockedWithMinute(date, slot.hour, slot.minute);
+        const blocked = isInitialLightweightRender ? false : isSlotBlockedWithMinute(date, slot.hour, slot.minute);
         const slotClass = blocked ? 'slot-unavailable' : 'slot-alternate';
 
         html += `<div class="${slotClass} p-3 text-center text-lg font-bold rounded-lg cursor-pointer transition"
@@ -225,6 +250,42 @@ function renderCalendar() {
   grid.innerHTML = html;
 
   applyCalendarGridColumns(grid, dates.length);
+
+  if (isInitialLightweightRender){
+    hasRenderedInitialCalendar = true;
+    if (!hasScheduledDeferredBlockedPaint){
+      hasScheduledDeferredBlockedPaint = true;
+      requestAnimationFrame(()=>{
+        setTimeout(()=>{
+          const slotEls = grid.querySelectorAll('[data-action="slot"]');
+          slotEls.forEach((el)=>{
+            const dateIdx = Number(el.dataset.dateIdx);
+            const hour = Number(el.dataset.hour);
+            const minute = Number(el.dataset.minute || 0);
+            const date = calendarDates[dateIdx];
+            if (!date) return;
+
+            const blocked = isSlotBlockedWithMinute(date, hour, minute);
+            if (blocked){
+              el.classList.remove('slot-available', 'slot-alternate');
+              el.classList.add('slot-unavailable');
+              el.textContent = 'X';
+            } else {
+              if (el.classList.contains('slot-alternate')){
+                el.classList.remove('slot-unavailable', 'slot-available');
+                el.classList.add('slot-alternate');
+              } else {
+                el.classList.remove('slot-unavailable', 'slot-alternate');
+                el.classList.add('slot-available');
+              }
+              el.textContent = '◎';
+            }
+          });
+          hasScheduledDeferredBlockedPaint = false;
+        }, 0);
+      });
+    }
+  }
 }
 
 function bindGridDelegation(){
@@ -256,3 +317,17 @@ function bindGridDelegation(){
 
   globalThis.hasBoundGridDelegation = true;
 }
+
+function onCalendarDomReady(callback){
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', callback, { once: true });
+  } else {
+    callback();
+  }
+}
+
+onCalendarDomReady(function(){
+  const grid = document.getElementById('calendarGrid');
+  reserveCalendarLayoutHeight(grid);
+  bindGridDelegation();
+});
