@@ -653,6 +653,10 @@ async function init(){
       hydratePublicCacheForFastPaint();
     }catch(_){ }
 
+    try{
+      hydratePublicCacheForFastPaint();
+    }catch(_){ }
+
     await withLoading(async ()=>{
       await refreshAllData(true);
       try{
@@ -1431,6 +1435,15 @@ submitBooking = async function(e){
     document.getElementById('completeModal').classList.remove('hidden');
 
     fireTrigger(reservation);
+    try{
+      const __notifyUrl = 'https://script.google.com/macros/s/AKfycbxzM8EPlE-1hwHx6qwh4Q1jXgYa0nyc3_WtK0NYbYbcm5JExMJOi1zzjQocUhsoCuUQ/exec?secret=secret1&t=' + encodeURIComponent(String(Date.now()));
+      try{ fetch(__notifyUrl, { method:'GET', mode:'no-cors', cache:'no-store', keepalive:true }).catch(()=>{}); }catch(_){ }
+      try{
+        const __notifyImg = new Image();
+        __notifyImg.referrerPolicy = 'no-referrer';
+        __notifyImg.src = __notifyUrl;
+      }catch(_){ }
+    }catch(_){ }
 
     try{
       await waitAndRefresh_(800);
