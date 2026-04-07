@@ -238,25 +238,30 @@ async function ensureBookingFormOptionsReady(){
 }
 
 async function openBookingForm(date, hour, minute=0){
-  try{
-    await ensureFullPublicBootstrapLoaded(true);
-  }catch(_){
-    toast('フォーム読込中です。少し待ってからもう一度お試しください');
-    return;
-  }
-
-  const ready = await ensureBookingFormOptionsReady();
-  if (!ready){
-    toast('フォーム読込中です。少し待ってからもう一度お試しください');
-    return;
-  }
-
   selectedSlot = { date, hour, minute };
   document.getElementById('selectedSlotInfo').textContent =
     `${formatDate(date)} ${String(hour).padStart(2,'0')}:${String(minute).padStart(2,'0')} から`;
   document.getElementById('bookingModal').classList.remove('hidden');
-  resetBookingForm();
-  calculatePrice();
+
+  requestAnimationFrame(async ()=>{
+    try{
+      await ensureFullPublicBootstrapLoaded(true);
+    }catch(_){
+      document.getElementById('bookingModal').classList.add('hidden');
+      toast('フォーム読込中です。少し待ってからもう一度お試しください');
+      return;
+    }
+
+    const ready = await ensureBookingFormOptionsReady();
+    if (!ready){
+      document.getElementById('bookingModal').classList.add('hidden');
+      toast('フォーム読込中です。少し待ってからもう一度お試しください');
+      return;
+    }
+
+    resetBookingForm();
+    calculatePrice();
+  });
 }
 
 function resetBookingForm(){
@@ -623,11 +628,6 @@ async function init(){
       reserveCalendarLayoutHeight(grid);
     }catch(_){ }
 
-    try{
-      const grid = document.getElementById('calendarGrid');
-      reserveCalendarLayoutHeight(grid);
-    }catch(_){ }
-
     bindGridDelegation();
     renderCalendar();
 
@@ -637,7 +637,6 @@ async function init(){
 
     await withLoading(async ()=>{
       await refreshAllData(true);
-      renderCalendar();
     }, '読み込み中...');
 
     try{
