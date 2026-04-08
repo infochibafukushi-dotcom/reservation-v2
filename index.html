@@ -143,6 +143,14 @@
       max-height:600px;
       min-height:500px;
     }
+    #calendarHeader .inline-flex{
+      min-height:96px;
+    }
+    #dateRange{
+      display:inline-flex;
+      align-items:center;
+      min-height:28px;
+    }
 
     @media (min-width: 641px){
       #calendarView .calendar-scroll{
@@ -474,6 +482,8 @@
               id="adminLoginImg"
               alt="管理画面"
               src="https://raw.githubusercontent.com/infochibafukushi-dotcom/reservation-v2/main/assets/assets/assets/logo/logo.webp"
+              width="180"
+              height="56"
               decoding="async"
               fetchpriority="high"
             >
@@ -687,8 +697,8 @@
     </div>
   </div>
 
-  <script src="./index.api.js" defer></script>
-  <script src="./index.calendar.js" defer></script>
-  <script src="./index.booking.js" defer></script>
+  <script src="./index.api.js?v=20260407" defer></script>
+  <script src="./index.calendar.js?v=20260407" defer></script>
+  <script src="./index.booking.js?v=20260407" defer></script>
 </body>
 </html>
