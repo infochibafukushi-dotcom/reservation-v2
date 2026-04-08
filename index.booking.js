@@ -617,10 +617,14 @@ async function init(){
     bindGridDelegation();
     renderCalendar();
 
-    await withLoading(async ()=>{
-      await refreshAllData(true);
-      renderCalendar();
-    }, '読み込み中...');
+    try{
+      await refreshAllData(false);
+      requestAnimationFrame(()=>{
+        try{ renderCalendar(); }catch(_){ }
+      });
+    }catch(e){
+      toast(e?.message || '通信エラー（データ取得）');
+    }
 
     try{
       const warm = function(){
