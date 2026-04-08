@@ -615,7 +615,9 @@ async function init(){
     }catch(_){ }
 
     bindGridDelegation();
-    renderCalendar();
+    const initialRange = getPublicCalendarRange();
+    const initialRangeKey = `${initialRange.start}__${initialRange.end}`;
+    const hasInitialBlockedSnapshot = (String(blockedRangeCacheKey || '') === initialRangeKey);
 
     try{
       const beforeLayoutKey = [
