@@ -198,6 +198,31 @@ function isAdminSlotBlocked(dateObj, hour, minute){
   return isAdminSlotExplicitlyBlocked(dateObj, hour, minute) || isAdminSlotSameDayBlocked(dateObj, hour, minute);
 }
 
+function createAdminSlotBlockedChecker(){
+  const sameDayEnabled = String(adminConfig.same_day_enabled || '0') === '1';
+  const todayStr = sameDayEnabled ? ymdLocal(new Date()) : '';
+  const roundedThresholdMs = sameDayEnabled
+    ? ceilAdminToNext30Min(new Date(Date.now() + Math.max(0, Number(adminConfig.same_day_min_hours || 3)) * 60 * 60 * 1000)).getTime()
+    : -1;
+
+  return function(dateObj, dateStr, hour, minute){
+    const key = `${dateStr}-${hour}-${minute}`;
+    if (adminBlockedSlots.has(key) || adminReservedSlots.has(key)) return true;
+    if (!sameDayEnabled || dateStr !== todayStr) return false;
+
+    const slotDt = new Date(
+      dateObj.getFullYear(),
+      dateObj.getMonth(),
+      dateObj.getDate(),
+      Number(hour || 0),
+      Number(minute || 0),
+      0,
+      0
+    );
+    return slotDt.getTime() < roundedThresholdMs;
+  };
+}
+
 function renderAdminCalendar(){
   const grid = document.getElementById('adminCalendarGrid');
   const dateRangeEl = document.getElementById('adminDateRange');
@@ -215,7 +240,15 @@ function renderAdminCalendar(){
     return;
   }
 
-  dateRangeEl.textContent = `${formatDate(dates[0])} ～ ${formatDate(dates[dates.length - 1])}`;
+  const dateMeta = dates.map(date => ({
+    date,
+    ymd: ymdLocal(date),
+    label: formatDate(date),
+    isWeekend: (date.getDay() === 0 || date.getDay() === 6)
+  }));
+  const isBlockedFast = createAdminSlotBlockedChecker();
+
+  dateRangeEl.textContent = `${dateMeta[0].label} ～ ${dateMeta[dateMeta.length - 1].label}`;
   ensureAdminCalendarNav();
 
   const { regularSlots, otherSlots } = buildAdminSlots();
@@ -224,14 +257,13 @@ function renderAdminCalendar(){
   let html = '';
   html += '<div class="time-label sticky-corner">時間</div>';
 
-  dates.forEach((date, idx)=>{
-    const isWeekend = (date.getDay() === 0 || date.getDay() === 6);
+  dateMeta.forEach((meta, idx)=>{
     let rightBtnText = adminExtendedView ? '夜' : '日';
     html += `
-      <div class="date-header sticky-top ${isWeekend ? 'weekend' : ''}">
+      <div class="date-header sticky-top ${meta.isWeekend ? 'weekend' : ''}">
         <div class="w-full flex items-center justify-between px-1 gap-1">
           <button class="day-btn day-btn-block" data-action="toggleDay" data-date-idx="${idx}" type="button">全</button>
-          <span class="text-[11px] font-extrabold leading-none">${formatDate(date)}</span>
+          <span class="text-[11px] font-extrabold leading-none">${meta.label}</span>
           <button class="day-btn ${adminExtendedView ? 'day-btn-block' : 'day-btn-unblock'}" data-action="toggleDayPart" data-date-idx="${idx}" type="button">${rightBtnText}</button>
         </div>
       </div>
@@ -241,8 +273,8 @@ function renderAdminCalendar(){
   for (const slot of slots){
     html += `<div class="time-label sticky-left">${slot.display}</div>`;
     for (let idx=0; idx<dates.length; idx++){
-      const date = dates[idx];
-      const blocked = isAdminSlotBlocked(date, slot.hour, slot.minute);
+      const meta = dateMeta[idx];
+      const blocked = isBlockedFast(meta.date, meta.ymd, slot.hour, slot.minute);
       const slotClass = blocked ? 'admin-slot-unavailable' : (adminExtendedView ? 'admin-slot-other' : 'admin-slot-available');
 
       html += `
@@ -294,7 +326,12 @@ function bindAdminGridDelegation(){
             hour: hour,
             minute: minute
           });
-          await adminRefreshVisibleWindow();
+          await adminRefreshVisibleWindow({
+            fetchReservations: false,
+            renderTable: false,
+            renderStats: false,
+            rebuildReserved: false
+          });
         }, '枠を更新中...');
       }
 
@@ -321,7 +358,12 @@ function bindAdminGridDelegation(){
             dateStr: dateStr,
             isBlocked: nextState
           });
-          await adminRefreshVisibleWindow();
+          await adminRefreshVisibleWindow({
+            fetchReservations: false,
+            renderTable: false,
+            renderStats: false,
+            rebuildReserved: false
+          });
         }, '日単位ブロック更新中...');
       }
 
@@ -348,7 +390,12 @@ function bindAdminGridDelegation(){
             dateStr: dateStr,
             isBlocked: nextState
           });
-          await adminRefreshVisibleWindow();
+          await adminRefreshVisibleWindow({
+            fetchReservations: false,
+            renderTable: false,
+            renderStats: false,
+            rebuildReserved: false
+          });
         }, '時間帯一括更新中...');
       }
     }catch(err){
