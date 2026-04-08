@@ -431,6 +431,23 @@
       #calendarHeader{
         margin-bottom:6px !important;
       }
+
+      #calendarHeaderMainRow{
+        min-height:34px;
+      }
+
+      #dateRange{
+        max-width:42vw;
+        font-size:12px !important;
+      }
+    }
+
+    #dateRange{
+      display:block;
+      min-height:1.25rem;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
     }
 
     #adminLoginBtn{
@@ -495,8 +512,8 @@
 
       <div class="card-soft card-zero">
         <div class="px-3 py-2 border-b border-gray-100">
-          <div class="flex items-center justify-between gap-2">
-            <span id="dateRange" class="text-sm md:text-lg font-bold text-gray-800 leading-tight"></span>
+          <div id="calendarHeaderMainRow" class="flex items-center justify-between gap-2">
+            <span id="dateRange" class="text-sm md:text-lg font-bold text-gray-800 leading-tight whitespace-nowrap"></span>
             <div class="flex items-center gap-2">
               <div id="publicCalendarPager" class="flex items-center gap-2">
                 <button id="publicPrevWeekBtn" class="cute-btn px-3 py-2 bg-white border border-slate-200 text-slate-700 text-xs md:text-sm whitespace-nowrap" type="button">← 前へ</button>
