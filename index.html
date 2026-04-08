@@ -6,8 +6,12 @@
   <title>介護タクシー予約</title>
 
   <meta http-equiv="x-dns-prefetch-control" content="on" />
+  <link rel="preconnect" href="https://raw.githubusercontent.com" crossorigin>
   <link rel="preload" as="style" href="tailwind-lite.css">
   <link rel="stylesheet" href="tailwind-lite.css">
+  <link rel="preload" as="script" href="./index.api.js">
+  <link rel="preload" as="script" href="./index.calendar.js">
+  <link rel="preload" as="script" href="./index.booking.js">
   <link rel="preload" as="image" href="https://raw.githubusercontent.com/infochibafukushi-dotcom/reservation-v2/main/assets/assets/assets/logo/logo.webp" fetchpriority="high">
 
   <style>
@@ -141,6 +145,7 @@
 
     .calendar-scroll{
       max-height:600px;
+      min-height:420px;
     }
 
     @media (min-width: 641px){
@@ -408,6 +413,10 @@
 
       #calendarView .scroll-container{
         max-height: calc(100vh - 172px) !important;
+      }
+
+      #calendarView .calendar-scroll{
+        min-height:320px;
       }
 
       #selectedSlotInfo{
