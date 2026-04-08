@@ -1,5 +1,7 @@
 let adminCalendarPage = 0;
 let hasBoundAdminCalendarNav = false;
+let adminBackgroundRefreshTimer = null;
+let adminBackgroundRefreshPendingOptions = null;
 
 function getAdminDaysPerPage(){
   return Math.max(1, Number(adminConfig.days_per_page || 7));
@@ -249,6 +251,27 @@ function setAdminBlockedDayPartLocal(dateStr, slots, isBlocked){
   });
 }
 
+function scheduleAdminBackgroundRefresh(options){
+  const next = options && typeof options === 'object' ? { ...options } : {};
+  adminBackgroundRefreshPendingOptions = {
+    ...(adminBackgroundRefreshPendingOptions || {}),
+    ...next
+  };
+
+  if (adminBackgroundRefreshTimer) {
+    clearTimeout(adminBackgroundRefreshTimer);
+  }
+
+  adminBackgroundRefreshTimer = setTimeout(function(){
+    adminBackgroundRefreshTimer = null;
+    const merged = adminBackgroundRefreshPendingOptions || {};
+    adminBackgroundRefreshPendingOptions = null;
+
+    if (typeof adminRefreshVisibleWindow !== 'function') return;
+    adminRefreshVisibleWindow(merged).catch(function(){});
+  }, 300);
+}
+
 function renderAdminCalendar(){
   const grid = document.getElementById('adminCalendarGrid');
   const dateRangeEl = document.getElementById('adminDateRange');
@@ -356,12 +379,12 @@ function bindAdminGridDelegation(){
             setAdminBlockedSlotLocal(ymdLocal(date), hour, minute, !!res.data.is_blocked);
             renderAdminCalendar();
           }
-          adminRefreshVisibleWindow({
+          scheduleAdminBackgroundRefresh({
             fetchReservations: false,
             renderTable: false,
             renderStats: false,
             rebuildReserved: false
-          }).catch(function(){});
+          });
         }, '枠を更新中...');
       }
 
@@ -390,12 +413,12 @@ function bindAdminGridDelegation(){
           });
           setAdminBlockedDayPartLocal(dateStr, slots, nextState);
           renderAdminCalendar();
-          adminRefreshVisibleWindow({
+          scheduleAdminBackgroundRefresh({
             fetchReservations: false,
             renderTable: false,
             renderStats: false,
             rebuildReserved: false
-          }).catch(function(){});
+          });
         }, '日単位ブロック更新中...');
       }
 
@@ -424,12 +447,12 @@ function bindAdminGridDelegation(){
           });
           setAdminBlockedDayPartLocal(dateStr, slots, nextState);
           renderAdminCalendar();
-          adminRefreshVisibleWindow({
+          scheduleAdminBackgroundRefresh({
             fetchReservations: false,
             renderTable: false,
             renderStats: false,
             rebuildReserved: false
-          }).catch(function(){});
+          });
         }, '時間帯一括更新中...');
       }
     }catch(err){
