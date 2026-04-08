@@ -609,6 +609,7 @@ function api_getPublicInitLite(startDate, endDate) {
     const rangeEnd = String(endDate || '').trim();
     const cacheKey = 'public_init_lite_v'
       + _getPublicApiCacheVersion_('public_bootstrap')
+      + '_b' + _getPublicApiCacheVersion_('blocked_slot_keys')
       + '__' + rangeStart + '__' + rangeEnd;
 
     const cached = _cacheGetJson_(cacheKey);
