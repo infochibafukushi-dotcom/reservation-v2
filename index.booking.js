@@ -634,11 +634,9 @@ async function init(){
         String(config.same_day_enabled || '')
       ].join('|');
 
-      if (beforeLayoutKey !== afterLayoutKey){
-        requestAnimationFrame(()=>{
-          try{ renderCalendar(); }catch(_){ }
-        });
-      }
+      requestAnimationFrame(()=>{
+        try{ renderCalendar(); }catch(_){ }
+      });
     }catch(e){
       toast(e?.message || '通信エラー（データ取得）');
     }
