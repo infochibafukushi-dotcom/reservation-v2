@@ -641,13 +641,41 @@ async function init(){
     }catch(_){ }
 
     bindGridDelegation();
-    renderCalendar();
+    if (document.getElementById('calendarGrid')?.dataset.initialRenderDone !== '1'){
+      renderCalendar();
+      document.getElementById('calendarGrid').dataset.initialRenderDone = '1';
+    }
 
-    requestAnimationFrame(async ()=>{
+    try{
+      hydratePublicCacheForFastPaint();
+    }catch(_){ }
+
+    let preRefreshRenderKey = '';
+    try{
+      const preDates = typeof getDatesRange === 'function' ? getDatesRange() : [];
+      preRefreshRenderKey = Array.isArray(preDates) && preDates.length
+        ? `${ymdLocal(preDates[0])}__${ymdLocal(preDates[preDates.length - 1])}__${preDates.length}__${isExtendedView ? '1' : '0'}`
+        : '';
+    }catch(_){ }
+
+    try{
+      hydratePublicCacheForFastPaint();
+    }catch(_){ }
+
+    try{
+      hydratePublicCacheForFastPaint();
+    }catch(_){ }
+
+    await withLoading(async ()=>{
+      await refreshAllData(true);
       try{
-        try{
-          hydratePublicCacheForFastPaint();
-        }catch(_){ }
+        await ensureBlockedSlotsFresh(false, true);
+      }catch(_){ }
+      renderCalendar();
+      if (typeof patchRenderedCalendarBlockedStates === 'function'){
+        patchRenderedCalendarBlockedStates();
+      }
+    }, '読み込み中...');
 
         let preRefreshRenderKey = '';
         try{
