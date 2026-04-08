@@ -52,25 +52,10 @@ function getPublicCalendarPageInfo(){
 
 function ensurePublicCalendarNav(){
   const dateRangeEl = document.getElementById('dateRange');
-  const headerRow = dateRangeEl ? dateRangeEl.parentElement : null;
-  if (!dateRangeEl || !headerRow) return;
+  if (!dateRangeEl) return;
 
   let nav = document.getElementById('publicCalendarPager');
-  if (!nav){
-    nav = document.createElement('div');
-    nav.id = 'publicCalendarPager';
-    nav.className = 'flex items-center gap-2';
-    nav.innerHTML = `
-      <button id="publicPrevWeekBtn" class="cute-btn px-3 py-2 bg-white border border-slate-200 text-slate-700 text-xs md:text-sm whitespace-nowrap" type="button">← 前へ</button>
-      <button id="publicNextWeekBtn" class="cute-btn px-3 py-2 bg-white border border-slate-200 text-slate-700 text-xs md:text-sm whitespace-nowrap" type="button">次へ →</button>
-    `;
-    const toggleBtn = document.getElementById('toggleTimeView');
-    if (toggleBtn){
-      headerRow.insertBefore(nav, toggleBtn);
-    } else {
-      headerRow.appendChild(nav);
-    }
-  }
+  if (!nav) return;
 
   if (!hasBoundPublicCalendarNav){
     const prevBtn = document.getElementById('publicPrevWeekBtn');
