@@ -223,6 +223,22 @@ function createAdminSlotBlockedChecker(){
   };
 }
 
+function setAdminBlockedSlotLocal(dateStr, hour, minute, isBlocked){
+  const key = `${String(dateStr || '').trim()}-${Number(hour || 0)}-${Number(minute || 0)}`;
+  if (!key || key === '--') return;
+  if (isBlocked) {
+    adminBlockedSlots.add(key);
+  } else {
+    adminBlockedSlots.delete(key);
+  }
+}
+
+function setAdminBlockedDayPartLocal(dateStr, slots, isBlocked){
+  (slots || []).forEach(slot => {
+    setAdminBlockedSlotLocal(dateStr, slot.h, slot.m, isBlocked);
+  });
+}
+
 function renderAdminCalendar(){
   const grid = document.getElementById('adminCalendarGrid');
   const dateRangeEl = document.getElementById('adminDateRange');
@@ -321,17 +337,21 @@ function bindAdminGridDelegation(){
         }
 
         await withLoading(async ()=>{
-          await gsRun('api_toggleBlock', {
+          const res = await gsRun('api_toggleBlock', {
             dateStr: ymdLocal(date),
             hour: hour,
             minute: minute
           });
-          await adminRefreshVisibleWindow({
+          if (res && res.isOk && res.data){
+            setAdminBlockedSlotLocal(ymdLocal(date), hour, minute, !!res.data.is_blocked);
+            renderAdminCalendar();
+          }
+          adminRefreshVisibleWindow({
             fetchReservations: false,
             renderTable: false,
             renderStats: false,
             rebuildReserved: false
-          });
+          }).catch(function(){});
         }, '枠を更新中...');
       }
 
@@ -358,12 +378,14 @@ function bindAdminGridDelegation(){
             dateStr: dateStr,
             isBlocked: nextState
           });
-          await adminRefreshVisibleWindow({
+          setAdminBlockedDayPartLocal(dateStr, slots, nextState);
+          renderAdminCalendar();
+          adminRefreshVisibleWindow({
             fetchReservations: false,
             renderTable: false,
             renderStats: false,
             rebuildReserved: false
-          });
+          }).catch(function(){});
         }, '日単位ブロック更新中...');
       }
 
@@ -390,12 +412,14 @@ function bindAdminGridDelegation(){
             dateStr: dateStr,
             isBlocked: nextState
           });
-          await adminRefreshVisibleWindow({
+          setAdminBlockedDayPartLocal(dateStr, slots, nextState);
+          renderAdminCalendar();
+          adminRefreshVisibleWindow({
             fetchReservations: false,
             renderTable: false,
             renderStats: false,
             rebuildReserved: false
-          });
+          }).catch(function(){});
         }, '時間帯一括更新中...');
       }
     }catch(err){
