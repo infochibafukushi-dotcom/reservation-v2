@@ -1,6 +1,7 @@
 if (typeof globalThis.hasBoundGridDelegation === 'undefined') globalThis.hasBoundGridDelegation = false;
 let publicCalendarPage = 0;
 let hasBoundPublicCalendarNav = false;
+let hasEarlyCalendarPaint = false;
 
 function getPublicDaysPerPage(){
   return Math.max(1, Number(config.days_per_page || 7));
@@ -240,4 +241,27 @@ function bindGridDelegation(){
   }, { passive: false });
 
   globalThis.hasBoundGridDelegation = true;
+}
+
+function tryEarlyCalendarPaint(){
+  if (hasEarlyCalendarPaint) return;
+  hasEarlyCalendarPaint = true;
+
+  const run = ()=>{
+    try{
+      renderCalendar();
+    }catch(_){ }
+  };
+
+  if (typeof requestAnimationFrame === 'function'){
+    requestAnimationFrame(run);
+  } else {
+    setTimeout(run, 0);
+  }
+}
+
+if (document.readyState === 'loading'){
+  document.addEventListener('DOMContentLoaded', tryEarlyCalendarPaint, { once: true });
+} else {
+  tryEarlyCalendarPaint();
 }
