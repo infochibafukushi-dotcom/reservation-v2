@@ -114,16 +114,23 @@ function _setDayBlockedBySlots_(ymd, isBlocked, slots, reasonOn, reasonOff) {
     const byRow = new Map();
     for (let i = 0; i < toWrite.length; i++) {
       const u = toWrite[i];
-      if (!byRow.has(u.row)) byRow.set(u.row, []);
-      byRow.get(u.row).push(u);
+      if (!byRow.has(u.row)) byRow.set(u.row, {});
+      byRow.get(u.row)[u.col] = u.val;
     }
-    for (const entry of byRow.entries()) {
-      const rowNum = entry[0];
-      const list = entry[1];
-      for (let i = 0; i < list.length; i++) {
-        const u = list[i];
-        sheet.getRange(rowNum, u.col).setValue(u.val);
-      }
+
+    const rows = Array.from(byRow.keys()).sort(function(a, b) { return a - b; });
+    for (let i = 0; i < rows.length; i++) {
+      const rowNum = rows[i];
+      const updates = byRow.get(rowNum) || {};
+      const rowValues = values[rowNum - 1] ? values[rowNum - 1].slice() : new Array(lastCol).fill('');
+
+      Object.keys(updates).forEach(function(colKey) {
+        const col = Number(colKey);
+        if (!Number.isFinite(col) || col < 1 || col > lastCol) return;
+        rowValues[col - 1] = updates[colKey];
+      });
+
+      sheet.getRange(rowNum, 1, 1, lastCol).setValues([rowValues]);
     }
   }
 
