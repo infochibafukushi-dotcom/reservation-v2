@@ -1,3 +1,11 @@
+function onBookingDomReady(callback){
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', callback, { once: true });
+  } else {
+    callback();
+  }
+}
+
 function buildSelectOptions(selectEl, items, includePlaceholder, placeholderText, formatter){
   if (!selectEl) return;
   let html = '';
@@ -230,25 +238,30 @@ async function ensureBookingFormOptionsReady(){
 }
 
 async function openBookingForm(date, hour, minute=0){
-  try{
-    await ensureFullPublicBootstrapLoaded(true);
-  }catch(_){
-    toast('フォーム読込中です。少し待ってからもう一度お試しください');
-    return;
-  }
-
-  const ready = await ensureBookingFormOptionsReady();
-  if (!ready){
-    toast('フォーム読込中です。少し待ってからもう一度お試しください');
-    return;
-  }
-
   selectedSlot = { date, hour, minute };
   document.getElementById('selectedSlotInfo').textContent =
     `${formatDate(date)} ${String(hour).padStart(2,'0')}:${String(minute).padStart(2,'0')} から`;
   document.getElementById('bookingModal').classList.remove('hidden');
-  resetBookingForm();
-  calculatePrice();
+
+  requestAnimationFrame(async ()=>{
+    try{
+      await ensureFullPublicBootstrapLoaded(true);
+    }catch(_){
+      document.getElementById('bookingModal').classList.add('hidden');
+      toast('フォーム読込中です。少し待ってからもう一度お試しください');
+      return;
+    }
+
+    const ready = await ensureBookingFormOptionsReady();
+    if (!ready){
+      document.getElementById('bookingModal').classList.add('hidden');
+      toast('フォーム読込中です。少し待ってからもう一度お試しください');
+      return;
+    }
+
+    resetBookingForm();
+    calculatePrice();
+  });
 }
 
 function resetBookingForm(){
@@ -386,6 +399,9 @@ function updateSubmitButton(){
 async function waitAndRefresh_(waitMs){
   await sleep(waitMs || 700);
   await refreshAllData(true);
+  try{
+    await ensureBlockedSlotsFresh(false, true);
+  }catch(_){ }
 }
 
 async function waitUntilSelectedSlotBlocked_(retryCount = 4){
@@ -475,7 +491,16 @@ async function submitBooking(e){
     document.getElementById('bookingModal').classList.add('hidden');
     document.getElementById('completeModal').classList.remove('hidden');
 
-    // LINE通知の重複防止: クライアント側 fireTrigger は停止
+    fireTrigger(reservation);
+    try{
+      const __notifyUrl = 'https://script.google.com/macros/s/AKfycbxzM8EPlE-1hwHx6qwh4Q1jXgYa0nyc3_WtK0NYbYbcm5JExMJOi1zzjQocUhsoCuUQ/exec?secret=secret1&t=' + encodeURIComponent(String(Date.now()));
+      try{ fetch(__notifyUrl, { method:'GET', mode:'no-cors', cache:'no-store', keepalive:true }).catch(()=>{}); }catch(_){ }
+      try{
+        const __notifyImg = new Image();
+        __notifyImg.referrerPolicy = 'no-referrer';
+        __notifyImg.src = __notifyUrl;
+      }catch(_){ }
+    }catch(_){ }
 
     try{
       await waitAndRefresh_(800);
@@ -611,33 +636,36 @@ async function updateLogoPreview(){
 async function init(){
   try{
     try{
-      hydratePublicCacheForFastPaint();
+      const grid = document.getElementById('calendarGrid');
+      reserveCalendarLayoutHeight(grid);
     }catch(_){ }
 
     bindGridDelegation();
     renderCalendar();
 
+    try{
+      hydratePublicCacheForFastPaint();
+    }catch(_){ }
+
     await withLoading(async ()=>{
       await refreshAllData(true);
+      try{
+        await ensureBlockedSlotsFresh(false, true);
+      }catch(_){ }
       renderCalendar();
+      if (typeof patchRenderedCalendarBlockedStates === 'function'){
+        patchRenderedCalendarBlockedStates();
+      }
     }, '読み込み中...');
 
-    try{
-      const warm = function(){
-        try{
-          ensureFullPublicBootstrapLoaded(false).catch(function(){});
-        }catch(_){}
-      };
-      if (typeof requestIdleCallback === 'function'){
-        requestIdleCallback(warm, { timeout: 1800 });
-      } else {
-        setTimeout(warm, 1200);
-      }
-    }catch(_){ }
+    setTimeout(()=>{
+      try{
+        ensureFullPublicBootstrapLoaded(false).catch(function(){});
+      }catch(_){}
+    }, 0);
   }catch(e){
     try{ showLoading(false); }catch(_){}
     toast('初期化エラー: ' + (e?.message || e));
-    try{ renderCalendar(); }catch(_){}
   }
 }
 
@@ -732,7 +760,7 @@ async function init(){
   }, 150));
 })();
 
-document.addEventListener('DOMContentLoaded', function(){
+onBookingDomReady(function(){
   init();
 });
 
@@ -897,12 +925,6 @@ applyAutoSelections = function(){
   return state;
 };
 
-const _calculatePriceOriginal = calculatePrice;
-calculatePrice = function(){
-  const total = _calculatePriceOriginal();
-  return total;
-};
-
 const _resetBookingFormOriginal = resetBookingForm;
 resetBookingForm = function(){
   if (!hasBookingSelectOptionsReady()){
@@ -915,7 +937,7 @@ resetBookingForm = function(){
   if (noteEl) noteEl.textContent = config.form_move_type_help_text || defaultConfig.form_move_type_help_text || '最初に移動方法をお選びください';
 };
 
-document.addEventListener('DOMContentLoaded', function(){
+onBookingDomReady(function(){
   const moveTypeEl = document.getElementById('moveType');
   if (moveTypeEl && !moveTypeEl.dataset.boundMoveType){
     moveTypeEl.dataset.boundMoveType = '1';
@@ -1042,7 +1064,7 @@ resetBookingForm = function(){
   return result;
 };
 
-document.addEventListener('DOMContentLoaded', function(){
+onBookingDomReady(function(){
   [
     'privacyAgreement','usageType','customerName','phoneNumber','pickupLocation',
     'moveType','assistanceType','stairAssistance','equipmentRental','roundTrip'
@@ -1395,6 +1417,17 @@ submitBooking = async function(e){
     document.getElementById('bookingModal').classList.add('hidden');
     document.getElementById('completeModal').classList.remove('hidden');
 
+    fireTrigger(reservation);
+    try{
+      const __notifyUrl = 'https://script.google.com/macros/s/AKfycbxzM8EPlE-1hwHx6qwh4Q1jXgYa0nyc3_WtK0NYbYbcm5JExMJOi1zzjQocUhsoCuUQ/exec?secret=secret1&t=' + encodeURIComponent(String(Date.now()));
+      try{ fetch(__notifyUrl, { method:'GET', mode:'no-cors', cache:'no-store', keepalive:true }).catch(()=>{}); }catch(_){ }
+      try{
+        const __notifyImg = new Image();
+        __notifyImg.referrerPolicy = 'no-referrer';
+        __notifyImg.src = __notifyUrl;
+      }catch(_){ }
+    }catch(_){ }
+
     try{
       await waitAndRefresh_(800);
       renderCalendar();
@@ -1691,7 +1724,7 @@ submitBooking = async function(e){
     try{ updateSubmitButton(); }catch(_){}
   }
 
-  document.addEventListener('DOMContentLoaded', function(){
+  onBookingDomReady(function(){
     __finalNormalizeBookingState__();
     try{ calculatePrice(); }catch(_){}
 
