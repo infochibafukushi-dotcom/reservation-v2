@@ -1421,13 +1421,18 @@ submitBooking = async function(e){
       await gsRun('api_createReservation', reservation);
     }, '予約中...');
 
+    try{
+      if (typeof invalidatePublicInitLitePrefetch === 'function'){
+        invalidatePublicInitLitePrefetch();
+      }
+    }catch(_){ }
+
     document.getElementById('reservationId').textContent = reservationId;
     document.getElementById('bookingModal').classList.add('hidden');
     document.getElementById('completeModal').classList.remove('hidden');
 
     try{
-      await waitAndRefresh_(800);
-      renderCalendar();
+      await waitUntilSelectedSlotBlocked_(4);
     }catch(_){}
 
     submitBtn.disabled = false;
