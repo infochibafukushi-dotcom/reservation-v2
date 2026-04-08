@@ -615,12 +615,44 @@ async function init(){
     }catch(_){ }
 
     bindGridDelegation();
-    renderCalendar();
+    const initialRange = getPublicCalendarRange();
+    const initialRangeKey = `${initialRange.start}__${initialRange.end}`;
+    const hasInitialBlockedSnapshot = (String(blockedRangeCacheKey || '') === initialRangeKey);
 
-    await withLoading(async ()=>{
-      await refreshAllData(true);
+    if (!hasInitialBlockedSnapshot){
+      try{
+        await refreshAllData(false);
+      }catch(e){
+        toast(e?.message || '通信エラー（データ取得）');
+      }
       renderCalendar();
-    }, '読み込み中...');
+    } else {
+      renderCalendar();
+
+      try{
+        const beforeLayoutKey = [
+          String(config.days_per_page || ''),
+          String(config.max_forward_days || ''),
+          String(config.same_day_enabled || '')
+        ].join('|');
+
+        await refreshAllData(false);
+
+        const afterLayoutKey = [
+          String(config.days_per_page || ''),
+          String(config.max_forward_days || ''),
+          String(config.same_day_enabled || '')
+        ].join('|');
+
+        if (beforeLayoutKey !== afterLayoutKey){
+          requestAnimationFrame(()=>{
+            try{ renderCalendar(); }catch(_){ }
+          });
+        }
+      }catch(e){
+        toast(e?.message || '通信エラー（データ取得）');
+      }
+    }
 
     try{
       const warm = function(){
@@ -1389,13 +1421,18 @@ submitBooking = async function(e){
       await gsRun('api_createReservation', reservation);
     }, '予約中...');
 
+    try{
+      if (typeof invalidatePublicInitLitePrefetch === 'function'){
+        invalidatePublicInitLitePrefetch();
+      }
+    }catch(_){ }
+
     document.getElementById('reservationId').textContent = reservationId;
     document.getElementById('bookingModal').classList.add('hidden');
     document.getElementById('completeModal').classList.remove('hidden');
 
     try{
-      await waitAndRefresh_(800);
-      renderCalendar();
+      await waitUntilSelectedSlotBlocked_(4);
     }catch(_){}
 
     submitBtn.disabled = false;
