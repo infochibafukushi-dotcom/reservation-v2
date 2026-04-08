@@ -619,39 +619,28 @@ async function init(){
     const initialRangeKey = `${initialRange.start}__${initialRange.end}`;
     const hasInitialBlockedSnapshot = (String(blockedRangeCacheKey || '') === initialRangeKey);
 
-    if (!hasInitialBlockedSnapshot){
-      try{
-        await refreshAllData(false);
-      }catch(e){
-        toast(e?.message || '通信エラー（データ取得）');
+    try{
+      const beforeLayoutKey = [
+        String(config.days_per_page || ''),
+        String(config.max_forward_days || ''),
+        String(config.same_day_enabled || '')
+      ].join('|');
+
+      await refreshAllData(false);
+
+      const afterLayoutKey = [
+        String(config.days_per_page || ''),
+        String(config.max_forward_days || ''),
+        String(config.same_day_enabled || '')
+      ].join('|');
+
+      if (beforeLayoutKey !== afterLayoutKey){
+        requestAnimationFrame(()=>{
+          try{ renderCalendar(); }catch(_){ }
+        });
       }
-      renderCalendar();
-    } else {
-      renderCalendar();
-
-      try{
-        const beforeLayoutKey = [
-          String(config.days_per_page || ''),
-          String(config.max_forward_days || ''),
-          String(config.same_day_enabled || '')
-        ].join('|');
-
-        await refreshAllData(false);
-
-        const afterLayoutKey = [
-          String(config.days_per_page || ''),
-          String(config.max_forward_days || ''),
-          String(config.same_day_enabled || '')
-        ].join('|');
-
-        if (beforeLayoutKey !== afterLayoutKey){
-          requestAnimationFrame(()=>{
-            try{ renderCalendar(); }catch(_){ }
-          });
-        }
-      }catch(e){
-        toast(e?.message || '通信エラー（データ取得）');
-      }
+    }catch(e){
+      toast(e?.message || '通信エラー（データ取得）');
     }
 
     try{
