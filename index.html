@@ -699,5 +699,10 @@
   <script src="./index.api.js?v=20260407" defer></script>
   <script src="./index.calendar.js?v=20260407" defer></script>
   <script src="./index.booking.js?v=20260407" defer></script>
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  if (typeof init === 'function') init();
+});
+</script>
 </body>
 </html>
