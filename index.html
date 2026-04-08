@@ -497,9 +497,15 @@
         <div class="px-3 py-2 border-b border-gray-100">
           <div class="flex items-center justify-between gap-2">
             <span id="dateRange" class="text-sm md:text-lg font-bold text-gray-800 leading-tight"></span>
-            <button id="toggleTimeView" class="cute-btn px-3 py-2 bg-gradient-to-r from-sky-500 to-sky-600 text-white hover:from-sky-600 hover:to-sky-700 text-xs md:text-sm whitespace-nowrap" type="button">
-              他時間予約
-            </button>
+            <div class="flex items-center gap-2">
+              <div id="publicCalendarPager" class="flex items-center gap-2">
+                <button id="publicPrevWeekBtn" class="cute-btn px-3 py-2 bg-white border border-slate-200 text-slate-700 text-xs md:text-sm whitespace-nowrap" type="button">← 前へ</button>
+                <button id="publicNextWeekBtn" class="cute-btn px-3 py-2 bg-white border border-slate-200 text-slate-700 text-xs md:text-sm whitespace-nowrap" type="button">次へ →</button>
+              </div>
+              <button id="toggleTimeView" class="cute-btn px-3 py-2 bg-gradient-to-r from-sky-500 to-sky-600 text-white hover:from-sky-600 hover:to-sky-700 text-xs md:text-sm whitespace-nowrap" type="button">
+                他時間予約
+              </button>
+            </div>
           </div>
 
           <div class="mt-1 flex items-center justify-between gap-2">

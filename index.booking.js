@@ -618,10 +618,25 @@ async function init(){
     renderCalendar();
 
     try{
+      const beforeLayoutKey = [
+        String(config.days_per_page || ''),
+        String(config.max_forward_days || ''),
+        String(config.same_day_enabled || '')
+      ].join('|');
+
       await refreshAllData(false);
-      requestAnimationFrame(()=>{
-        try{ renderCalendar(); }catch(_){ }
-      });
+
+      const afterLayoutKey = [
+        String(config.days_per_page || ''),
+        String(config.max_forward_days || ''),
+        String(config.same_day_enabled || '')
+      ].join('|');
+
+      if (beforeLayoutKey !== afterLayoutKey){
+        requestAnimationFrame(()=>{
+          try{ renderCalendar(); }catch(_){ }
+        });
+      }
     }catch(e){
       toast(e?.message || '通信エラー（データ取得）');
     }
