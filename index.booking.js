@@ -514,7 +514,8 @@ function applyConfigToUI(){
   const toggleBtn = document.getElementById('toggleTimeView');
   if (toggleBtn) {
     const extendedEnabled = String(config.extended_enabled || '1') === '1';
-    toggleBtn.style.display = extendedEnabled ? '' : 'none';
+    toggleBtn.style.visibility = extendedEnabled ? 'visible' : 'hidden';
+    toggleBtn.style.pointerEvents = extendedEnabled ? '' : 'none';
     if (!extendedEnabled) {
       isExtendedView = false;
     }
@@ -634,11 +635,9 @@ async function init(){
         String(config.same_day_enabled || '')
       ].join('|');
 
-      if (beforeLayoutKey !== afterLayoutKey){
-        requestAnimationFrame(()=>{
-          try{ renderCalendar(); }catch(_){ }
-        });
-      }
+      requestAnimationFrame(()=>{
+        try{ renderCalendar(); }catch(_){ }
+      });
     }catch(e){
       toast(e?.message || '通信エラー（データ取得）');
     }
