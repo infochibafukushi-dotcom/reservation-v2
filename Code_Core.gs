@@ -742,20 +742,17 @@ function _getBlockedSlotKeysInRange_(startDate, endDate) {
   const minuteCol = map['block_minute'] ?? map['minute'] ?? map['slot_minute'] ?? null;
 
   const rowCount = sheet.getLastRow() - 1;
-  const keyVals = keyCol ? sheet.getRange(2, keyCol, rowCount, 1).getValues() : [];
-  const blockedVals = isBlockedCol ? sheet.getRange(2, isBlockedCol, rowCount, 1).getValues() : [];
-  const dateVals = dateCol ? sheet.getRange(2, dateCol, rowCount, 1).getValues() : [];
-  const hourVals = hourCol ? sheet.getRange(2, hourCol, rowCount, 1).getValues() : [];
-  const minuteVals = minuteCol ? sheet.getRange(2, minuteCol, rowCount, 1).getValues() : [];
+  const values = sheet.getRange(2, 1, rowCount, sheet.getLastColumn()).getValues();
 
   const keySet = new Set();
 
   for (var i = 0; i < rowCount; i++) {
-    var isBlocked = blockedVals.length ? _toBool(blockedVals[i][0]) : false;
+    var row = values[i];
+    var isBlocked = isBlockedCol ? _toBool(row[isBlockedCol - 1]) : false;
     if (!isBlocked) continue;
 
-    var d = dateVals.length ? _normalizeYMD(dateVals[i][0]) : '';
-    var key = keyVals.length ? String(keyVals[i][0] || '').trim() : '';
+    var d = dateCol ? _normalizeYMD(row[dateCol - 1]) : '';
+    var key = keyCol ? String(row[keyCol - 1] || '').trim() : '';
     if (!d && key) {
       var km = key.match(/^(\d{4}-\d{2}-\d{2})-(\d{1,2})-(\d{1,2})$/);
       if (km) d = km[1];
@@ -763,8 +760,8 @@ function _getBlockedSlotKeysInRange_(startDate, endDate) {
     if (!d || d < start || d > end) continue;
 
     if (!key) {
-      var h = hourVals.length ? Number(hourVals[i][0]) : NaN;
-      var m = minuteVals.length ? Number(minuteVals[i][0] || 0) : 0;
+      var h = hourCol ? Number(row[hourCol - 1]) : NaN;
+      var m = minuteCol ? Number(row[minuteCol - 1] || 0) : 0;
       if (Number.isNaN(h) || Number.isNaN(m)) continue;
       key = d + '-' + h + '-' + m;
     }
