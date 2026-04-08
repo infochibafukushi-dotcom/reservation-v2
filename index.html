@@ -6,8 +6,12 @@
   <title>介護タクシー予約</title>
 
   <meta http-equiv="x-dns-prefetch-control" content="on" />
+  <link rel="preconnect" href="https://raw.githubusercontent.com" crossorigin>
   <link rel="preload" as="style" href="tailwind-lite.css">
   <link rel="stylesheet" href="tailwind-lite.css">
+  <link rel="preload" as="script" href="./index.api.js">
+  <link rel="preload" as="script" href="./index.calendar.js">
+  <link rel="preload" as="script" href="./index.booking.js">
   <link rel="preload" as="image" href="https://raw.githubusercontent.com/infochibafukushi-dotcom/reservation-v2/main/assets/assets/assets/logo/logo.webp" fetchpriority="high">
 
   <style>
@@ -141,6 +145,7 @@
 
     .calendar-scroll{
       max-height:600px;
+      min-height:420px;
     }
 
     @media (min-width: 641px){
@@ -410,6 +415,10 @@
         max-height: calc(100vh - 172px) !important;
       }
 
+      #calendarView .calendar-scroll{
+        min-height:320px;
+      }
+
       #selectedSlotInfo{
         font-size:14px !important;
         font-weight:700 !important;
@@ -422,6 +431,23 @@
       #calendarHeader{
         margin-bottom:6px !important;
       }
+
+      #calendarHeaderMainRow{
+        min-height:34px;
+      }
+
+      #dateRange{
+        max-width:42vw;
+        font-size:12px !important;
+      }
+    }
+
+    #dateRange{
+      display:block;
+      min-height:1.25rem;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
     }
 
     #adminLoginBtn{
@@ -486,11 +512,17 @@
 
       <div class="card-soft card-zero">
         <div class="px-3 py-2 border-b border-gray-100">
-          <div class="flex items-center justify-between gap-2">
-            <span id="dateRange" class="text-sm md:text-lg font-bold text-gray-800 leading-tight"></span>
-            <button id="toggleTimeView" class="cute-btn px-3 py-2 bg-gradient-to-r from-sky-500 to-sky-600 text-white hover:from-sky-600 hover:to-sky-700 text-xs md:text-sm whitespace-nowrap" type="button">
-              他時間予約
-            </button>
+          <div id="calendarHeaderMainRow" class="flex items-center justify-between gap-2">
+            <span id="dateRange" class="text-sm md:text-lg font-bold text-gray-800 leading-tight whitespace-nowrap"></span>
+            <div class="flex items-center gap-2">
+              <div id="publicCalendarPager" class="flex items-center gap-2">
+                <button id="publicPrevWeekBtn" class="cute-btn px-3 py-2 bg-white border border-slate-200 text-slate-700 text-xs md:text-sm whitespace-nowrap" type="button">← 前へ</button>
+                <button id="publicNextWeekBtn" class="cute-btn px-3 py-2 bg-white border border-slate-200 text-slate-700 text-xs md:text-sm whitespace-nowrap" type="button">次へ →</button>
+              </div>
+              <button id="toggleTimeView" class="cute-btn px-3 py-2 bg-gradient-to-r from-sky-500 to-sky-600 text-white hover:from-sky-600 hover:to-sky-700 text-xs md:text-sm whitespace-nowrap" type="button">
+                他時間予約
+              </button>
+            </div>
           </div>
 
           <div class="mt-1 flex items-center justify-between gap-2">
