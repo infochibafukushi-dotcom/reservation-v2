@@ -641,6 +641,34 @@ async function init(){
     }catch(_){ }
 
     bindGridDelegation();
+    if (document.getElementById('calendarGrid')?.dataset.initialRenderDone !== '1'){
+      renderCalendar();
+      document.getElementById('calendarGrid').dataset.initialRenderDone = '1';
+    }
+
+    try{
+      hydratePublicCacheForFastPaint();
+    }catch(_){ }
+
+    let preRefreshRenderKey = '';
+    try{
+      const preDates = typeof getDatesRange === 'function' ? getDatesRange() : [];
+      preRefreshRenderKey = Array.isArray(preDates) && preDates.length
+        ? `${ymdLocal(preDates[0])}__${ymdLocal(preDates[preDates.length - 1])}__${preDates.length}__${isExtendedView ? '1' : '0'}`
+        : '';
+    }catch(_){ }
+
+    try{
+      hydratePublicCacheForFastPaint();
+    }catch(_){ }
+
+    try{
+      hydratePublicCacheForFastPaint();
+    }catch(_){ }
+
+    try{
+      hydratePublicCacheForFastPaint();
+    }catch(_){ }
 
     await withLoading(async ()=>{
       await refreshAllData(true);
@@ -653,14 +681,47 @@ async function init(){
       }
     }, '読み込み中...');
 
-    setTimeout(()=>{
-      try{
-        hydratePublicCacheForFastPaint();
-      }catch(_){}
-      try{
-        ensureFullPublicBootstrapLoaded(false).catch(function(){});
-      }catch(_){}
-    }, 0);
+        let preRefreshRenderKey = '';
+        try{
+          const preDates = typeof getDatesRange === 'function' ? getDatesRange() : [];
+          preRefreshRenderKey = Array.isArray(preDates) && preDates.length
+            ? `${ymdLocal(preDates[0])}__${ymdLocal(preDates[preDates.length - 1])}__${preDates.length}__${isExtendedView ? '1' : '0'}`
+            : '';
+        }catch(_){ }
+
+        await withLoading(async ()=>{
+          await refreshAllData(true);
+          try{
+            await ensureBlockedSlotsFresh(false, true);
+          }catch(_){ }
+
+          let postRefreshRenderKey = '';
+          try{
+            const postDates = typeof getDatesRange === 'function' ? getDatesRange() : [];
+            postRefreshRenderKey = Array.isArray(postDates) && postDates.length
+              ? `${ymdLocal(postDates[0])}__${ymdLocal(postDates[postDates.length - 1])}__${postDates.length}__${isExtendedView ? '1' : '0'}`
+              : '';
+          }catch(_){ }
+
+          const hasRenderedCells = !!document.querySelector('#calendarGrid [data-action="slot"]');
+          const shouldFullRerender = !hasRenderedCells || preRefreshRenderKey !== postRefreshRenderKey;
+          if (shouldFullRerender){
+            renderCalendar();
+          } else if (typeof patchRenderedCalendarBlockedStates === 'function'){
+            patchRenderedCalendarBlockedStates();
+          }
+        }, '読み込み中...');
+
+        setTimeout(()=>{
+          try{
+            ensureFullPublicBootstrapLoaded(false).catch(function(){});
+          }catch(_){}
+        }, 0);
+      }catch(e){
+        try{ showLoading(false); }catch(_){}
+        toast('初期化エラー: ' + (e?.message || e));
+      }
+    });
   }catch(e){
     try{ showLoading(false); }catch(_){}
     toast('初期化エラー: ' + (e?.message || e));
