@@ -280,7 +280,11 @@ function tryEarlyCalendarPaint(){
 
   const run = ()=>{
     try{
-      renderCalendar();
+      if (typeof schedulePublicCalendarRender === 'function'){
+        schedulePublicCalendarRender();
+      } else {
+        renderCalendar();
+      }
     }catch(_){ }
   };
 

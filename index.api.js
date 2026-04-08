@@ -372,6 +372,24 @@ function sleep(ms){
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+let __publicCalendarRenderScheduled = false;
+function schedulePublicCalendarRender(){
+  if (__publicCalendarRenderScheduled) return;
+  __publicCalendarRenderScheduled = true;
+
+  const run = function(){
+    __publicCalendarRenderScheduled = false;
+    if (typeof renderCalendar !== 'function') return;
+    try{ renderCalendar(); }catch(_){ }
+  };
+
+  if (typeof requestAnimationFrame === 'function'){
+    requestAnimationFrame(run);
+  } else {
+    setTimeout(run, 0);
+  }
+}
+
 function ymdLocal(date){
   const y = date.getFullYear();
   const m = String(date.getMonth()+1).padStart(2,'0');
@@ -883,10 +901,14 @@ function _applyPublicInitLiteResponse_(payload, range, options){
       }catch(_){ }
     } else if (typeof renderCalendar === 'function'){
       try{
-        if (typeof requestAnimationFrame === 'function'){
-          requestAnimationFrame(function(){ try{ renderCalendar(); }catch(_){ } });
+        if (typeof schedulePublicCalendarRender === 'function'){
+          schedulePublicCalendarRender();
         } else {
-          setTimeout(function(){ try{ renderCalendar(); }catch(_){ } }, 0);
+          if (typeof requestAnimationFrame === 'function'){
+            requestAnimationFrame(function(){ try{ renderCalendar(); }catch(_){ } });
+          } else {
+            setTimeout(function(){ try{ renderCalendar(); }catch(_){ } }, 0);
+          }
         }
       }catch(_){ }
     }

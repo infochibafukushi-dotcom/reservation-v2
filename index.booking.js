@@ -635,9 +635,13 @@ async function init(){
         String(config.same_day_enabled || '')
       ].join('|');
 
-      requestAnimationFrame(()=>{
-        try{ renderCalendar(); }catch(_){ }
-      });
+      if (typeof schedulePublicCalendarRender === 'function'){
+        schedulePublicCalendarRender();
+      } else {
+        requestAnimationFrame(()=>{
+          try{ renderCalendar(); }catch(_){ }
+        });
+      }
     }catch(e){
       toast(e?.message || '通信エラー（データ取得）');
     }
