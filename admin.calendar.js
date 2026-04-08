@@ -295,7 +295,6 @@ function bindAdminGridDelegation(){
             minute: minute
           });
           await adminRefreshVisibleWindow();
-          try{ adminClearPublicClientCache(); }catch(_){}
         }, '枠を更新中...');
       }
 
@@ -323,7 +322,6 @@ function bindAdminGridDelegation(){
             isBlocked: nextState
           });
           await adminRefreshVisibleWindow();
-          try{ adminClearPublicClientCache(); }catch(_){}
         }, '日単位ブロック更新中...');
       }
 
@@ -351,7 +349,6 @@ function bindAdminGridDelegation(){
             isBlocked: nextState
           });
           await adminRefreshVisibleWindow();
-          try{ adminClearPublicClientCache(); }catch(_){}
         }, '時間帯一括更新中...');
       }
     }catch(err){

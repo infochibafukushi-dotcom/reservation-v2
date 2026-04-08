@@ -10,17 +10,6 @@
   - バリデーション
 *****/
 
-// Security helpers (互換維持: 値未設定時は既存動作を継続)
-function _securityScriptProp_(key, fallback){
-  try{
-    const v = PropertiesService.getScriptProperties().getProperty(String(key || ''));
-    if (v === null || v === undefined || String(v).trim() === '') return fallback;
-    return String(v).trim();
-  }catch(_){
-    return fallback;
-  }
-}
-
 // ===== Core =====
 function _setDayBlockedBySlots_(ymd, isBlocked, slots, reasonOn, reasonOff) {
   const sheet = _sh(SHEETS.BLOCK);
