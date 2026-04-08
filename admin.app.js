@@ -100,15 +100,31 @@ function adminMergeBlocksInRange(range, blocks){
 
 function adminApplyDerivedState(options = {}){
   const shouldRenderConfig = options.renderConfig === true;
+  const shouldRenderTable = options.renderTable !== false;
+  const shouldRenderStats = options.renderStats !== false;
+  const shouldRenderCalendar = options.renderCalendar !== false;
+  const shouldRebuildBlocked = options.rebuildBlocked !== false;
+  const shouldRebuildReserved = options.rebuildReserved !== false;
+
   if (shouldRenderConfig){
     applyAdminConfigToForm();
     renderMenuAdminList();
   }
-  buildAdminBlockedSlots(adminBlocks);
-  buildAdminReservedSlots(adminReservations);
-  renderAdminStats();
-  renderAdminCalendar();
-  renderReservationTable();
+  if (shouldRebuildBlocked){
+    buildAdminBlockedSlots(adminBlocks);
+  }
+  if (shouldRebuildReserved){
+    buildAdminReservedSlots(adminReservations);
+  }
+  if (shouldRenderStats){
+    renderAdminStats();
+  }
+  if (shouldRenderCalendar){
+    renderAdminCalendar();
+  }
+  if (shouldRenderTable){
+    renderReservationTable();
+  }
 }
 
 async function adminRefreshBootstrapData(renderConfig = true){
@@ -122,16 +138,35 @@ async function adminRefreshBootstrapData(renderConfig = true){
   adminApplyDerivedState({ renderConfig });
 }
 
-async function adminRefreshVisibleWindow(){
-  const range = adminGetVisibleRange();
-  const [resRes, blockRes] = await Promise.all([
-    gsRun('api_getReservationsRange', range),
-    gsRun('api_getBlocksRange', range)
-  ]);
+async function adminRefreshVisibleWindow(options = {}){
+  const opt = options && typeof options === 'object' ? options : {};
+  const fetchReservations = opt.fetchReservations !== false;
+  const fetchBlocks = opt.fetchBlocks !== false;
+  const renderTable = opt.renderTable !== false;
+  const renderStats = opt.renderStats !== false;
+  const rebuildReserved = opt.rebuildReserved !== false;
+  const rebuildBlocked = opt.rebuildBlocked !== false;
 
-  adminMergeReservationsInRange(range, resRes && resRes.data ? resRes.data.reservations : []);
-  adminMergeBlocksInRange(range, blockRes && blockRes.data ? blockRes.data.blocks : []);
-  adminApplyDerivedState({ renderConfig: false });
+  const range = adminGetVisibleRange();
+  const tasks = [
+    fetchReservations ? gsRun('api_getReservationsRange', range) : Promise.resolve(null),
+    fetchBlocks ? gsRun('api_getBlocksRange', range) : Promise.resolve(null)
+  ];
+  const [resRes, blockRes] = await Promise.all(tasks);
+
+  if (fetchReservations){
+    adminMergeReservationsInRange(range, resRes && resRes.data ? resRes.data.reservations : []);
+  }
+  if (fetchBlocks){
+    adminMergeBlocksInRange(range, blockRes && blockRes.data ? blockRes.data.blocks : []);
+  }
+  adminApplyDerivedState({
+    renderConfig: false,
+    renderTable,
+    renderStats,
+    rebuildReserved,
+    rebuildBlocked
+  });
 }
 
 function adminClearPublicClientCache(){
