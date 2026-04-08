@@ -773,6 +773,21 @@ let publicInitLitePrefetchPromise = null;
 let publicInitLitePrefetchRangeKey = '';
 let publicInitLitePrefetchData = null;
 
+function invalidatePublicInitLitePrefetch(range){
+  publicInitLitePrefetchPromise = null;
+  publicInitLitePrefetchRangeKey = '';
+  publicInitLitePrefetchData = null;
+
+  blockedRangeCacheKey = '';
+
+  try{
+    const targetRange = range && range.start && range.end ? range : getPublicCalendarRange();
+    if (targetRange && targetRange.start && targetRange.end){
+      localStorage.removeItem(_blockedCacheKey_(targetRange));
+    }
+  }catch(_){ }
+}
+
 function _publicInitRangeKey_(range){
   const start = String(range && range.start || '').trim();
   const end = String(range && range.end || '').trim();
