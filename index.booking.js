@@ -765,9 +765,13 @@ async function init(){
   }, 150));
 })();
 
+<<<<<<< codex/change-initialization-to-domcontentloaded-x8jr5x
 onBookingDomReady(function(){
   init();
 });
+=======
+init();
+>>>>>>> main
 
 
 /* ===== move_type live patch ===== */
