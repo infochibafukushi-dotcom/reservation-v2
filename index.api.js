@@ -872,14 +872,24 @@ function _applyPublicInitLiteResponse_(payload, range, options){
   blockedRangeCacheKey = `${normalizedRange.start}__${normalizedRange.end}`;
   _saveBlockedKeysCache_(normalizedRange, keys || []);
 
-  if (opt.syncRenderedCalendar !== false && typeof patchRenderedCalendarBlockedStates === 'function'){
-    try{
-      patchRenderedCalendarBlockedStates({
-        previousBlockedSlots: prevBlockedSlots,
-        previousRangeKey: prevBlockedRangeKey,
-        nextRangeKey: blockedRangeCacheKey
-      });
-    }catch(_){ }
+  if (opt.syncRenderedCalendar !== false){
+    if (typeof patchRenderedCalendarBlockedStates === 'function'){
+      try{
+        patchRenderedCalendarBlockedStates({
+          previousBlockedSlots: prevBlockedSlots,
+          previousRangeKey: prevBlockedRangeKey,
+          nextRangeKey: blockedRangeCacheKey
+        });
+      }catch(_){ }
+    } else if (typeof renderCalendar === 'function'){
+      try{
+        if (typeof requestAnimationFrame === 'function'){
+          requestAnimationFrame(function(){ try{ renderCalendar(); }catch(_){ } });
+        } else {
+          setTimeout(function(){ try{ renderCalendar(); }catch(_){ } }, 0);
+        }
+      }catch(_){ }
+    }
   }
 }
 
