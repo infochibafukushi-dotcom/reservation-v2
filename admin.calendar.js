@@ -81,7 +81,12 @@ function ensureAdminCalendarNav(){
         try{
           await withLoading(async ()=>{
             if (typeof adminRefreshVisibleWindow === 'function'){
-              await adminRefreshVisibleWindow(false);
+              await adminRefreshVisibleWindow({
+                fetchReservations: true,
+                fetchBlocks: true,
+                renderTable: false,
+                renderStats: false
+              });
             } else {
               renderAdminCalendar();
             }
@@ -100,7 +105,12 @@ function ensureAdminCalendarNav(){
         try{
           await withLoading(async ()=>{
             if (typeof adminRefreshVisibleWindow === 'function'){
-              await adminRefreshVisibleWindow(false);
+              await adminRefreshVisibleWindow({
+                fetchReservations: true,
+                fetchBlocks: true,
+                renderTable: false,
+                renderStats: false
+              });
             } else {
               renderAdminCalendar();
             }

@@ -794,10 +794,48 @@ function _getReservationsInRange_(startDate, endDate) {
     return empty;
   }
 
-  const rows = _sheetToObjects(sheet).filter(function(r) {
-    const d = _normalizeYMD(r.slot_date || r.date || r.reservation_date || r.pickup_date || r.day || '');
-    return d && d >= start && d <= end;
+  if (_isReservationSheet_(sheet)) _ensureReservationSheetSchema_(sheet);
+  const hm = _headerMap(sheet);
+  const headers = hm.headers;
+  const map = hm.map;
+  const rowCount = sheet.getLastRow() - 1;
+  const values = sheet.getRange(2, 1, rowCount, sheet.getLastColumn()).getValues();
+
+  const dateColCandidates = [
+    map['slot_date'],
+    map['date'],
+    map['reservation_date'],
+    map['pickup_date'],
+    map['day']
+  ].filter(function(v, i, arr) {
+    return Number.isFinite(v) && v > 0 && arr.indexOf(v) === i;
   });
+
+  const rows = [];
+  for (let r = 0; r < values.length; r++) {
+    const row = values[r];
+    let d = '';
+    for (let i = 0; i < dateColCandidates.length; i++) {
+      const col = dateColCandidates[i];
+      d = _normalizeYMD(_cellToPlain(row[col - 1]));
+      if (d) break;
+    }
+    if (!d || d < start || d > end) continue;
+
+    const obj = {};
+    for (let c = 0; c < headers.length; c++) {
+      const k = headers[c];
+      if (!k) continue;
+
+      obj[k] = _cellToPlain(row[c]);
+      const key2 = String(k).toLowerCase().replace(/\s+/g, '');
+      if (key2 && obj[key2] === undefined) obj[key2] = obj[k];
+
+      const canonical = _getCanonicalReservationKey_(k);
+      if (canonical && (obj[canonical] === undefined || obj[canonical] === '')) obj[canonical] = obj[k];
+    }
+    rows.push(_buildReservationCanonicalObject_(obj));
+  }
 
   const result = { start: start, end: end, reservations: rows };
   _cachePutJson_(cacheKey, result, 60);
@@ -822,10 +860,41 @@ function _getBlocksInRange_(startDate, endDate) {
     return empty;
   }
 
-  const rows = _sheetToObjects(sheet).filter(function(r) {
-    const d = _normalizeYMD(r.block_date || r.date || r.slot_date || '');
-    return d && d >= start && d <= end;
+  const hm = _headerMap(sheet);
+  const headers = hm.headers;
+  const map = hm.map;
+  const rowCount = sheet.getLastRow() - 1;
+  const values = sheet.getRange(2, 1, rowCount, sheet.getLastColumn()).getValues();
+
+  const dateColCandidates = [
+    map['block_date'],
+    map['date'],
+    map['slot_date']
+  ].filter(function(v, i, arr) {
+    return Number.isFinite(v) && v > 0 && arr.indexOf(v) === i;
   });
+
+  const rows = [];
+  for (let r = 0; r < values.length; r++) {
+    const row = values[r];
+    let d = '';
+    for (let i = 0; i < dateColCandidates.length; i++) {
+      const col = dateColCandidates[i];
+      d = _normalizeYMD(_cellToPlain(row[col - 1]));
+      if (d) break;
+    }
+    if (!d || d < start || d > end) continue;
+
+    const obj = {};
+    for (let c = 0; c < headers.length; c++) {
+      const k = headers[c];
+      if (!k) continue;
+      obj[k] = _cellToPlain(row[c]);
+      const key2 = String(k).toLowerCase().replace(/\s+/g, '');
+      if (key2 && obj[key2] === undefined) obj[key2] = obj[k];
+    }
+    rows.push(obj);
+  }
 
   const result = { start: start, end: end, blocks: rows };
   _cachePutJson_(cacheKey, result, 60);
