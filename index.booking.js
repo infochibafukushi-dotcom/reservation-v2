@@ -666,6 +666,10 @@ async function init(){
       hydratePublicCacheForFastPaint();
     }catch(_){ }
 
+    try{
+      hydratePublicCacheForFastPaint();
+    }catch(_){ }
+
     await withLoading(async ()=>{
       await refreshAllData(true);
       try{
