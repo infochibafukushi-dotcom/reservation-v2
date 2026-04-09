@@ -793,21 +793,22 @@ function getPublicMenuGroupVisibilityConfig(){
   }
 }
 
+let publicServiceGroupCardMapCache = null;
+
 function getPublicServiceGroupCardMap(){
-  const moveTypeEl = document.getElementById('moveType');
-  const assistanceEl = document.getElementById('assistanceType');
-  const stairEl = document.getElementById('stairAssistance');
-  const equipmentEl = document.getElementById('equipmentRental');
-  const roundTripEl = document.getElementById('roundTrip');
+  if (publicServiceGroupCardMapCache){
+    return publicServiceGroupCardMapCache;
+  }
 
   const map = {
-    move_type: moveTypeEl ? moveTypeEl.closest('.bg-sky-50, .bg-white, .rounded-xl, .rounded-2xl') : null,
-    assistance: assistanceEl ? assistanceEl.closest('.bg-yellow-50, .bg-white, .rounded-xl, .rounded-2xl') : null,
-    stair: stairEl ? stairEl.closest('.bg-orange-50, .bg-white, .rounded-xl, .rounded-2xl') : null,
-    equipment: equipmentEl ? equipmentEl.closest('.bg-cyan-50, .bg-white, .rounded-xl, .rounded-2xl') : null,
-    round_trip: roundTripEl ? roundTripEl.closest('.bg-pink-50, .bg-white, .rounded-xl, .rounded-2xl') : null
+    move_type: document.querySelector('[data-service-group-card="move_type"]'),
+    assistance: document.querySelector('[data-service-group-card="assistance"]'),
+    stair: document.querySelector('[data-service-group-card="stair"]'),
+    equipment: document.querySelector('[data-service-group-card="equipment"]'),
+    round_trip: document.querySelector('[data-service-group-card="round_trip"]')
   };
 
+  publicServiceGroupCardMapCache = map;
   return map;
 }
 
@@ -822,11 +823,13 @@ function applyPublicServiceGroupLayout(){
 
   const fallback = ['move_type', 'assistance', 'stair', 'equipment', 'round_trip'];
   const finalOrder = [];
+  const seen = new Set();
   const pushUnique = (key) => {
     const value = String(key || '').trim();
     if (!value) return;
     if (!cardMap[value]) return;
-    if (finalOrder.includes(value)) return;
+    if (seen.has(value)) return;
+    seen.add(value);
     finalOrder.push(value);
   };
 

@@ -1,8 +1,24 @@
+let menuMapCache = null;
+let menuMapCacheSource = null;
+let menuMapCacheLength = -1;
+let itemsByGroupCache = null;
+let itemsByGroupCacheSource = null;
+let itemsByGroupCacheLength = -1;
+
 function getMenuMap(){
+  const source = menuMaster || [];
+  if (menuMapCache && menuMapCacheSource === source && menuMapCacheLength === source.length){
+    return menuMapCache;
+  }
+
   const map = {};
-  (menuMaster || []).forEach(item => {
+  source.forEach(item => {
     map[item.key] = item;
   });
+
+  menuMapCache = map;
+  menuMapCacheSource = source;
+  menuMapCacheLength = source.length;
   return map;
 }
 
@@ -33,8 +49,21 @@ function getMenuNote(key, fallback){
 }
 
 function getItemsByGroup(group){
-  return (menuMaster || []).filter(item => {
-    if (String(item.menu_group || '') !== String(group || '')) return false;
+  const source = menuMaster || [];
+  const normalizedGroup = String(group || '');
+
+  if (!itemsByGroupCache || itemsByGroupCacheSource !== source || itemsByGroupCacheLength !== source.length){
+    itemsByGroupCache = new Map();
+    itemsByGroupCacheSource = source;
+    itemsByGroupCacheLength = source.length;
+  }
+
+  if (itemsByGroupCache.has(normalizedGroup)){
+    return itemsByGroupCache.get(normalizedGroup);
+  }
+
+  const items = source.filter(item => {
+    if (String(item.menu_group || '') !== normalizedGroup) return false;
     if (item.is_visible === false || String(item.is_visible).toUpperCase() === 'FALSE') return false;
     return true;
   }).sort((a,b) => {
@@ -43,6 +72,9 @@ function getItemsByGroup(group){
     if (aOrder !== bOrder) return aOrder - bOrder;
     return String(a.key).localeCompare(String(b.key));
   });
+
+  itemsByGroupCache.set(normalizedGroup, items);
+  return items;
 }
 
 function getRuleByIndex(index){
