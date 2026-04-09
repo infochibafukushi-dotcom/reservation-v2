@@ -578,14 +578,6 @@ function applyConfigToUI(){
 
 async function updateLogoPreview(){
   const mainImg = document.getElementById('adminLoginImg');
-  const logoText = config.logo_text || config.main_title || defaultConfig.main_title;
-  const logoSubText = config.logo_subtext || defaultConfig.logo_subtext;
-
-  const titleEl = document.getElementById('mainTitle');
-  const subEl = document.getElementById('mainSubTitle');
-  if (titleEl) titleEl.textContent = logoText;
-  if (subEl) subEl.textContent = logoSubText;
-
   let finalSrc = config.logo_image_url || 'https://raw.githubusercontent.com/infochibafukushi-dotcom/reservation-v2/main/assets/assets/assets/logo/logo.webp';
 
   const useDrive = String(config.logo_use_drive_image || '0') === '1';
