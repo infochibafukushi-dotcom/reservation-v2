@@ -514,7 +514,8 @@ function applyConfigToUI(){
   const toggleBtn = document.getElementById('toggleTimeView');
   if (toggleBtn) {
     const extendedEnabled = String(config.extended_enabled || '1') === '1';
-    toggleBtn.style.display = extendedEnabled ? '' : 'none';
+    toggleBtn.style.visibility = extendedEnabled ? 'visible' : 'hidden';
+    toggleBtn.style.pointerEvents = extendedEnabled ? '' : 'none';
     if (!extendedEnabled) {
       isExtendedView = false;
     }
@@ -618,30 +619,30 @@ async function init(){
     const initialRange = getPublicCalendarRange();
     const initialRangeKey = `${initialRange.start}__${initialRange.end}`;
     const hasInitialBlockedSnapshot = (String(blockedRangeCacheKey || '') === initialRangeKey);
+    globalThis.__publicAllowEarlyCalendarPaint = !!hasInitialBlockedSnapshot;
 
-    try{
-      const beforeLayoutKey = [
-        String(config.days_per_page || ''),
-        String(config.max_forward_days || ''),
-        String(config.same_day_enabled || '')
-      ].join('|');
-
-      await refreshAllData(false);
-
-      const afterLayoutKey = [
-        String(config.days_per_page || ''),
-        String(config.max_forward_days || ''),
-        String(config.same_day_enabled || '')
-      ].join('|');
-
-      if (beforeLayoutKey !== afterLayoutKey){
+    const renderSoon = function(){
+      if (typeof schedulePublicCalendarRender === 'function'){
+        schedulePublicCalendarRender();
+      } else if (typeof requestAnimationFrame === 'function'){
         requestAnimationFrame(()=>{
           try{ renderCalendar(); }catch(_){ }
         });
+      } else {
+        try{ renderCalendar(); }catch(_){ }
       }
-    }catch(e){
-      toast(e?.message || '通信エラー（データ取得）');
-    }
+    };
+
+    // 先にキャッシュ状態で描画して、初回体感を優先する（後続で最新データに更新）。
+    renderSoon();
+
+    refreshAllData(false)
+      .then(function(){
+        renderSoon();
+      })
+      .catch(function(e){
+        toast(e?.message || '通信エラー（データ取得）');
+      });
 
     try{
       const warm = function(){
@@ -687,12 +688,14 @@ async function init(){
     const password = String(document.getElementById('adminPassword').value || '').trim();
 
     try{
+      let authRes = null;
       await withLoading(async ()=>{
-        await gsRun('api_verifyAdminPassword', { password: password });
+        authRes = await gsRun('api_verifyAdminPassword', { password: password });
       }, '認証中...');
 
       sessionStorage.setItem('chiba_care_taxi_admin_auth', 'ok');
       sessionStorage.setItem('chiba_care_taxi_admin_auth_time', String(Date.now()));
+      sessionStorage.setItem('chiba_care_taxi_admin_token', String(authRes && authRes.data && authRes.data.admin_token || ''));
 
       window.location.href = ADMIN_PAGE_URL;
 
@@ -1041,10 +1044,15 @@ updateSubmitButton = function(){
 };
 
 function _bookingRecheckSubmitButtonSoon(){
+  if (_bookingRecheckSubmitButtonSoon._timer){
+    clearTimeout(_bookingRecheckSubmitButtonSoon._timer);
+    _bookingRecheckSubmitButtonSoon._timer = null;
+  }
   try{ updateSubmitButton(); }catch(_){}
-  setTimeout(function(){ try{ updateSubmitButton(); }catch(_){ } }, 0);
-  setTimeout(function(){ try{ updateSubmitButton(); }catch(_){ } }, 100);
-  setTimeout(function(){ try{ updateSubmitButton(); }catch(_){ } }, 350);
+  _bookingRecheckSubmitButtonSoon._timer = setTimeout(function(){
+    try{ updateSubmitButton(); }catch(_){ }
+    _bookingRecheckSubmitButtonSoon._timer = null;
+  }, 120);
 }
 
 const _openBookingFormOriginalForPatch = typeof openBookingForm === 'function' ? openBookingForm : null;
@@ -1068,7 +1076,7 @@ document.addEventListener('DOMContentLoaded', function(){
   ].forEach(function(id){
     const el = document.getElementById(id);
     if (!el) return;
-    ['change','input','keyup','blur','focus','click'].forEach(function(evt){
+    ['change','input','blur'].forEach(function(evt){
       el.addEventListener(evt, function(){
         _bookingRecheckSubmitButtonSoon();
       });
