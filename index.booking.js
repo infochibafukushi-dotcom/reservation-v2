@@ -608,6 +608,9 @@ async function init(){
     }catch(_){ }
 
     bindGridDelegation();
+    if (typeof prefetchPublicInitLiteForCurrentRange === 'function') {
+      prefetchPublicInitLiteForCurrentRange(false).catch(function(){});
+    }
     const initialRange = getPublicCalendarRange();
     const initialRangeKey = `${initialRange.start}__${initialRange.end}`;
     const hasInitialBlockedSnapshot = (String(blockedRangeCacheKey || '') === initialRangeKey);

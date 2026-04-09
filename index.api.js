@@ -1006,9 +1006,15 @@ async function refreshData(showToastOnFail=false){
     }
 
     const range = getPublicCalendarRange();
-    const prefetched = typeof getPrefetchedPublicInitLiteForRange === 'function'
+    let prefetched = typeof getPrefetchedPublicInitLiteForRange === 'function'
       ? getPrefetchedPublicInitLiteForRange(range)
       : null;
+
+    if (!prefetched && typeof prefetchPublicInitLiteForCurrentRange === 'function') {
+      try{
+        prefetched = await prefetchPublicInitLiteForCurrentRange(false);
+      }catch(_){ }
+    }
 
     if (prefetched && prefetched.data) {
       _applyPublicInitLiteResponse_(prefetched.data || {}, prefetched.range || range);
