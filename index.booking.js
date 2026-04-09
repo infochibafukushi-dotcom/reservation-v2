@@ -1045,10 +1045,15 @@ updateSubmitButton = function(){
 };
 
 function _bookingRecheckSubmitButtonSoon(){
+  if (_bookingRecheckSubmitButtonSoon._timer){
+    clearTimeout(_bookingRecheckSubmitButtonSoon._timer);
+    _bookingRecheckSubmitButtonSoon._timer = null;
+  }
   try{ updateSubmitButton(); }catch(_){}
-  setTimeout(function(){ try{ updateSubmitButton(); }catch(_){ } }, 0);
-  setTimeout(function(){ try{ updateSubmitButton(); }catch(_){ } }, 100);
-  setTimeout(function(){ try{ updateSubmitButton(); }catch(_){ } }, 350);
+  _bookingRecheckSubmitButtonSoon._timer = setTimeout(function(){
+    try{ updateSubmitButton(); }catch(_){ }
+    _bookingRecheckSubmitButtonSoon._timer = null;
+  }, 120);
 }
 
 const _openBookingFormOriginalForPatch = typeof openBookingForm === 'function' ? openBookingForm : null;
@@ -1072,7 +1077,7 @@ document.addEventListener('DOMContentLoaded', function(){
   ].forEach(function(id){
     const el = document.getElementById(id);
     if (!el) return;
-    ['change','input','keyup','blur','focus','click'].forEach(function(evt){
+    ['change','input','blur'].forEach(function(evt){
       el.addEventListener(evt, function(){
         _bookingRecheckSubmitButtonSoon();
       });
