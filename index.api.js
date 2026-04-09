@@ -268,6 +268,9 @@ function _applyBootstrapData_(data){
   _applyBootstrapLiteData_(data || {});
   if (Array.isArray(data && data.menu_master)) {
     menuMaster = data.menu_master;
+    if (typeof window !== 'undefined' && typeof window.invalidateMenuUiCaches === 'function') {
+      window.invalidateMenuUiCaches();
+    }
   }
   if (Array.isArray(data && data.menu_key_catalog)) {
     menuKeyCatalog = data.menu_key_catalog;
@@ -1003,9 +1006,15 @@ async function refreshData(showToastOnFail=false){
     }
 
     const range = getPublicCalendarRange();
-    const prefetched = typeof getPrefetchedPublicInitLiteForRange === 'function'
+    let prefetched = typeof getPrefetchedPublicInitLiteForRange === 'function'
       ? getPrefetchedPublicInitLiteForRange(range)
       : null;
+
+    if (!prefetched && typeof prefetchPublicInitLiteForCurrentRange === 'function') {
+      try{
+        prefetched = await prefetchPublicInitLiteForCurrentRange(false);
+      }catch(_){ }
+    }
 
     if (prefetched && prefetched.data) {
       _applyPublicInitLiteResponse_(prefetched.data || {}, prefetched.range || range);

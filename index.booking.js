@@ -608,6 +608,9 @@ async function init(){
     }catch(_){ }
 
     bindGridDelegation();
+    if (typeof prefetchPublicInitLiteForCurrentRange === 'function') {
+      prefetchPublicInitLiteForCurrentRange(false).catch(function(){});
+    }
     const initialRange = getPublicCalendarRange();
     const initialRangeKey = `${initialRange.start}__${initialRange.end}`;
     const hasInitialBlockedSnapshot = (String(blockedRangeCacheKey || '') === initialRangeKey);
@@ -625,8 +628,10 @@ async function init(){
       }
     };
 
-    // 先にキャッシュ状態で描画して、初回体感を優先する（後続で最新データに更新）。
-    renderSoon();
+    // 初回は最新データ取得後に描画する。ブロック済み枠キャッシュがある場合のみ先行描画を許可。
+    if (hasInitialBlockedSnapshot) {
+      renderSoon();
+    }
 
     refreshAllData(false)
       .then(function(){
@@ -793,22 +798,41 @@ function getPublicMenuGroupVisibilityConfig(){
   }
 }
 
+let publicServiceGroupCardMapCache = null;
+
+function isPublicServiceCardMapCacheValid(map){
+  if (!map) return false;
+  const keys = ['move_type', 'assistance', 'stair', 'equipment', 'round_trip'];
+  return keys.every(key => {
+    const el = map[key];
+    return !el || !!el.isConnected;
+  });
+}
+
 function getPublicServiceGroupCardMap(){
-  const moveTypeEl = document.getElementById('moveType');
-  const assistanceEl = document.getElementById('assistanceType');
-  const stairEl = document.getElementById('stairAssistance');
-  const equipmentEl = document.getElementById('equipmentRental');
-  const roundTripEl = document.getElementById('roundTrip');
+  if (isPublicServiceCardMapCacheValid(publicServiceGroupCardMapCache)){
+    return publicServiceGroupCardMapCache;
+  }
 
   const map = {
-    move_type: moveTypeEl ? moveTypeEl.closest('.bg-sky-50, .bg-white, .rounded-xl, .rounded-2xl') : null,
-    assistance: assistanceEl ? assistanceEl.closest('.bg-yellow-50, .bg-white, .rounded-xl, .rounded-2xl') : null,
-    stair: stairEl ? stairEl.closest('.bg-orange-50, .bg-white, .rounded-xl, .rounded-2xl') : null,
-    equipment: equipmentEl ? equipmentEl.closest('.bg-cyan-50, .bg-white, .rounded-xl, .rounded-2xl') : null,
-    round_trip: roundTripEl ? roundTripEl.closest('.bg-pink-50, .bg-white, .rounded-xl, .rounded-2xl') : null
+    move_type: document.querySelector('[data-service-group-card="move_type"]'),
+    assistance: document.querySelector('[data-service-group-card="assistance"]'),
+    stair: document.querySelector('[data-service-group-card="stair"]'),
+    equipment: document.querySelector('[data-service-group-card="equipment"]'),
+    round_trip: document.querySelector('[data-service-group-card="round_trip"]')
   };
 
+  publicServiceGroupCardMapCache = map;
   return map;
+}
+
+function isTruthyVisibilityFlag(value){
+  return value === undefined
+    || value === null
+    || value === ''
+    || value === true
+    || String(value) === '1'
+    || String(value).toUpperCase() === 'TRUE';
 }
 
 function applyPublicServiceGroupLayout(){
@@ -822,24 +846,44 @@ function applyPublicServiceGroupLayout(){
 
   const fallback = ['move_type', 'assistance', 'stair', 'equipment', 'round_trip'];
   const finalOrder = [];
+  const seen = new Set();
   const pushUnique = (key) => {
     const value = String(key || '').trim();
     if (!value) return;
     if (!cardMap[value]) return;
-    if (finalOrder.includes(value)) return;
+    if (seen.has(value)) return;
+    seen.add(value);
     finalOrder.push(value);
   };
 
   order.forEach(pushUnique);
   fallback.forEach(pushUnique);
 
+  let needsReorder = false;
+  for (let i=0; i<finalOrder.length; i++){
+    const el = cardMap[finalOrder[i]];
+    if (!el || el.parentNode !== wrap || wrap.children[i] !== el){
+      needsReorder = true;
+      break;
+    }
+  }
+
   finalOrder.forEach(group => {
     const el = cardMap[group];
     if (!el) return;
-    const visible = visibility[group] === undefined || visibility[group] === null || visibility[group] === '' || visibility[group] === true || String(visibility[group]) === '1' || String(visibility[group]).toUpperCase() === 'TRUE';
-    el.style.display = visible ? '' : 'none';
-    wrap.appendChild(el);
+    const visible = isTruthyVisibilityFlag(visibility[group]);
+    const display = visible ? '' : 'none';
+    if (el.style.display !== display) el.style.display = display;
   });
+
+  if (!needsReorder) return;
+
+  const frag = document.createDocumentFragment();
+  finalOrder.forEach(group => {
+    const el = cardMap[group];
+    if (el) frag.appendChild(el);
+  });
+  wrap.appendChild(frag);
 }
 
 const _renderServiceSelectorsOriginal = renderServiceSelectors;
