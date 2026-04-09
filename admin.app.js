@@ -4,7 +4,8 @@ let __adminUiBound = false;
 
 function checkAdminAuth(){
   const auth = sessionStorage.getItem('chiba_care_taxi_admin_auth');
-  if (auth !== 'ok'){
+  const token = String(sessionStorage.getItem('chiba_care_taxi_admin_token') || '').trim();
+  if (auth !== 'ok' || !token){
     document.getElementById('authScreen').classList.remove('hidden');
     document.getElementById('adminView').classList.add('hidden');
     return false;
@@ -619,6 +620,7 @@ function bindUI(){
   document.getElementById('logoutAdmin').addEventListener('click', ()=>{
     sessionStorage.removeItem('chiba_care_taxi_admin_auth');
     sessionStorage.removeItem('chiba_care_taxi_admin_auth_time');
+    sessionStorage.removeItem('chiba_care_taxi_admin_token');
     window.location.href = PUBLIC_PAGE_URL;
   });
 
