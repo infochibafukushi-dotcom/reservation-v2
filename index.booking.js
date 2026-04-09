@@ -625,8 +625,10 @@ async function init(){
       }
     };
 
-    // 先にキャッシュ状態で描画して、初回体感を優先する（後続で最新データに更新）。
-    renderSoon();
+    // 初回は最新データ取得後に描画する。ブロック済み枠キャッシュがある場合のみ先行描画を許可。
+    if (hasInitialBlockedSnapshot) {
+      renderSoon();
+    }
 
     refreshAllData(false)
       .then(function(){
