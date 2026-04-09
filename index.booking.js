@@ -625,11 +625,24 @@ async function init(){
       }
     };
 
+<<<<<<< codex/analyze-all-code-o51rxg
     // ブロック済みスナップショットがある場合のみ先行描画する。
     // スナップショットがない場合は先行描画を抑制し、未ブロック表示→後でブロック化のちらつきを防ぐ。
     if (hasInitialBlockedSnapshot) {
       renderSoon();
     }
+=======
+    // 先にキャッシュ状態で描画して、初回体感を優先する（後続で最新データに更新）。
+    renderSoon();
+
+    refreshAllData(false)
+      .then(function(){
+        renderSoon();
+      })
+      .catch(function(e){
+        toast(e?.message || '通信エラー（データ取得）');
+      });
+>>>>>>> main
 
     refreshAllData(false)
       .then(function(){
