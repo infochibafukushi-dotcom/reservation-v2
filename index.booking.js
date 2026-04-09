@@ -795,8 +795,17 @@ function getPublicMenuGroupVisibilityConfig(){
 
 let publicServiceGroupCardMapCache = null;
 
+function isPublicServiceCardMapCacheValid(map){
+  if (!map) return false;
+  const keys = ['move_type', 'assistance', 'stair', 'equipment', 'round_trip'];
+  return keys.every(key => {
+    const el = map[key];
+    return !el || !!el.isConnected;
+  });
+}
+
 function getPublicServiceGroupCardMap(){
-  if (publicServiceGroupCardMapCache){
+  if (isPublicServiceCardMapCacheValid(publicServiceGroupCardMapCache)){
     return publicServiceGroupCardMapCache;
   }
 
@@ -810,6 +819,15 @@ function getPublicServiceGroupCardMap(){
 
   publicServiceGroupCardMapCache = map;
   return map;
+}
+
+function isTruthyVisibilityFlag(value){
+  return value === undefined
+    || value === null
+    || value === ''
+    || value === true
+    || String(value) === '1'
+    || String(value).toUpperCase() === 'TRUE';
 }
 
 function applyPublicServiceGroupLayout(){
@@ -836,13 +854,31 @@ function applyPublicServiceGroupLayout(){
   order.forEach(pushUnique);
   fallback.forEach(pushUnique);
 
+  let needsReorder = false;
+  for (let i=0; i<finalOrder.length; i++){
+    const el = cardMap[finalOrder[i]];
+    if (!el || el.parentNode !== wrap || wrap.children[i] !== el){
+      needsReorder = true;
+      break;
+    }
+  }
+
   finalOrder.forEach(group => {
     const el = cardMap[group];
     if (!el) return;
-    const visible = visibility[group] === undefined || visibility[group] === null || visibility[group] === '' || visibility[group] === true || String(visibility[group]) === '1' || String(visibility[group]).toUpperCase() === 'TRUE';
-    el.style.display = visible ? '' : 'none';
-    wrap.appendChild(el);
+    const visible = isTruthyVisibilityFlag(visibility[group]);
+    const display = visible ? '' : 'none';
+    if (el.style.display !== display) el.style.display = display;
   });
+
+  if (!needsReorder) return;
+
+  const frag = document.createDocumentFragment();
+  finalOrder.forEach(group => {
+    const el = cardMap[group];
+    if (el) frag.appendChild(el);
+  });
+  wrap.appendChild(frag);
 }
 
 const _renderServiceSelectorsOriginal = renderServiceSelectors;

@@ -5,6 +5,19 @@ let itemsByGroupCache = null;
 let itemsByGroupCacheSource = null;
 let itemsByGroupCacheLength = -1;
 
+function invalidateMenuUiCaches(){
+  menuMapCache = null;
+  menuMapCacheSource = null;
+  menuMapCacheLength = -1;
+  itemsByGroupCache = null;
+  itemsByGroupCacheSource = null;
+  itemsByGroupCacheLength = -1;
+}
+
+if (typeof window !== 'undefined'){
+  window.invalidateMenuUiCaches = invalidateMenuUiCaches;
+}
+
 function getMenuMap(){
   const source = menuMaster || [];
   if (menuMapCache && menuMapCacheSource === source && menuMapCacheLength === source.length){
