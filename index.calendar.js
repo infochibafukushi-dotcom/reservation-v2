@@ -1,5 +1,5 @@
 if (typeof globalThis.hasBoundGridDelegation === 'undefined') globalThis.hasBoundGridDelegation = false;
-if (typeof globalThis.__publicAllowEarlyCalendarPaint === 'undefined') globalThis.__publicAllowEarlyCalendarPaint = true;
+if (typeof globalThis.__publicAllowEarlyCalendarPaint === 'undefined') globalThis.__publicAllowEarlyCalendarPaint = false;
 let publicCalendarPage = 0;
 let hasBoundPublicCalendarNav = false;
 let hasEarlyCalendarPaint = false;
@@ -204,7 +204,9 @@ function renderCalendar() {
 
       html += `<div class="${slotClass} p-3 text-center text-lg font-bold rounded-lg cursor-pointer transition"
                 data-action="slot"
+                data-slot-variant="regular"
                 data-date-idx="${idx}"
+                data-date-ymd="${meta.ymd}"
                 data-hour="${slot.hour}"
                 data-minute="${slot.minute}">
                 ${blocked ? 'X' : '◎'}
@@ -231,7 +233,9 @@ function renderCalendar() {
 
         html += `<div class="${slotClass} p-3 text-center text-lg font-bold rounded-lg cursor-pointer transition"
                   data-action="slot"
+                  data-slot-variant="extended"
                   data-date-idx="${idx}"
+                  data-date-ymd="${meta.ymd}"
                   data-hour="${slot.hour}"
                   data-minute="${slot.minute}">
                   ${blocked ? 'X' : '◎'}
@@ -243,6 +247,68 @@ function renderCalendar() {
   grid.innerHTML = html;
 
   applyCalendarGridColumns(grid, dates.length);
+}
+
+function applySlotCellVisualState(cell, blocked){
+  if (!cell) return;
+
+  if (blocked){
+    if (!cell.classList.contains('slot-unavailable')){
+      cell.classList.remove('slot-available', 'slot-alternate');
+      cell.classList.add('slot-unavailable');
+    }
+    if (cell.textContent.trim() !== 'X') cell.textContent = 'X';
+    return;
+  }
+
+  const variant = String(cell.dataset.slotVariant || 'regular');
+  const targetClass = variant === 'extended' ? 'slot-alternate' : 'slot-available';
+  if (!cell.classList.contains(targetClass)){
+    cell.classList.remove('slot-unavailable', 'slot-available', 'slot-alternate');
+    cell.classList.add(targetClass);
+  }
+  if (cell.textContent.trim() !== '◎') cell.textContent = '◎';
+}
+
+function patchRenderedCalendarBlockedStates(ctx){
+  try{
+    const grid = document.getElementById('calendarGrid');
+    if (!grid) return;
+
+    const slots = grid.querySelectorAll('[data-action="slot"]');
+    if (!slots.length || !Array.isArray(calendarDates) || !calendarDates.length){
+      renderCalendar();
+      return;
+    }
+
+    const renderedStart = ymdLocal(calendarDates[0]);
+    const renderedEnd = ymdLocal(calendarDates[calendarDates.length - 1]);
+    const renderedRangeKey = `${renderedStart}__${renderedEnd}`;
+    const nextRangeKey = String(ctx && ctx.nextRangeKey || '');
+    if (!nextRangeKey || nextRangeKey !== renderedRangeKey){
+      renderCalendar();
+      return;
+    }
+
+    const dateMap = new Map();
+    calendarDates.forEach(date => {
+      dateMap.set(ymdLocal(date), date);
+    });
+
+    const isBlockedFast = createPublicSlotBlockedChecker();
+    slots.forEach(cell => {
+      const ymd = String(cell.dataset.dateYmd || '').trim();
+      const dateObj = dateMap.get(ymd);
+      if (!dateObj) return;
+
+      const hour = Number(cell.dataset.hour || 0);
+      const minute = Number(cell.dataset.minute || 0);
+      const blocked = isBlockedFast(dateObj, ymd, hour, minute);
+      applySlotCellVisualState(cell, blocked);
+    });
+  }catch(_){
+    try{ renderCalendar(); }catch(__){ }
+  }
 }
 
 function bindGridDelegation(){
