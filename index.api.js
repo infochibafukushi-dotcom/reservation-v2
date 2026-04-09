@@ -268,6 +268,9 @@ function _applyBootstrapData_(data){
   _applyBootstrapLiteData_(data || {});
   if (Array.isArray(data && data.menu_master)) {
     menuMaster = data.menu_master;
+    if (typeof window !== 'undefined' && typeof window.invalidateMenuUiCaches === 'function') {
+      window.invalidateMenuUiCaches();
+    }
   }
   if (Array.isArray(data && data.menu_key_catalog)) {
     menuKeyCatalog = data.menu_key_catalog;
