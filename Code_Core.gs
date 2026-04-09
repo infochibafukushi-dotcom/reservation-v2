@@ -114,16 +114,23 @@ function _setDayBlockedBySlots_(ymd, isBlocked, slots, reasonOn, reasonOff) {
     const byRow = new Map();
     for (let i = 0; i < toWrite.length; i++) {
       const u = toWrite[i];
-      if (!byRow.has(u.row)) byRow.set(u.row, []);
-      byRow.get(u.row).push(u);
+      if (!byRow.has(u.row)) byRow.set(u.row, {});
+      byRow.get(u.row)[u.col] = u.val;
     }
-    for (const entry of byRow.entries()) {
-      const rowNum = entry[0];
-      const list = entry[1];
-      for (let i = 0; i < list.length; i++) {
-        const u = list[i];
-        sheet.getRange(rowNum, u.col).setValue(u.val);
-      }
+
+    const rows = Array.from(byRow.keys()).sort(function(a, b) { return a - b; });
+    for (let i = 0; i < rows.length; i++) {
+      const rowNum = rows[i];
+      const updates = byRow.get(rowNum) || {};
+      const rowValues = values[rowNum - 1] ? values[rowNum - 1].slice() : new Array(lastCol).fill('');
+
+      Object.keys(updates).forEach(function(colKey) {
+        const col = Number(colKey);
+        if (!Number.isFinite(col) || col < 1 || col > lastCol) return;
+        rowValues[col - 1] = updates[colKey];
+      });
+
+      sheet.getRange(rowNum, 1, 1, lastCol).setValues([rowValues]);
     }
   }
 
@@ -261,9 +268,10 @@ function _reservationHeaderAliases_() {
     phone_number: ['phone_number', 'phonenumber', 'phone', 'tel', 'telephone', '連絡先', '電話番号'],
     pickup_location: ['pickup_location', 'pickuplocation', 'pickup', 'お伺い先', 'お伺い場所', '迎車地', '出発地'],
     destination: ['destination', '送迎先', '目的地'],
+    move_type: ['move_type', 'movetype', '移動方法'],
     assistance_type: ['assistance_type', 'assistancetype', '介助内容'],
     stair_assistance: ['stair_assistance', 'stairassistance', '階段介助'],
-    equipment_rental: ['equipment_rental', 'equipmentrental', 'equipment', '機材', '移動方法', 'move_type', 'movetype'],
+    equipment_rental: ['equipment_rental', 'equipmentrental', 'equipment', '機材'],
     stretcher_two_staff: ['stretcher_two_staff', 'stretchertwostaff', 'two_staff', 'twostaff', '2名体制', '二名体制'],
     round_trip: ['round_trip', 'roundtrip', '往復', '往復送迎'],
     notes: ['notes', 'note', '備考', 'お問い合わせ', 'お問い先'],
@@ -309,6 +317,7 @@ function _buildReservationCanonicalObject_(obj) {
   if ((out.customer_name === undefined || out.customer_name === '') && src.name !== undefined) out.customer_name = src.name;
   if ((out.phone_number === undefined || out.phone_number === '') && src.phone !== undefined) out.phone_number = src.phone;
   if ((out.pickup_location === undefined || out.pickup_location === '') && src.pickup !== undefined) out.pickup_location = src.pickup;
+  if ((out.move_type === undefined || out.move_type === '') && src.movetype !== undefined) out.move_type = src.movetype;
 
   if ((out.slot_date !== undefined && out.slot_date !== '') && (out.slot_hour !== undefined && out.slot_hour !== '')) {
     const hh = String(Number(out.slot_hour || 0)).padStart(2, '0');
@@ -342,7 +351,7 @@ function _ensureReservationSheetSchema_(sheet) {
 
   const required = [
     'reservation_id', 'reservation_datetime', 'usage_type', 'customer_name', 'phone_number',
-    'pickup_location', 'destination', 'assistance_type', 'stair_assistance', 'equipment_rental',
+    'pickup_location', 'destination', 'move_type', 'assistance_type', 'stair_assistance', 'equipment_rental',
     'stretcher_two_staff', 'round_trip', 'notes', 'total_price', 'status',
     'slot_date', 'slot_hour', 'slot_minute', 'is_visible', 'created_at', 'updated_at'
   ];
@@ -735,20 +744,17 @@ function _getBlockedSlotKeysInRange_(startDate, endDate) {
   const minuteCol = map['block_minute'] ?? map['minute'] ?? map['slot_minute'] ?? null;
 
   const rowCount = sheet.getLastRow() - 1;
-  const keyVals = keyCol ? sheet.getRange(2, keyCol, rowCount, 1).getValues() : [];
-  const blockedVals = isBlockedCol ? sheet.getRange(2, isBlockedCol, rowCount, 1).getValues() : [];
-  const dateVals = dateCol ? sheet.getRange(2, dateCol, rowCount, 1).getValues() : [];
-  const hourVals = hourCol ? sheet.getRange(2, hourCol, rowCount, 1).getValues() : [];
-  const minuteVals = minuteCol ? sheet.getRange(2, minuteCol, rowCount, 1).getValues() : [];
+  const values = sheet.getRange(2, 1, rowCount, sheet.getLastColumn()).getValues();
 
   const keySet = new Set();
 
   for (var i = 0; i < rowCount; i++) {
-    var isBlocked = blockedVals.length ? _toBool(blockedVals[i][0]) : false;
+    var row = values[i];
+    var isBlocked = isBlockedCol ? _toBool(row[isBlockedCol - 1]) : false;
     if (!isBlocked) continue;
 
-    var d = dateVals.length ? _normalizeYMD(dateVals[i][0]) : '';
-    var key = keyVals.length ? String(keyVals[i][0] || '').trim() : '';
+    var d = dateCol ? _normalizeYMD(row[dateCol - 1]) : '';
+    var key = keyCol ? String(row[keyCol - 1] || '').trim() : '';
     if (!d && key) {
       var km = key.match(/^(\d{4}-\d{2}-\d{2})-(\d{1,2})-(\d{1,2})$/);
       if (km) d = km[1];
@@ -756,8 +762,8 @@ function _getBlockedSlotKeysInRange_(startDate, endDate) {
     if (!d || d < start || d > end) continue;
 
     if (!key) {
-      var h = hourVals.length ? Number(hourVals[i][0]) : NaN;
-      var m = minuteVals.length ? Number(minuteVals[i][0] || 0) : 0;
+      var h = hourCol ? Number(row[hourCol - 1]) : NaN;
+      var m = minuteCol ? Number(row[minuteCol - 1] || 0) : 0;
       if (Number.isNaN(h) || Number.isNaN(m)) continue;
       key = d + '-' + h + '-' + m;
     }
@@ -787,10 +793,48 @@ function _getReservationsInRange_(startDate, endDate) {
     return empty;
   }
 
-  const rows = _sheetToObjects(sheet).filter(function(r) {
-    const d = _normalizeYMD(r.slot_date || r.date || r.reservation_date || r.pickup_date || r.day || '');
-    return d && d >= start && d <= end;
+  if (_isReservationSheet_(sheet)) _ensureReservationSheetSchema_(sheet);
+  const hm = _headerMap(sheet);
+  const headers = hm.headers;
+  const map = hm.map;
+  const rowCount = sheet.getLastRow() - 1;
+  const values = sheet.getRange(2, 1, rowCount, sheet.getLastColumn()).getValues();
+
+  const dateColCandidates = [
+    map['slot_date'],
+    map['date'],
+    map['reservation_date'],
+    map['pickup_date'],
+    map['day']
+  ].filter(function(v, i, arr) {
+    return Number.isFinite(v) && v > 0 && arr.indexOf(v) === i;
   });
+
+  const rows = [];
+  for (let r = 0; r < values.length; r++) {
+    const row = values[r];
+    let d = '';
+    for (let i = 0; i < dateColCandidates.length; i++) {
+      const col = dateColCandidates[i];
+      d = _normalizeYMD(_cellToPlain(row[col - 1]));
+      if (d) break;
+    }
+    if (!d || d < start || d > end) continue;
+
+    const obj = {};
+    for (let c = 0; c < headers.length; c++) {
+      const k = headers[c];
+      if (!k) continue;
+
+      obj[k] = _cellToPlain(row[c]);
+      const key2 = String(k).toLowerCase().replace(/\s+/g, '');
+      if (key2 && obj[key2] === undefined) obj[key2] = obj[k];
+
+      const canonical = _getCanonicalReservationKey_(k);
+      if (canonical && (obj[canonical] === undefined || obj[canonical] === '')) obj[canonical] = obj[k];
+    }
+    rows.push(_buildReservationCanonicalObject_(obj));
+  }
 
   const result = { start: start, end: end, reservations: rows };
   _cachePutJson_(cacheKey, result, 60);
@@ -815,10 +859,41 @@ function _getBlocksInRange_(startDate, endDate) {
     return empty;
   }
 
-  const rows = _sheetToObjects(sheet).filter(function(r) {
-    const d = _normalizeYMD(r.block_date || r.date || r.slot_date || '');
-    return d && d >= start && d <= end;
+  const hm = _headerMap(sheet);
+  const headers = hm.headers;
+  const map = hm.map;
+  const rowCount = sheet.getLastRow() - 1;
+  const values = sheet.getRange(2, 1, rowCount, sheet.getLastColumn()).getValues();
+
+  const dateColCandidates = [
+    map['block_date'],
+    map['date'],
+    map['slot_date']
+  ].filter(function(v, i, arr) {
+    return Number.isFinite(v) && v > 0 && arr.indexOf(v) === i;
   });
+
+  const rows = [];
+  for (let r = 0; r < values.length; r++) {
+    const row = values[r];
+    let d = '';
+    for (let i = 0; i < dateColCandidates.length; i++) {
+      const col = dateColCandidates[i];
+      d = _normalizeYMD(_cellToPlain(row[col - 1]));
+      if (d) break;
+    }
+    if (!d || d < start || d > end) continue;
+
+    const obj = {};
+    for (let c = 0; c < headers.length; c++) {
+      const k = headers[c];
+      if (!k) continue;
+      obj[k] = _cellToPlain(row[c]);
+      const key2 = String(k).toLowerCase().replace(/\s+/g, '');
+      if (key2 && obj[key2] === undefined) obj[key2] = obj[k];
+    }
+    rows.push(obj);
+  }
 
   const result = { start: start, end: end, blocks: rows };
   _cachePutJson_(cacheKey, result, 60);
@@ -1921,93 +1996,3 @@ function _cachePutJson_(key, value, ttlSeconds) {
   cache.put(String(key || ''), JSON.stringify(value), Number(ttlSeconds || 60));
 }
 
-
-/***** reservation move_type schema patch start *****/
-function _reservationHeaderAliases_() {
-  return {
-    reservation_id: ['reservation_id', 'reservationid', 'id', '予約id', '予約ID'],
-    reservation_datetime: ['reservation_datetime', 'reservationdatetime', '予約日時', 'datetime', 'date_time'],
-    usage_type: ['usage_type', 'usagetype', '区分', 'ご利用区分'],
-    customer_name: ['customer_name', 'customername', 'name', 'お名前', '名前'],
-    phone_number: ['phone_number', 'phonenumber', 'phone', 'tel', 'telephone', '連絡先', '電話番号'],
-    pickup_location: ['pickup_location', 'pickuplocation', 'pickup', 'お伺い先', 'お伺い場所', '迎車地', '出発地'],
-    destination: ['destination', '送迎先', '目的地'],
-    move_type: ['move_type', 'movetype', '移動方法'],
-    assistance_type: ['assistance_type', 'assistancetype', '介助内容'],
-    stair_assistance: ['stair_assistance', 'stairassistance', '階段介助'],
-    equipment_rental: ['equipment_rental', 'equipmentrental', 'equipment', '機材'],
-    stretcher_two_staff: ['stretcher_two_staff', 'stretchertwostaff', 'two_staff', 'twostaff', '2名体制', '二名体制'],
-    round_trip: ['round_trip', 'roundtrip', '往復', '往復送迎'],
-    notes: ['notes', 'note', '備考', 'お問い合わせ', 'お問い先'],
-    total_price: ['total_price', 'totalprice', 'price', '料金', '金額'],
-    status: ['status', 'ステータス'],
-    slot_date: ['slot_date', 'slotdate', 'date', '予約日', '日付'],
-    slot_hour: ['slot_hour', 'slothour', 'hour', '時', '予約時'],
-    slot_minute: ['slot_minute', 'slotminute', 'minute', '分'],
-    is_visible: ['is_visible', 'isvisible', 'visible', '表示'],
-    created_at: ['created_at', 'createdat', '作成日時'],
-    updated_at: ['updated_at', 'updatedat', '更新日時']
-  };
-}
-
-function _buildReservationCanonicalObject_(obj) {
-  const src = obj || {};
-  const out = {};
-  for (const k in src) out[k] = src[k];
-
-  for (const k in src) {
-    const canonical = _getCanonicalReservationKey_(k);
-    if (!canonical) continue;
-    if (out[canonical] === undefined || out[canonical] === '') out[canonical] = src[k];
-  }
-
-  if ((out.slot_date === undefined || out.slot_date === '') && src.date !== undefined) out.slot_date = src.date;
-  if ((out.slot_hour === undefined || out.slot_hour === '') && src.hour !== undefined) out.slot_hour = src.hour;
-  if ((out.slot_minute === undefined || out.slot_minute === '') && src.minute !== undefined) out.slot_minute = src.minute;
-  if ((out.reservation_id === undefined || out.reservation_id === '') && src.id !== undefined) out.reservation_id = src.id;
-  if ((out.customer_name === undefined || out.customer_name === '') && src.name !== undefined) out.customer_name = src.name;
-  if ((out.phone_number === undefined || out.phone_number === '') && src.phone !== undefined) out.phone_number = src.phone;
-  if ((out.pickup_location === undefined || out.pickup_location === '') && src.pickup !== undefined) out.pickup_location = src.pickup;
-  if ((out.move_type === undefined || out.move_type === '') && src.movetype !== undefined) out.move_type = src.movetype;
-
-  if ((out.slot_date !== undefined && out.slot_date !== '') && (out.slot_hour !== undefined && out.slot_hour !== '')) {
-    const hh = String(Number(out.slot_hour || 0)).padStart(2, '0');
-    const mm = String(Number(out.slot_minute || 0)).padStart(2, '0');
-    if (out.reservation_datetime === undefined || out.reservation_datetime === '') {
-      out.reservation_datetime = String(out.slot_date) + ' ' + hh + ':' + mm;
-    }
-    if (out.date === undefined || out.date === '') out.date = out.slot_date;
-    if (out.hour === undefined || out.hour === '') out.hour = Number(out.slot_hour || 0);
-    if (out.minute === undefined || out.minute === '') out.minute = Number(out.slot_minute || 0);
-  }
-
-  return out;
-}
-
-function _ensureReservationSheetSchema_(sheet) {
-  if (!_isReservationSheet_(sheet)) return;
-
-  const required = [
-    'reservation_id', 'reservation_datetime', 'usage_type', 'customer_name', 'phone_number',
-    'pickup_location', 'destination', 'move_type', 'assistance_type', 'stair_assistance', 'equipment_rental',
-    'stretcher_two_staff', 'round_trip', 'notes', 'total_price', 'status',
-    'slot_date', 'slot_hour', 'slot_minute', 'is_visible', 'created_at', 'updated_at'
-  ];
-
-  const hm = _headerMap(sheet);
-  const headers = hm.headers.slice();
-  const existingNorms = new Set(headers.map(function(h) { return _normalizedKey_(h); }).filter(Boolean));
-  const toAdd = [];
-
-  required.forEach(function(h) {
-    const aliases = _reservationHeaderAliases_()[h] || [h];
-    const exists = aliases.some(function(a) { return existingNorms.has(_normalizedKey_(a)); });
-    if (!exists) toAdd.push(h);
-  });
-
-  if (!toAdd.length) return;
-
-  const startCol = Math.max(sheet.getLastColumn(), 0) + 1;
-  sheet.getRange(1, startCol, 1, toAdd.length).setValues([toAdd]);
-}
-/***** reservation move_type schema patch end *****/
