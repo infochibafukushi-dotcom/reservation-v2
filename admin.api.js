@@ -122,21 +122,6 @@ function _jsonpCall(url, timeoutMs = 20000){
 
 async function _getJsonWithRetry(url, retryCount = 2, timeoutMs = 25000){
   let lastError = null;
-  for (let i = 0; i <= retryCount; i++){
-    try{
-      return await _jsonpCall(url, timeoutMs);
-    }catch(err){
-      lastError = err;
-      if (i < retryCount){
-        await sleep(600 + (i * 500));
-      }
-    }
-  }
-  throw lastError || new Error('JSONP error');
-}
-
-async function _getJsonWithRetry(url, retryCount = 2, timeoutMs = 25000){
-  let lastError = null;
 
   for (let i = 0; i <= retryCount; i++){
     try{
@@ -165,12 +150,14 @@ async function _getJsonWithRetry(url, retryCount = 2, timeoutMs = 25000){
 
 
 async function _postJson(action, payload){
+  const adminToken = String(sessionStorage.getItem('chiba_care_taxi_admin_token') || '').trim();
   const res = await fetch(GAS_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify({
       action: action,
-      payload: payload || {}
+      payload: payload || {},
+      admin_token: adminToken
     })
   });
 
