@@ -114,16 +114,23 @@ function _setDayBlockedBySlots_(ymd, isBlocked, slots, reasonOn, reasonOff) {
     const byRow = new Map();
     for (let i = 0; i < toWrite.length; i++) {
       const u = toWrite[i];
-      if (!byRow.has(u.row)) byRow.set(u.row, []);
-      byRow.get(u.row).push(u);
+      if (!byRow.has(u.row)) byRow.set(u.row, {});
+      byRow.get(u.row)[u.col] = u.val;
     }
-    for (const entry of byRow.entries()) {
-      const rowNum = entry[0];
-      const list = entry[1];
-      for (let i = 0; i < list.length; i++) {
-        const u = list[i];
-        sheet.getRange(rowNum, u.col).setValue(u.val);
-      }
+
+    const rows = Array.from(byRow.keys()).sort(function(a, b) { return a - b; });
+    for (let i = 0; i < rows.length; i++) {
+      const rowNum = rows[i];
+      const updates = byRow.get(rowNum) || {};
+      const rowValues = values[rowNum - 1] ? values[rowNum - 1].slice() : new Array(lastCol).fill('');
+
+      Object.keys(updates).forEach(function(colKey) {
+        const col = Number(colKey);
+        if (!Number.isFinite(col) || col < 1 || col > lastCol) return;
+        rowValues[col - 1] = updates[colKey];
+      });
+
+      sheet.getRange(rowNum, 1, 1, lastCol).setValues([rowValues]);
     }
   }
 
@@ -735,20 +742,17 @@ function _getBlockedSlotKeysInRange_(startDate, endDate) {
   const minuteCol = map['block_minute'] ?? map['minute'] ?? map['slot_minute'] ?? null;
 
   const rowCount = sheet.getLastRow() - 1;
-  const keyVals = keyCol ? sheet.getRange(2, keyCol, rowCount, 1).getValues() : [];
-  const blockedVals = isBlockedCol ? sheet.getRange(2, isBlockedCol, rowCount, 1).getValues() : [];
-  const dateVals = dateCol ? sheet.getRange(2, dateCol, rowCount, 1).getValues() : [];
-  const hourVals = hourCol ? sheet.getRange(2, hourCol, rowCount, 1).getValues() : [];
-  const minuteVals = minuteCol ? sheet.getRange(2, minuteCol, rowCount, 1).getValues() : [];
+  const values = sheet.getRange(2, 1, rowCount, sheet.getLastColumn()).getValues();
 
   const keySet = new Set();
 
   for (var i = 0; i < rowCount; i++) {
-    var isBlocked = blockedVals.length ? _toBool(blockedVals[i][0]) : false;
+    var row = values[i];
+    var isBlocked = isBlockedCol ? _toBool(row[isBlockedCol - 1]) : false;
     if (!isBlocked) continue;
 
-    var d = dateVals.length ? _normalizeYMD(dateVals[i][0]) : '';
-    var key = keyVals.length ? String(keyVals[i][0] || '').trim() : '';
+    var d = dateCol ? _normalizeYMD(row[dateCol - 1]) : '';
+    var key = keyCol ? String(row[keyCol - 1] || '').trim() : '';
     if (!d && key) {
       var km = key.match(/^(\d{4}-\d{2}-\d{2})-(\d{1,2})-(\d{1,2})$/);
       if (km) d = km[1];
@@ -756,8 +760,8 @@ function _getBlockedSlotKeysInRange_(startDate, endDate) {
     if (!d || d < start || d > end) continue;
 
     if (!key) {
-      var h = hourVals.length ? Number(hourVals[i][0]) : NaN;
-      var m = minuteVals.length ? Number(minuteVals[i][0] || 0) : 0;
+      var h = hourCol ? Number(row[hourCol - 1]) : NaN;
+      var m = minuteCol ? Number(row[minuteCol - 1] || 0) : 0;
       if (Number.isNaN(h) || Number.isNaN(m)) continue;
       key = d + '-' + h + '-' + m;
     }
@@ -787,10 +791,48 @@ function _getReservationsInRange_(startDate, endDate) {
     return empty;
   }
 
-  const rows = _sheetToObjects(sheet).filter(function(r) {
-    const d = _normalizeYMD(r.slot_date || r.date || r.reservation_date || r.pickup_date || r.day || '');
-    return d && d >= start && d <= end;
+  if (_isReservationSheet_(sheet)) _ensureReservationSheetSchema_(sheet);
+  const hm = _headerMap(sheet);
+  const headers = hm.headers;
+  const map = hm.map;
+  const rowCount = sheet.getLastRow() - 1;
+  const values = sheet.getRange(2, 1, rowCount, sheet.getLastColumn()).getValues();
+
+  const dateColCandidates = [
+    map['slot_date'],
+    map['date'],
+    map['reservation_date'],
+    map['pickup_date'],
+    map['day']
+  ].filter(function(v, i, arr) {
+    return Number.isFinite(v) && v > 0 && arr.indexOf(v) === i;
   });
+
+  const rows = [];
+  for (let r = 0; r < values.length; r++) {
+    const row = values[r];
+    let d = '';
+    for (let i = 0; i < dateColCandidates.length; i++) {
+      const col = dateColCandidates[i];
+      d = _normalizeYMD(_cellToPlain(row[col - 1]));
+      if (d) break;
+    }
+    if (!d || d < start || d > end) continue;
+
+    const obj = {};
+    for (let c = 0; c < headers.length; c++) {
+      const k = headers[c];
+      if (!k) continue;
+
+      obj[k] = _cellToPlain(row[c]);
+      const key2 = String(k).toLowerCase().replace(/\s+/g, '');
+      if (key2 && obj[key2] === undefined) obj[key2] = obj[k];
+
+      const canonical = _getCanonicalReservationKey_(k);
+      if (canonical && (obj[canonical] === undefined || obj[canonical] === '')) obj[canonical] = obj[k];
+    }
+    rows.push(_buildReservationCanonicalObject_(obj));
+  }
 
   const result = { start: start, end: end, reservations: rows };
   _cachePutJson_(cacheKey, result, 60);
@@ -815,10 +857,41 @@ function _getBlocksInRange_(startDate, endDate) {
     return empty;
   }
 
-  const rows = _sheetToObjects(sheet).filter(function(r) {
-    const d = _normalizeYMD(r.block_date || r.date || r.slot_date || '');
-    return d && d >= start && d <= end;
+  const hm = _headerMap(sheet);
+  const headers = hm.headers;
+  const map = hm.map;
+  const rowCount = sheet.getLastRow() - 1;
+  const values = sheet.getRange(2, 1, rowCount, sheet.getLastColumn()).getValues();
+
+  const dateColCandidates = [
+    map['block_date'],
+    map['date'],
+    map['slot_date']
+  ].filter(function(v, i, arr) {
+    return Number.isFinite(v) && v > 0 && arr.indexOf(v) === i;
   });
+
+  const rows = [];
+  for (let r = 0; r < values.length; r++) {
+    const row = values[r];
+    let d = '';
+    for (let i = 0; i < dateColCandidates.length; i++) {
+      const col = dateColCandidates[i];
+      d = _normalizeYMD(_cellToPlain(row[col - 1]));
+      if (d) break;
+    }
+    if (!d || d < start || d > end) continue;
+
+    const obj = {};
+    for (let c = 0; c < headers.length; c++) {
+      const k = headers[c];
+      if (!k) continue;
+      obj[k] = _cellToPlain(row[c]);
+      const key2 = String(k).toLowerCase().replace(/\s+/g, '');
+      if (key2 && obj[key2] === undefined) obj[key2] = obj[k];
+    }
+    rows.push(obj);
+  }
 
   const result = { start: start, end: end, blocks: rows };
   _cachePutJson_(cacheKey, result, 60);

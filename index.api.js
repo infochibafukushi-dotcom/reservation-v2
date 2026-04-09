@@ -125,21 +125,6 @@ function _jsonpCall(url, timeoutMs = 20000){
 
 async function _getJsonWithRetry(url, retryCount = 2, timeoutMs = 25000){
   let lastError = null;
-  for (let i = 0; i <= retryCount; i++){
-    try{
-      return await _jsonpCall(url, timeoutMs);
-    }catch(err){
-      lastError = err;
-      if (i < retryCount){
-        await sleep(600 + (i * 500));
-      }
-    }
-  }
-  throw lastError || new Error('JSONP error');
-}
-
-async function _getJsonWithRetry(url, retryCount = 2, timeoutMs = 25000){
-  let lastError = null;
 
   for (let i = 0; i <= retryCount; i++){
     try{
@@ -385,6 +370,24 @@ function fireTrigger(payload){
 
 function sleep(ms){
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+let __publicCalendarRenderScheduled = false;
+function schedulePublicCalendarRender(){
+  if (__publicCalendarRenderScheduled) return;
+  __publicCalendarRenderScheduled = true;
+
+  const run = function(){
+    __publicCalendarRenderScheduled = false;
+    if (typeof renderCalendar !== 'function') return;
+    try{ renderCalendar(); }catch(_){ }
+  };
+
+  if (typeof requestAnimationFrame === 'function'){
+    requestAnimationFrame(run);
+  } else {
+    setTimeout(run, 0);
+  }
 }
 
 function ymdLocal(date){
@@ -887,14 +890,28 @@ function _applyPublicInitLiteResponse_(payload, range, options){
   blockedRangeCacheKey = `${normalizedRange.start}__${normalizedRange.end}`;
   _saveBlockedKeysCache_(normalizedRange, keys || []);
 
-  if (opt.syncRenderedCalendar !== false && typeof patchRenderedCalendarBlockedStates === 'function'){
-    try{
-      patchRenderedCalendarBlockedStates({
-        previousBlockedSlots: prevBlockedSlots,
-        previousRangeKey: prevBlockedRangeKey,
-        nextRangeKey: blockedRangeCacheKey
-      });
-    }catch(_){ }
+  if (opt.syncRenderedCalendar !== false){
+    if (typeof patchRenderedCalendarBlockedStates === 'function'){
+      try{
+        patchRenderedCalendarBlockedStates({
+          previousBlockedSlots: prevBlockedSlots,
+          previousRangeKey: prevBlockedRangeKey,
+          nextRangeKey: blockedRangeCacheKey
+        });
+      }catch(_){ }
+    } else if (typeof renderCalendar === 'function'){
+      try{
+        if (typeof schedulePublicCalendarRender === 'function'){
+          schedulePublicCalendarRender();
+        } else {
+          if (typeof requestAnimationFrame === 'function'){
+            requestAnimationFrame(function(){ try{ renderCalendar(); }catch(_){ } });
+          } else {
+            setTimeout(function(){ try{ renderCalendar(); }catch(_){ } }, 0);
+          }
+        }
+      }catch(_){ }
+    }
   }
 }
 
