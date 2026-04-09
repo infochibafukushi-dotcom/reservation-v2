@@ -646,26 +646,26 @@
             </h3>
 
             <div class="space-y-5">
-              <div class="bg-sky-50 border-2 border-sky-200 rounded-xl p-4">
+              <div data-service-group-card="move_type" class="bg-sky-50 border-2 border-sky-200 rounded-xl p-4">
                 <label id="moveTypeLabel" class="form-label">移動方法 <span class="required">*</span></label>
                 <select id="moveType" class="w-full"></select>
                 <p id="moveTypeNote" class="text-xs text-gray-700 mt-3 leading-relaxed">最初に移動方法をお選びください</p>
               </div>
 
-              <div class="bg-yellow-50 border-2 border-yellow-200 rounded-xl p-4">
+              <div data-service-group-card="assistance" class="bg-yellow-50 border-2 border-yellow-200 rounded-xl p-4">
                 <label id="assistanceLabel" class="form-label">介助内容 <span class="required">*</span></label>
                 <select id="assistanceType" class="w-full"></select>
                 <p id="assistanceNote" class="text-xs text-gray-700 mt-3 leading-relaxed"></p>
               </div>
 
-              <div class="bg-orange-50 border-2 border-orange-200 rounded-xl p-4">
+              <div data-service-group-card="stair" class="bg-orange-50 border-2 border-orange-200 rounded-xl p-4">
                 <label id="stairLabel" class="form-label">階段介助 <span class="required">*</span></label>
                 <select id="stairAssistance" class="w-full"></select>
                 <p id="stairNote" class="text-xs text-gray-700 mt-3 leading-relaxed"></p>
                 <p id="stairWarning" class="warning-text mt-3 hidden" style="display:none !important;">警告: 階段介助ご利用の場合、身体介助がセットになります</p>
               </div>
 
-              <div class="bg-cyan-50 border-2 border-cyan-200 rounded-xl p-4">
+              <div data-service-group-card="equipment" class="bg-cyan-50 border-2 border-cyan-200 rounded-xl p-4">
                 <label id="equipmentLabel" class="form-label">機材レンタル <span class="required">*</span></label>
                 <select id="equipmentRental" class="w-full"></select>
                 <p id="equipmentNote" class="text-xs text-gray-700 mt-3 leading-relaxed"></p>
@@ -673,7 +673,7 @@
                 <p id="stretcherWarning" class="warning-text mt-3 hidden" style="display:none !important;">警告: ストレッチャー利用時に2名体制介助料5,000円と身体介助が必須となります</p>
               </div>
 
-              <div class="bg-pink-50 border-2 border-pink-200 rounded-xl p-4">
+              <div data-service-group-card="round_trip" class="bg-pink-50 border-2 border-pink-200 rounded-xl p-4">
                 <label id="roundTripLabel" class="form-label">往復送迎 <span class="required">*</span></label>
                 <select id="roundTrip" class="w-full"></select>
                 <p id="roundTripNote" class="text-xs text-gray-700 mt-3 leading-relaxed"></p>
