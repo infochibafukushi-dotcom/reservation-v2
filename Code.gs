@@ -175,6 +175,24 @@ const DEFAULT_CONFIG = {
   calendar_scroll_guide_text: '上下・左右にスクロールして、他の日付や時間を確認できます。'
 };
 
+const ADMIN_POST_AUTH_ACTIONS = {
+  updateReservation: true,
+  releaseBlocksByReservation: true,
+  toggleBlock: true,
+  setRegularDayBlocked: true,
+  setOtherTimeDayBlocked: true,
+  setEntireDayBlocked: true,
+  toggleEntireDay: true,
+  blockEntireDay: true,
+  saveConfig: true,
+  saveMenuMaster: true,
+  upsertMenuItem: true,
+  toggleMenuItemVisible: true,
+  uploadLogoImage: true,
+  changeAdminPassword: true
+};
+const ADMIN_SESSION_TOKEN_TTL_SEC = 12 * 60 * 60;
+
 // ===== Default Price Master =====
 const DEFAULT_PRICE_MASTER = [
   { key: 'BASE_FARE',               key_jp: '基本運賃',                 label: '運賃(初乗り)',                   price: 730,   note: '「から」表記',                     is_visible: true, sort_order: 10,  menu_group: 'price',      required_flag: false, auto_apply_group: '',           auto_apply_key: '' },
@@ -381,6 +399,7 @@ function doPost(e) {
     const payload = body.payload || {};
 
     let result;
+    _assertAdminPostAuthorized_(action, body, payload);
 
     if (action === 'createReservation') {
       result = api_createReservation(payload);
@@ -512,6 +531,29 @@ function _parseRequestBody_(raw) {
   return {};
 }
 
+function _issueAdminSessionToken_() {
+  const token = Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '');
+  CacheService.getScriptCache().put('admin_session_' + token, '1', ADMIN_SESSION_TOKEN_TTL_SEC);
+  return token;
+}
+
+function _isValidAdminSessionToken_(token) {
+  const t = String(token || '').trim();
+  if (!t) return false;
+  const cached = CacheService.getScriptCache().get('admin_session_' + t);
+  return String(cached || '') === '1';
+}
+
+function _assertAdminPostAuthorized_(action, body, payload) {
+  if (!ADMIN_POST_AUTH_ACTIONS[action]) return;
+  const bodyToken = body ? body.admin_token : '';
+  const payloadToken = payload ? payload.admin_token : '';
+  const token = String(bodyToken || payloadToken || '').trim();
+  if (!_isValidAdminSessionToken_(token)) {
+    throw new Error('管理者認証が必要です');
+  }
+}
+
 // ===== API =====
 function api_getConfig() {
   try {
@@ -561,8 +603,11 @@ function api_getPublicBootstrap() {
     const menuResult = api_getMenuMaster();
     if (!menuResult.isOk) throw new Error(menuResult.error || '料金マスタ取得失敗');
 
+    const safeConfig = _clone_(configResult.data || {});
+    delete safeConfig.admin_password;
+
     const out = {
-      config: configResult.data || {},
+      config: safeConfig,
       menu_master: menuResult.data || [],
       menu_key_catalog: MENU_KEY_CATALOG,
       menu_group_catalog: _getResolvedMenuGroupCatalog_(),
@@ -609,6 +654,7 @@ function api_getPublicInitLite(startDate, endDate) {
     const rangeEnd = String(endDate || '').trim();
     const cacheKey = 'public_init_lite_v'
       + _getPublicApiCacheVersion_('public_bootstrap')
+      + '_b' + _getPublicApiCacheVersion_('blocked_slot_keys')
       + '__' + rangeStart + '__' + rangeEnd;
 
     const cached = _cacheGetJson_(cacheKey);
@@ -695,8 +741,11 @@ function api_getAdminBootstrap() {
     const menuResult = api_getMenuMaster();
     if (!menuResult.isOk) throw new Error(menuResult.error || '料金マスタ取得失敗');
 
+    const safeConfig = _clone_(configResult.data || {});
+    delete safeConfig.admin_password;
+
     const out = {
-      config: configResult.data || {},
+      config: safeConfig,
       menu_master: menuResult.data || [],
       menu_key_catalog: MENU_KEY_CATALOG,
       menu_group_catalog: _getResolvedMenuGroupCatalog_(),
@@ -951,7 +1000,12 @@ function api_verifyAdminPassword(payload) {
       return _ng(new Error('パスワードが正しくありません'));
     }
 
-    return _ok({ verified: true });
+    const adminToken = _issueAdminSessionToken_();
+    return _ok({
+      verified: true,
+      admin_token: adminToken,
+      expires_in_sec: ADMIN_SESSION_TOKEN_TTL_SEC
+    });
   } catch (e) {
     return _ng(e);
   }
@@ -1170,27 +1224,26 @@ function api_toggleBlock(dateStr, hour, minute) {
 
     const last = sheet.getLastRow();
     if (last >= 2) {
-      const keys = sheet.getRange(2, keyCol, last - 1, 1).getValues().map(function(r) {
-        return String(r[0] || '').trim();
-      });
-      const idx = keys.findIndex(function(v) {
-        return v === key;
-      });
+      const keyRange = sheet.getRange(2, keyCol, last - 1, 1);
+      const found = keyRange.createTextFinder(key).matchEntireCell(true).findNext();
 
-      if (idx >= 0) {
-        const row = 2 + idx;
+      if (found) {
+        const row = found.getRow();
         const isBlockedCol = map['is_blocked'] ?? map['blocked'] ?? map['isBlocked'] ?? null;
         if (!isBlockedCol) throw new Error('ブロックシートに is_blocked 列がありません');
 
-        const cur = sheet.getRange(row, isBlockedCol).getValue();
+        const rowValues = sheet.getRange(row, 1, 1, sheet.getLastColumn()).getValues()[0];
+        const cur = rowValues[isBlockedCol - 1];
         const next = !_toBool(cur);
-        sheet.getRange(row, isBlockedCol).setValue(next);
+        rowValues[isBlockedCol - 1] = next;
 
         const updatedAtCol = map['updated_at'] ?? null;
-        if (updatedAtCol) sheet.getRange(row, updatedAtCol).setValue(new Date());
+        if (updatedAtCol) rowValues[updatedAtCol - 1] = new Date();
 
         const reasonCol = map['reason'] ?? null;
-        if (reasonCol) sheet.getRange(row, reasonCol).setValue(next ? 'MANUAL_TOGGLE' : 'MANUAL_UNBLOCK');
+        if (reasonCol) rowValues[reasonCol - 1] = next ? 'MANUAL_TOGGLE' : 'MANUAL_UNBLOCK';
+
+        sheet.getRange(row, 1, 1, rowValues.length).setValues([rowValues]);
 
         _logAdmin_('TOGGLE_BLOCK', key, String(cur), String(next), '');
         _invalidateBlockedSlotKeysCache_();

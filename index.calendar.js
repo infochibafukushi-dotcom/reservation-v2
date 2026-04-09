@@ -1,10 +1,11 @@
 if (typeof globalThis.hasBoundGridDelegation === 'undefined') globalThis.hasBoundGridDelegation = false;
+if (typeof globalThis.__publicAllowEarlyCalendarPaint === 'undefined') globalThis.__publicAllowEarlyCalendarPaint = true;
 let publicCalendarPage = 0;
 let hasBoundPublicCalendarNav = false;
 let hasEarlyCalendarPaint = false;
 
 function getPublicDaysPerPage(){
-  return Math.max(1, Number(config.days_per_page || 7));
+  return Math.max(7, Number(config.days_per_page || 7));
 }
 
 function getPublicStartOffset(){
@@ -132,6 +133,31 @@ function buildSlots(){
   return { regularSlots, extendedSlots };
 }
 
+function createPublicSlotBlockedChecker(){
+  const sameDayEnabled = String(config.same_day_enabled || '0') === '1';
+  const todayStr = sameDayEnabled ? ymdLocal(new Date()) : '';
+  const roundedThresholdMs = sameDayEnabled
+    ? ceilToNext30Min(new Date(Date.now() + Number(config.same_day_min_hours || 3) * 60 * 60 * 1000)).getTime()
+    : -1;
+
+  return function(dateObj, dateStr, hour, minute){
+    const key = `${dateStr}-${hour}-${minute}`;
+    if (blockedSlots.has(key) || reservedSlots.has(key)) return true;
+    if (!sameDayEnabled || dateStr !== todayStr) return false;
+
+    const slotDt = new Date(
+      dateObj.getFullYear(),
+      dateObj.getMonth(),
+      dateObj.getDate(),
+      Number(hour || 0),
+      Number(minute || 0),
+      0,
+      0
+    );
+    return slotDt.getTime() < roundedThresholdMs;
+  };
+}
+
 function renderCalendar() {
   const grid = document.getElementById('calendarGrid');
   const dateRangeEl = document.getElementById('dateRange');
@@ -149,7 +175,15 @@ function renderCalendar() {
     return;
   }
 
-  dateRangeEl.textContent = `${formatDate(dates[0])} ～ ${formatDate(dates[dates.length-1])}`;
+  const dateMeta = dates.map(date => ({
+    date,
+    ymd: ymdLocal(date),
+    label: formatDate(date),
+    isWeekend: (date.getDay() === 0 || date.getDay() === 6)
+  }));
+  const isBlockedFast = createPublicSlotBlockedChecker();
+
+  dateRangeEl.textContent = `${dateMeta[0].label} ～ ${dateMeta[dateMeta.length - 1].label}`;
   ensurePublicCalendarNav();
 
   const { regularSlots, extendedSlots } = buildSlots();
@@ -157,16 +191,15 @@ function renderCalendar() {
   let html = '';
   html += '<div class="time-label sticky-corner">時間</div>';
 
-  dates.forEach((date, idx)=>{
-    const isWeekend = (date.getDay() === 0 || date.getDay() === 6);
-    html += `<div class="date-header sticky-top ${isWeekend ? 'weekend' : ''}" data-date-idx="${idx}">${formatDate(date)}</div>`;
+  dateMeta.forEach((meta, idx)=>{
+    html += `<div class="date-header sticky-top ${meta.isWeekend ? 'weekend' : ''}" data-date-idx="${idx}">${meta.label}</div>`;
   });
 
   for (const slot of regularSlots){
     html += `<div class="time-label sticky-left">${slot.display}</div>`;
     for (let idx=0; idx<dates.length; idx++){
-      const date = dates[idx];
-      const blocked = isSlotBlockedWithMinute(date, slot.hour, slot.minute);
+      const meta = dateMeta[idx];
+      const blocked = isBlockedFast(meta.date, meta.ymd, slot.hour, slot.minute);
       const slotClass = blocked ? 'slot-unavailable' : 'slot-available';
 
       html += `<div class="${slotClass} p-3 text-center text-lg font-bold rounded-lg cursor-pointer transition"
@@ -183,18 +216,17 @@ function renderCalendar() {
   if (shouldShowExtended){
     html += '<div class="time-label sticky-left" style="font-weight:bold;background:linear-gradient(135deg,#cffafe 0%,#a5f3fc 100%);color:#0e7490;border:2px solid #06b6d4;">他時間</div>';
 
-    dates.forEach((date, idx)=>{
-      const isWeekend = (date.getDay() === 0 || date.getDay() === 6);
-      html += `<div class="date-header ${isWeekend ? 'weekend' : ''}"
+    dateMeta.forEach((meta, idx)=>{
+      html += `<div class="date-header ${meta.isWeekend ? 'weekend' : ''}"
                 style="background:linear-gradient(135deg,#cffafe 0%,#a5f3fc 100%);border-color:#06b6d4;color:#0e7490;"
-                data-date-idx="${idx}">${formatDate(date)}</div>`;
+                data-date-idx="${idx}">${meta.label}</div>`;
     });
 
     for (const slot of extendedSlots){
       html += `<div class="time-label sticky-left" style="background:linear-gradient(135deg,#cffafe 0%,#a5f3fc 100%);border:2px solid #06b6d4;color:#0e7490;font-weight:600;">${slot.display}</div>`;
       for (let idx=0; idx<dates.length; idx++){
-        const date = dates[idx];
-        const blocked = isSlotBlockedWithMinute(date, slot.hour, slot.minute);
+        const meta = dateMeta[idx];
+        const blocked = isBlockedFast(meta.date, meta.ymd, slot.hour, slot.minute);
         const slotClass = blocked ? 'slot-unavailable' : 'slot-alternate';
 
         html += `<div class="${slotClass} p-3 text-center text-lg font-bold rounded-lg cursor-pointer transition"
@@ -245,11 +277,16 @@ function bindGridDelegation(){
 
 function tryEarlyCalendarPaint(){
   if (hasEarlyCalendarPaint) return;
+  if (globalThis.__publicAllowEarlyCalendarPaint === false) return;
   hasEarlyCalendarPaint = true;
 
   const run = ()=>{
     try{
-      renderCalendar();
+      if (typeof schedulePublicCalendarRender === 'function'){
+        schedulePublicCalendarRender();
+      } else {
+        renderCalendar();
+      }
     }catch(_){ }
   };
 

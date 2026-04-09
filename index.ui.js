@@ -608,12 +608,14 @@ function bindUI(){
     const password = String(document.getElementById('adminPassword').value || '').trim();
 
     try{
+      let authRes = null;
       await withLoading(async ()=>{
-        await gsRun('api_verifyAdminPassword', { password: password });
+        authRes = await gsRun('api_verifyAdminPassword', { password: password });
       }, '認証中...');
 
       sessionStorage.setItem('chiba_care_taxi_admin_auth', 'ok');
       sessionStorage.setItem('chiba_care_taxi_admin_auth_time', String(Date.now()));
+      sessionStorage.setItem('chiba_care_taxi_admin_token', String(authRes && authRes.data && authRes.data.admin_token || ''));
 
       window.location.href = ADMIN_PAGE_URL;
 
