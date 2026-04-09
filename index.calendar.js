@@ -1,4 +1,5 @@
 if (typeof globalThis.hasBoundGridDelegation === 'undefined') globalThis.hasBoundGridDelegation = false;
+if (typeof globalThis.__publicAllowEarlyCalendarPaint === 'undefined') globalThis.__publicAllowEarlyCalendarPaint = true;
 let publicCalendarPage = 0;
 let hasBoundPublicCalendarNav = false;
 let hasEarlyCalendarPaint = false;
@@ -276,6 +277,7 @@ function bindGridDelegation(){
 
 function tryEarlyCalendarPaint(){
   if (hasEarlyCalendarPaint) return;
+  if (globalThis.__publicAllowEarlyCalendarPaint === false) return;
   hasEarlyCalendarPaint = true;
 
   const run = ()=>{

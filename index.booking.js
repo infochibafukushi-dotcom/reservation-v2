@@ -619,6 +619,7 @@ async function init(){
     const initialRange = getPublicCalendarRange();
     const initialRangeKey = `${initialRange.start}__${initialRange.end}`;
     const hasInitialBlockedSnapshot = (String(blockedRangeCacheKey || '') === initialRangeKey);
+    globalThis.__publicAllowEarlyCalendarPaint = !!hasInitialBlockedSnapshot;
 
     try{
       const beforeLayoutKey = [
