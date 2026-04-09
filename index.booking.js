@@ -621,31 +621,28 @@ async function init(){
     const hasInitialBlockedSnapshot = (String(blockedRangeCacheKey || '') === initialRangeKey);
     globalThis.__publicAllowEarlyCalendarPaint = !!hasInitialBlockedSnapshot;
 
-    try{
-      const beforeLayoutKey = [
-        String(config.days_per_page || ''),
-        String(config.max_forward_days || ''),
-        String(config.same_day_enabled || '')
-      ].join('|');
-
-      await refreshAllData(false);
-
-      const afterLayoutKey = [
-        String(config.days_per_page || ''),
-        String(config.max_forward_days || ''),
-        String(config.same_day_enabled || '')
-      ].join('|');
-
+    const renderSoon = function(){
       if (typeof schedulePublicCalendarRender === 'function'){
         schedulePublicCalendarRender();
-      } else {
+      } else if (typeof requestAnimationFrame === 'function'){
         requestAnimationFrame(()=>{
           try{ renderCalendar(); }catch(_){ }
         });
+      } else {
+        try{ renderCalendar(); }catch(_){ }
       }
-    }catch(e){
-      toast(e?.message || '通信エラー（データ取得）');
-    }
+    };
+
+    // 先にキャッシュ状態で描画して、初回体感を優先する（後続で最新データに更新）。
+    renderSoon();
+
+    refreshAllData(false)
+      .then(function(){
+        renderSoon();
+      })
+      .catch(function(e){
+        toast(e?.message || '通信エラー（データ取得）');
+      });
 
     try{
       const warm = function(){
