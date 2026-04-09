@@ -122,21 +122,6 @@ function _jsonpCall(url, timeoutMs = 20000){
 
 async function _getJsonWithRetry(url, retryCount = 2, timeoutMs = 25000){
   let lastError = null;
-  for (let i = 0; i <= retryCount; i++){
-    try{
-      return await _jsonpCall(url, timeoutMs);
-    }catch(err){
-      lastError = err;
-      if (i < retryCount){
-        await sleep(600 + (i * 500));
-      }
-    }
-  }
-  throw lastError || new Error('JSONP error');
-}
-
-async function _getJsonWithRetry(url, retryCount = 2, timeoutMs = 25000){
-  let lastError = null;
 
   for (let i = 0; i <= retryCount; i++){
     try{

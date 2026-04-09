@@ -609,6 +609,7 @@ function api_getPublicInitLite(startDate, endDate) {
     const rangeEnd = String(endDate || '').trim();
     const cacheKey = 'public_init_lite_v'
       + _getPublicApiCacheVersion_('public_bootstrap')
+      + '_b' + _getPublicApiCacheVersion_('blocked_slot_keys')
       + '__' + rangeStart + '__' + rangeEnd;
 
     const cached = _cacheGetJson_(cacheKey);
@@ -1170,27 +1171,26 @@ function api_toggleBlock(dateStr, hour, minute) {
 
     const last = sheet.getLastRow();
     if (last >= 2) {
-      const keys = sheet.getRange(2, keyCol, last - 1, 1).getValues().map(function(r) {
-        return String(r[0] || '').trim();
-      });
-      const idx = keys.findIndex(function(v) {
-        return v === key;
-      });
+      const keyRange = sheet.getRange(2, keyCol, last - 1, 1);
+      const found = keyRange.createTextFinder(key).matchEntireCell(true).findNext();
 
-      if (idx >= 0) {
-        const row = 2 + idx;
+      if (found) {
+        const row = found.getRow();
         const isBlockedCol = map['is_blocked'] ?? map['blocked'] ?? map['isBlocked'] ?? null;
         if (!isBlockedCol) throw new Error('ブロックシートに is_blocked 列がありません');
 
-        const cur = sheet.getRange(row, isBlockedCol).getValue();
+        const rowValues = sheet.getRange(row, 1, 1, sheet.getLastColumn()).getValues()[0];
+        const cur = rowValues[isBlockedCol - 1];
         const next = !_toBool(cur);
-        sheet.getRange(row, isBlockedCol).setValue(next);
+        rowValues[isBlockedCol - 1] = next;
 
         const updatedAtCol = map['updated_at'] ?? null;
-        if (updatedAtCol) sheet.getRange(row, updatedAtCol).setValue(new Date());
+        if (updatedAtCol) rowValues[updatedAtCol - 1] = new Date();
 
         const reasonCol = map['reason'] ?? null;
-        if (reasonCol) sheet.getRange(row, reasonCol).setValue(next ? 'MANUAL_TOGGLE' : 'MANUAL_UNBLOCK');
+        if (reasonCol) rowValues[reasonCol - 1] = next ? 'MANUAL_TOGGLE' : 'MANUAL_UNBLOCK';
+
+        sheet.getRange(row, 1, 1, rowValues.length).setValues([rowValues]);
 
         _logAdmin_('TOGGLE_BLOCK', key, String(cur), String(next), '');
         _invalidateBlockedSlotKeysCache_();

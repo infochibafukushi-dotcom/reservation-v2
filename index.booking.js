@@ -514,7 +514,8 @@ function applyConfigToUI(){
   const toggleBtn = document.getElementById('toggleTimeView');
   if (toggleBtn) {
     const extendedEnabled = String(config.extended_enabled || '1') === '1';
-    toggleBtn.style.display = extendedEnabled ? '' : 'none';
+    toggleBtn.style.visibility = extendedEnabled ? 'visible' : 'hidden';
+    toggleBtn.style.pointerEvents = extendedEnabled ? '' : 'none';
     if (!extendedEnabled) {
       isExtendedView = false;
     }
@@ -618,6 +619,7 @@ async function init(){
     const initialRange = getPublicCalendarRange();
     const initialRangeKey = `${initialRange.start}__${initialRange.end}`;
     const hasInitialBlockedSnapshot = (String(blockedRangeCacheKey || '') === initialRangeKey);
+    globalThis.__publicAllowEarlyCalendarPaint = !!hasInitialBlockedSnapshot;
 
     try{
       const beforeLayoutKey = [
@@ -634,7 +636,9 @@ async function init(){
         String(config.same_day_enabled || '')
       ].join('|');
 
-      if (beforeLayoutKey !== afterLayoutKey){
+      if (typeof schedulePublicCalendarRender === 'function'){
+        schedulePublicCalendarRender();
+      } else {
         requestAnimationFrame(()=>{
           try{ renderCalendar(); }catch(_){ }
         });
@@ -1041,10 +1045,15 @@ updateSubmitButton = function(){
 };
 
 function _bookingRecheckSubmitButtonSoon(){
+  if (_bookingRecheckSubmitButtonSoon._timer){
+    clearTimeout(_bookingRecheckSubmitButtonSoon._timer);
+    _bookingRecheckSubmitButtonSoon._timer = null;
+  }
   try{ updateSubmitButton(); }catch(_){}
-  setTimeout(function(){ try{ updateSubmitButton(); }catch(_){ } }, 0);
-  setTimeout(function(){ try{ updateSubmitButton(); }catch(_){ } }, 100);
-  setTimeout(function(){ try{ updateSubmitButton(); }catch(_){ } }, 350);
+  _bookingRecheckSubmitButtonSoon._timer = setTimeout(function(){
+    try{ updateSubmitButton(); }catch(_){ }
+    _bookingRecheckSubmitButtonSoon._timer = null;
+  }, 120);
 }
 
 const _openBookingFormOriginalForPatch = typeof openBookingForm === 'function' ? openBookingForm : null;
@@ -1068,7 +1077,7 @@ document.addEventListener('DOMContentLoaded', function(){
   ].forEach(function(id){
     const el = document.getElementById(id);
     if (!el) return;
-    ['change','input','keyup','blur','focus','click'].forEach(function(evt){
+    ['change','input','blur'].forEach(function(evt){
       el.addEventListener(evt, function(){
         _bookingRecheckSubmitButtonSoon();
       });
