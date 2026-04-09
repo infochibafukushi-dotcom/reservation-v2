@@ -856,7 +856,7 @@ function getPublicCalendarRange(){
   const today = new Date();
   today.setHours(0,0,0,0);
 
-  const daysPerPage = Math.max(1, Number(config.days_per_page || 7));
+  const daysPerPage = Math.max(7, Number(config.days_per_page || 7));
   const startOffset = String(config.same_day_enabled || '0') === '1' ? 0 : 1;
 
   const start = new Date(today);

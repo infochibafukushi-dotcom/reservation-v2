@@ -5,7 +5,7 @@ let hasBoundPublicCalendarNav = false;
 let hasEarlyCalendarPaint = false;
 
 function getPublicDaysPerPage(){
-  return Math.max(1, Number(config.days_per_page || 7));
+  return Math.max(7, Number(config.days_per_page || 7));
 }
 
 function getPublicStartOffset(){
