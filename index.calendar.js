@@ -180,6 +180,7 @@ function rebuildRenderedSlotCellMap(grid){
 
 function warmNextCalendarPageBlockedKeys(){
   try{
+    if (String(config.calendar_prefetch_next_page || '0') !== '1') return;
     if (typeof gsRun !== 'function') return;
     if (typeof getPublicCalendarPageInfo !== 'function') return;
 
@@ -380,83 +381,21 @@ function patchRenderedCalendarBlockedStates(ctx){
     };
 
     if (prevBlocked){
-      const touched = new Set();
-      prevBlocked.forEach(key => {
-        if (!blockedSlots.has(key)) touched.add(key);
-      });
-      blockedSlots.forEach(key => {
-        if (!prevBlocked.has(key)) touched.add(key);
+      const touched = [];
+      renderedSlotCellMap.forEach((_, key) => {
+        if (prevBlocked.has(key) !== blockedSlots.has(key)){
+          touched.push(key);
+        }
       });
 
-      if (touched.size){
+      if (touched.length){
         touched.forEach(updateKey);
         return;
       }
+      return;
     }
 
     renderedSlotCellMap.forEach((_, key) => updateKey(key));
-  }catch(_){
-    try{ renderCalendar(); }catch(__){ }
-  }
-}
-
-function applySlotCellVisualState(cell, blocked){
-  if (!cell) return;
-
-  if (blocked){
-    if (!cell.classList.contains('slot-unavailable')){
-      cell.classList.remove('slot-available', 'slot-alternate');
-      cell.classList.add('slot-unavailable');
-    }
-    if (cell.textContent.trim() !== 'X') cell.textContent = 'X';
-    return;
-  }
-
-  const variant = String(cell.dataset.slotVariant || 'regular');
-  const targetClass = variant === 'extended' ? 'slot-alternate' : 'slot-available';
-  if (!cell.classList.contains(targetClass)){
-    cell.classList.remove('slot-unavailable', 'slot-available', 'slot-alternate');
-    cell.classList.add(targetClass);
-  }
-  if (cell.textContent.trim() !== '◎') cell.textContent = '◎';
-}
-
-function patchRenderedCalendarBlockedStates(ctx){
-  try{
-    const grid = document.getElementById('calendarGrid');
-    if (!grid) return;
-
-    const slots = grid.querySelectorAll('[data-action="slot"]');
-    if (!slots.length || !Array.isArray(calendarDates) || !calendarDates.length){
-      renderCalendar();
-      return;
-    }
-
-    const renderedStart = ymdLocal(calendarDates[0]);
-    const renderedEnd = ymdLocal(calendarDates[calendarDates.length - 1]);
-    const renderedRangeKey = `${renderedStart}__${renderedEnd}`;
-    const nextRangeKey = String(ctx && ctx.nextRangeKey || '');
-    if (!nextRangeKey || nextRangeKey !== renderedRangeKey){
-      renderCalendar();
-      return;
-    }
-
-    const dateMap = new Map();
-    calendarDates.forEach(date => {
-      dateMap.set(ymdLocal(date), date);
-    });
-
-    const isBlockedFast = createPublicSlotBlockedChecker();
-    slots.forEach(cell => {
-      const ymd = String(cell.dataset.dateYmd || '').trim();
-      const dateObj = dateMap.get(ymd);
-      if (!dateObj) return;
-
-      const hour = Number(cell.dataset.hour || 0);
-      const minute = Number(cell.dataset.minute || 0);
-      const blocked = isBlockedFast(dateObj, ymd, hour, minute);
-      applySlotCellVisualState(cell, blocked);
-    });
   }catch(_){
     try{ renderCalendar(); }catch(__){ }
   }
