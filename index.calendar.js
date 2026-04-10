@@ -1,5 +1,6 @@
 if (typeof globalThis.hasBoundGridDelegation === 'undefined') globalThis.hasBoundGridDelegation = false;
 if (typeof globalThis.__publicAllowEarlyCalendarPaint === 'undefined') globalThis.__publicAllowEarlyCalendarPaint = false;
+if (typeof globalThis.__publicLiveDataReady === 'undefined') globalThis.__publicLiveDataReady = false;
 let publicCalendarPage = 0;
 let hasBoundPublicCalendarNav = false;
 let hasEarlyCalendarPaint = false;
@@ -414,6 +415,13 @@ function bindGridDelegation(){
     const action = el.dataset.action;
 
     if (action === 'slot'){
+      if (globalThis.__publicLiveDataReady === false){
+        if (typeof toast === 'function'){
+          toast('空き枠データを更新中です。少し待ってからお試しください');
+        }
+        return;
+      }
+
       const dateIdx = Number(el.dataset.dateIdx);
       const hour = Number(el.dataset.hour);
       const minute = Number(el.dataset.minute || 0);
