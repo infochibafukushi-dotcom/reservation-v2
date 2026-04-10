@@ -438,7 +438,7 @@ function bindGridDelegation(){
     const action = el.dataset.action;
 
     if (action === 'slot'){
-      if (globalThis.__publicLiveDataReady === false){
+      if (!isCalendarInteractive()){
         return;
       }
 
@@ -457,6 +457,10 @@ function bindGridDelegation(){
   }, { passive: false });
 
   globalThis.hasBoundGridDelegation = true;
+}
+
+function isCalendarInteractive(){
+  return globalThis.__publicLiveDataReady === true;
 }
 
 function tryEarlyCalendarPaint(){

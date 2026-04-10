@@ -629,6 +629,23 @@ async function init(){
       }
     };
 
+    const finalizeCalendarLoadingState = function(){
+      if (!document.querySelector('.slot-loading')) return;
+      try{
+        if (typeof patchRenderedCalendarBlockedStates === 'function'){
+          patchRenderedCalendarBlockedStates({
+            previousBlockedSlots: new Set(),
+            previousRangeKey: '',
+            nextRangeKey: String(blockedRangeCacheKey || '')
+          });
+        } else {
+          renderSoon();
+        }
+      }catch(_){
+        renderSoon();
+      }
+    };
+
     // 初回描画は即時実行（体感速度向上）。
     // データが未取得の間はクリックで予約モーダルを開かないようにし、見た目を保ちつつ誤操作を防ぐ。
     renderSoon();
@@ -636,34 +653,14 @@ async function init(){
     refreshAllData(false)
       .then(function(){
         globalThis.__publicLiveDataReady = true;
-        if (document.querySelector('.slot-loading')){
-          if (typeof patchRenderedCalendarBlockedStates === 'function'){
-            patchRenderedCalendarBlockedStates({
-              previousBlockedSlots: new Set(),
-              previousRangeKey: '',
-              nextRangeKey: String(blockedRangeCacheKey || '')
-            });
-          } else {
-            renderSoon();
-          }
-        }
+        finalizeCalendarLoadingState();
       })
       .catch(function(e){
         const currentRange = getPublicCalendarRange();
         const currentRangeKey = `${currentRange.start}__${currentRange.end}`;
         globalThis.__publicLiveDataReady = (String(blockedRangeCacheKey || '') === currentRangeKey);
         if (globalThis.__publicLiveDataReady){
-          if (document.querySelector('.slot-loading')){
-            if (typeof patchRenderedCalendarBlockedStates === 'function'){
-              patchRenderedCalendarBlockedStates({
-                previousBlockedSlots: new Set(),
-                previousRangeKey: '',
-                nextRangeKey: String(blockedRangeCacheKey || '')
-              });
-            } else {
-              renderSoon();
-            }
-          }
+          finalizeCalendarLoadingState();
         }
         toast(e?.message || '通信エラー（データ取得）');
       });
