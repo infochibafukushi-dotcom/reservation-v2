@@ -399,6 +399,12 @@ function patchRenderedCalendarBlockedStates(ctx){
     };
 
     if (prevBlocked){
+      const hasLoadingCells = !!(grid.querySelector && grid.querySelector('.slot-loading'));
+      if (hasLoadingCells){
+        renderedSlotCellMap.forEach((_, key) => updateKey(key));
+        return;
+      }
+
       const touched = [];
       renderedSlotCellMap.forEach((_, key) => {
         if (prevBlocked.has(key) !== blockedSlots.has(key)){

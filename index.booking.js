@@ -636,6 +636,9 @@ async function init(){
     refreshAllData(false)
       .then(function(){
         globalThis.__publicLiveDataReady = true;
+        if (document.querySelector('.slot-loading')){
+          renderSoon();
+        }
       })
       .catch(function(e){
         const currentRange = getPublicCalendarRange();
