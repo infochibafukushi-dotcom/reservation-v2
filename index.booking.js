@@ -636,13 +636,14 @@ async function init(){
     refreshAllData(false)
       .then(function(){
         globalThis.__publicLiveDataReady = true;
-        renderSoon();
       })
       .catch(function(e){
         const currentRange = getPublicCalendarRange();
         const currentRangeKey = `${currentRange.start}__${currentRange.end}`;
         globalThis.__publicLiveDataReady = (String(blockedRangeCacheKey || '') === currentRangeKey);
-        renderSoon();
+        if (globalThis.__publicLiveDataReady){
+          renderSoon();
+        }
         toast(e?.message || '通信エラー（データ取得）');
       });
 

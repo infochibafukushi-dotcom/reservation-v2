@@ -276,7 +276,7 @@ function renderCalendar() {
       const slotClass = hasReliableAvailability
         ? (blocked ? 'slot-unavailable' : 'slot-available')
         : 'slot-loading';
-      const slotMark = hasReliableAvailability ? (blocked ? 'X' : '◎') : '…';
+      const slotMark = hasReliableAvailability ? (blocked ? 'X' : '◎') : '◎';
 
       html += `<div class="${slotClass} p-3 text-center text-lg font-bold rounded-lg cursor-pointer transition"
                 data-action="slot"
@@ -308,7 +308,7 @@ function renderCalendar() {
         const slotClass = hasReliableAvailability
           ? (blocked ? 'slot-unavailable' : 'slot-alternate')
           : 'slot-loading';
-        const slotMark = hasReliableAvailability ? (blocked ? 'X' : '◎') : '…';
+        const slotMark = hasReliableAvailability ? (blocked ? 'X' : '◎') : '◎';
 
         html += `<div class="${slotClass} p-3 text-center text-lg font-bold rounded-lg cursor-pointer transition"
                   data-action="slot"
