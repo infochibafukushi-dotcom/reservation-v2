@@ -442,11 +442,31 @@
 
       #calendarHeaderMainRow{
         min-height:34px;
+        flex-wrap:wrap;
+        align-items:flex-start;
+        gap:8px;
       }
 
       #dateRange{
-        max-width:42vw;
+        flex:1 1 100%;
+        max-width:100%;
         font-size:12px !important;
+      }
+
+      #calendarMetaRow{
+        flex-direction:column;
+        align-items:flex-start;
+        gap:6px;
+      }
+
+      #calendarLegendRow{
+        flex-wrap:wrap;
+        row-gap:4px;
+      }
+
+      #scrollGuideText{
+        text-align:left !important;
+        width:100%;
       }
     }
 
@@ -565,8 +585,8 @@
             </div>
           </div>
 
-          <div class="mt-1 flex items-center justify-between gap-2">
-            <div class="flex items-center gap-2 text-[11px] font-extrabold text-gray-700 whitespace-nowrap">
+          <div id="calendarMetaRow" class="mt-1 flex items-center justify-between gap-2">
+            <div id="calendarLegendRow" class="flex items-center gap-2 text-[11px] font-extrabold text-gray-700 whitespace-nowrap">
               <span id="legendAvailableText">◎ 予約可能</span>
               <span class="text-gray-400">／</span>
               <span id="legendUnavailableText">X 予約不可</span>
