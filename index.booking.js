@@ -636,13 +636,34 @@ async function init(){
     refreshAllData(false)
       .then(function(){
         globalThis.__publicLiveDataReady = true;
+        if (document.querySelector('.slot-loading')){
+          if (typeof patchRenderedCalendarBlockedStates === 'function'){
+            patchRenderedCalendarBlockedStates({
+              previousBlockedSlots: new Set(),
+              previousRangeKey: '',
+              nextRangeKey: String(blockedRangeCacheKey || '')
+            });
+          } else {
+            renderSoon();
+          }
+        }
       })
       .catch(function(e){
         const currentRange = getPublicCalendarRange();
         const currentRangeKey = `${currentRange.start}__${currentRange.end}`;
         globalThis.__publicLiveDataReady = (String(blockedRangeCacheKey || '') === currentRangeKey);
         if (globalThis.__publicLiveDataReady){
-          renderSoon();
+          if (document.querySelector('.slot-loading')){
+            if (typeof patchRenderedCalendarBlockedStates === 'function'){
+              patchRenderedCalendarBlockedStates({
+                previousBlockedSlots: new Set(),
+                previousRangeKey: '',
+                nextRangeKey: String(blockedRangeCacheKey || '')
+              });
+            } else {
+              renderSoon();
+            }
+          }
         }
         toast(e?.message || '通信エラー（データ取得）');
       });
