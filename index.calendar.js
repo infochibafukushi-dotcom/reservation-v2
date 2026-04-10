@@ -244,6 +244,9 @@ function renderCalendar() {
     isWeekend: (date.getDay() === 0 || date.getDay() === 6)
   }));
   const isBlockedFast = createPublicSlotBlockedChecker();
+  const hasReliableAvailability = !!(
+    globalThis.__publicLiveDataReady === true || globalThis.__publicAllowEarlyCalendarPaint === true
+  );
 
   dateRangeEl.textContent = `${dateMeta[0].label} ～ ${dateMeta[dateMeta.length - 1].label}`;
   ensurePublicCalendarNav();
@@ -261,8 +264,11 @@ function renderCalendar() {
     html += `<div class="time-label sticky-left">${slot.display}</div>`;
     for (let idx=0; idx<dates.length; idx++){
       const meta = dateMeta[idx];
-      const blocked = isBlockedFast(meta.date, meta.ymd, slot.hour, slot.minute);
-      const slotClass = blocked ? 'slot-unavailable' : 'slot-available';
+      const blocked = hasReliableAvailability ? isBlockedFast(meta.date, meta.ymd, slot.hour, slot.minute) : false;
+      const slotClass = hasReliableAvailability
+        ? (blocked ? 'slot-unavailable' : 'slot-available')
+        : 'slot-loading';
+      const slotMark = hasReliableAvailability ? (blocked ? 'X' : '◎') : '…';
 
       html += `<div class="${slotClass} p-3 text-center text-lg font-bold rounded-lg cursor-pointer transition"
                 data-action="slot"
@@ -271,7 +277,7 @@ function renderCalendar() {
                 data-date-ymd="${meta.ymd}"
                 data-hour="${slot.hour}"
                 data-minute="${slot.minute}">
-                ${blocked ? 'X' : '◎'}
+                ${slotMark}
               </div>`;
     }
   }
@@ -290,8 +296,11 @@ function renderCalendar() {
       html += `<div class="time-label sticky-left" style="background:linear-gradient(135deg,#cffafe 0%,#a5f3fc 100%);border:2px solid #06b6d4;color:#0e7490;font-weight:600;">${slot.display}</div>`;
       for (let idx=0; idx<dates.length; idx++){
         const meta = dateMeta[idx];
-        const blocked = isBlockedFast(meta.date, meta.ymd, slot.hour, slot.minute);
-        const slotClass = blocked ? 'slot-unavailable' : 'slot-alternate';
+        const blocked = hasReliableAvailability ? isBlockedFast(meta.date, meta.ymd, slot.hour, slot.minute) : false;
+        const slotClass = hasReliableAvailability
+          ? (blocked ? 'slot-unavailable' : 'slot-alternate')
+          : 'slot-loading';
+        const slotMark = hasReliableAvailability ? (blocked ? 'X' : '◎') : '…';
 
         html += `<div class="${slotClass} p-3 text-center text-lg font-bold rounded-lg cursor-pointer transition"
                   data-action="slot"
@@ -300,7 +309,7 @@ function renderCalendar() {
                   data-date-ymd="${meta.ymd}"
                   data-hour="${slot.hour}"
                   data-minute="${slot.minute}">
-                  ${blocked ? 'X' : '◎'}
+                  ${slotMark}
                 </div>`;
       }
     }

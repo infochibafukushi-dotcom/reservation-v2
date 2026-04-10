@@ -639,7 +639,10 @@ async function init(){
         renderSoon();
       })
       .catch(function(e){
-        globalThis.__publicLiveDataReady = true;
+        const currentRange = getPublicCalendarRange();
+        const currentRangeKey = `${currentRange.start}__${currentRange.end}`;
+        globalThis.__publicLiveDataReady = (String(blockedRangeCacheKey || '') === currentRangeKey);
+        renderSoon();
         toast(e?.message || '通信エラー（データ取得）');
       });
 
