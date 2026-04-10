@@ -1,5 +1,6 @@
 if (typeof globalThis.hasBoundGridDelegation === 'undefined') globalThis.hasBoundGridDelegation = false;
 if (typeof globalThis.__publicAllowEarlyCalendarPaint === 'undefined') globalThis.__publicAllowEarlyCalendarPaint = false;
+if (typeof globalThis.__publicLiveDataReady === 'undefined') globalThis.__publicLiveDataReady = false;
 let publicCalendarPage = 0;
 let hasBoundPublicCalendarNav = false;
 let hasEarlyCalendarPaint = false;
@@ -243,6 +244,9 @@ function renderCalendar() {
     isWeekend: (date.getDay() === 0 || date.getDay() === 6)
   }));
   const isBlockedFast = createPublicSlotBlockedChecker();
+  const hasReliableAvailability = !!(
+    globalThis.__publicLiveDataReady === true || globalThis.__publicAllowEarlyCalendarPaint === true
+  );
 
   dateRangeEl.textContent = `${dateMeta[0].label} ～ ${dateMeta[dateMeta.length - 1].label}`;
   ensurePublicCalendarNav();
@@ -260,8 +264,11 @@ function renderCalendar() {
     html += `<div class="time-label sticky-left">${slot.display}</div>`;
     for (let idx=0; idx<dates.length; idx++){
       const meta = dateMeta[idx];
-      const blocked = isBlockedFast(meta.date, meta.ymd, slot.hour, slot.minute);
-      const slotClass = blocked ? 'slot-unavailable' : 'slot-available';
+      const blocked = hasReliableAvailability ? isBlockedFast(meta.date, meta.ymd, slot.hour, slot.minute) : false;
+      const slotClass = hasReliableAvailability
+        ? (blocked ? 'slot-unavailable' : 'slot-available')
+        : 'slot-loading';
+      const slotMark = hasReliableAvailability ? (blocked ? 'X' : '◎') : '…';
 
       html += `<div class="${slotClass} p-3 text-center text-lg font-bold rounded-lg cursor-pointer transition"
                 data-action="slot"
@@ -270,7 +277,7 @@ function renderCalendar() {
                 data-date-ymd="${meta.ymd}"
                 data-hour="${slot.hour}"
                 data-minute="${slot.minute}">
-                ${blocked ? 'X' : '◎'}
+                ${slotMark}
               </div>`;
     }
   }
@@ -289,8 +296,11 @@ function renderCalendar() {
       html += `<div class="time-label sticky-left" style="background:linear-gradient(135deg,#cffafe 0%,#a5f3fc 100%);border:2px solid #06b6d4;color:#0e7490;font-weight:600;">${slot.display}</div>`;
       for (let idx=0; idx<dates.length; idx++){
         const meta = dateMeta[idx];
-        const blocked = isBlockedFast(meta.date, meta.ymd, slot.hour, slot.minute);
-        const slotClass = blocked ? 'slot-unavailable' : 'slot-alternate';
+        const blocked = hasReliableAvailability ? isBlockedFast(meta.date, meta.ymd, slot.hour, slot.minute) : false;
+        const slotClass = hasReliableAvailability
+          ? (blocked ? 'slot-unavailable' : 'slot-alternate')
+          : 'slot-loading';
+        const slotMark = hasReliableAvailability ? (blocked ? 'X' : '◎') : '…';
 
         html += `<div class="${slotClass} p-3 text-center text-lg font-bold rounded-lg cursor-pointer transition"
                   data-action="slot"
@@ -299,7 +309,7 @@ function renderCalendar() {
                   data-date-ymd="${meta.ymd}"
                   data-hour="${slot.hour}"
                   data-minute="${slot.minute}">
-                  ${blocked ? 'X' : '◎'}
+                  ${slotMark}
                 </div>`;
       }
     }
@@ -414,6 +424,13 @@ function bindGridDelegation(){
     const action = el.dataset.action;
 
     if (action === 'slot'){
+      if (globalThis.__publicLiveDataReady === false){
+        if (typeof toast === 'function'){
+          toast('空き枠データを更新中です。少し待ってからお試しください');
+        }
+        return;
+      }
+
       const dateIdx = Number(el.dataset.dateIdx);
       const hour = Number(el.dataset.hour);
       const minute = Number(el.dataset.minute || 0);

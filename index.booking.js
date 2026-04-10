@@ -614,6 +614,7 @@ async function init(){
     const initialRange = getPublicCalendarRange();
     const initialRangeKey = `${initialRange.start}__${initialRange.end}`;
     const hasInitialBlockedSnapshot = (String(blockedRangeCacheKey || '') === initialRangeKey);
+    globalThis.__publicLiveDataReady = !!hasInitialBlockedSnapshot;
     globalThis.__publicAllowEarlyCalendarPaint = !!hasInitialBlockedSnapshot;
 
     const renderSoon = function(){
@@ -628,16 +629,20 @@ async function init(){
       }
     };
 
-    // 初回は最新データ取得後に描画する。ブロック済み枠キャッシュがある場合のみ先行描画を許可。
-    if (hasInitialBlockedSnapshot) {
-      renderSoon();
-    }
+    // 初回描画は即時実行（体感速度向上）。
+    // データが未取得の間はクリックで予約モーダルを開かないようにし、見た目を保ちつつ誤操作を防ぐ。
+    renderSoon();
 
     refreshAllData(false)
       .then(function(){
+        globalThis.__publicLiveDataReady = true;
         renderSoon();
       })
       .catch(function(e){
+        const currentRange = getPublicCalendarRange();
+        const currentRangeKey = `${currentRange.start}__${currentRange.end}`;
+        globalThis.__publicLiveDataReady = (String(blockedRangeCacheKey || '') === currentRangeKey);
+        renderSoon();
         toast(e?.message || '通信エラー（データ取得）');
       });
 
