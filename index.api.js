@@ -874,6 +874,56 @@ function getPublicCalendarRange(){
   };
 }
 
+function _guessInitialPublicRange_(){
+  const today = new Date();
+  today.setHours(0,0,0,0);
+
+  const startOffset = 1;
+  const daysPerPage = 7;
+
+  const start = new Date(today);
+  start.setDate(today.getDate() + startOffset);
+
+  const end = new Date(start);
+  end.setDate(start.getDate() + daysPerPage - 1);
+
+  return {
+    start: ymdLocal(start),
+    end: ymdLocal(end)
+  };
+}
+
+function kickOffEarliestPublicInitLitePrefetch(){
+  try{
+    if (publicInitLitePrefetchPromise) return;
+
+    const range = _guessInitialPublicRange_();
+    const key = _publicInitRangeKey_(range);
+    if (!key) return;
+
+    publicInitLitePrefetchRangeKey = key;
+    publicInitLitePrefetchPromise = (async function(){
+      const res = await gsRun('api_getPublicInitLite', range);
+      if (!res || !res.isOk) throw new Error('public init lite failed');
+
+      const packet = {
+        range: { ...(range || {}) },
+        data: res.data || {}
+      };
+      publicInitLitePrefetchData = _clonePublicInitLitePacket_(packet);
+      return _clonePublicInitLitePacket_(packet);
+    })();
+
+    publicInitLitePrefetchPromise.catch(()=> null).finally(()=>{
+      if (publicInitLitePrefetchRangeKey === key){
+        publicInitLitePrefetchPromise = null;
+      }
+    });
+  }catch(_){ }
+}
+
+kickOffEarliestPublicInitLitePrefetch();
+
 function _applyPublicInitLiteResponse_(payload, range, options){
   const opt = options && typeof options === 'object' ? options : {};
   const prevBlockedSlots = blockedSlots instanceof Set ? new Set(Array.from(blockedSlots)) : new Set();
