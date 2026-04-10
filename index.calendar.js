@@ -247,6 +247,14 @@ function renderCalendar() {
   const hasReliableAvailability = !!(
     globalThis.__publicLiveDataReady === true || globalThis.__publicAllowEarlyCalendarPaint === true
   );
+  const legendLoadingEl = document.getElementById('legendLoadingText');
+  if (legendLoadingEl){
+    if (hasReliableAvailability){
+      legendLoadingEl.classList.add('hidden');
+    } else {
+      legendLoadingEl.classList.remove('hidden');
+    }
+  }
 
   dateRangeEl.textContent = `${dateMeta[0].label} ～ ${dateMeta[dateMeta.length - 1].label}`;
   ensurePublicCalendarNav();
@@ -425,9 +433,6 @@ function bindGridDelegation(){
 
     if (action === 'slot'){
       if (globalThis.__publicLiveDataReady === false){
-        if (typeof toast === 'function'){
-          toast('空き枠データを更新中です。少し待ってからお試しください');
-        }
         return;
       }
 
