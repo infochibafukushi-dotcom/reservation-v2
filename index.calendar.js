@@ -341,7 +341,7 @@ function applySlotCellVisualState(cell, blocked){
 
   if (blocked){
     if (!cell.classList.contains('slot-unavailable')){
-      cell.classList.remove('slot-available', 'slot-alternate');
+      cell.classList.remove('slot-available', 'slot-alternate', 'slot-loading');
       cell.classList.add('slot-unavailable');
     }
     if (cell.textContent.trim() !== 'X') cell.textContent = 'X';
@@ -351,7 +351,7 @@ function applySlotCellVisualState(cell, blocked){
   const variant = String(cell.dataset.slotVariant || 'regular');
   const targetClass = variant === 'extended' ? 'slot-alternate' : 'slot-available';
   if (!cell.classList.contains(targetClass)){
-    cell.classList.remove('slot-unavailable', 'slot-available', 'slot-alternate');
+    cell.classList.remove('slot-unavailable', 'slot-available', 'slot-alternate', 'slot-loading');
     cell.classList.add(targetClass);
   }
   if (cell.textContent.trim() !== '◎') cell.textContent = '◎';
